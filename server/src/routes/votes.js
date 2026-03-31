@@ -27,18 +27,8 @@ export default async function voteRoutes(fastify, options) {
     const { id: featureId } = request.params;
     const { sub: userId } = request.user;
 
-    try {
-      castVoteTx(userId, featureId);
-      return { ok: true };
-    } catch (err) {
-      if (err.message.includes('UNIQUE constraint failed: votes.user_id, votes.feature_id')) {
-        return reply.code(400).send({ error: 'You have already voted for this feature' });
-      }
-      if (err.message.includes('FOREIGN KEY constraint failed')) {
-        return reply.code(404).send({ error: 'Feature not found' });
-      }
-      throw err;
-    }
+    castVoteTx(userId, featureId);
+    return { ok: true };
   });
 
   // 3. DELETE /:id/vote — Remove a vote

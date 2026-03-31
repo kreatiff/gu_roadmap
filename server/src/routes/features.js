@@ -57,19 +57,12 @@ export default async function featureRoutes(fastify, options) {
     const slug = slugify(title, { lower: true, strict: true });
     const now = new Date().toISOString();
 
-    try {
-      db.prepare(`
-        INSERT INTO features (id, title, slug, description, status, section_id, tags, pinned, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(id, title, slug, description, status, section_id, JSON.stringify(tags), pinned, now, now);
+    db.prepare(`
+      INSERT INTO features (id, title, slug, description, status, section_id, tags, pinned, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, title, slug, description, status, section_id, JSON.stringify(tags), pinned, now, now);
 
-      return { id, title, slug };
-    } catch (err) {
-      if (err.message.includes('UNIQUE constraint failed: features.slug')) {
-        return reply.code(400).send({ error: 'A feature with this title already exists' });
-      }
-      throw err;
-    }
+    return { id, title, slug };
   });
 
   // 3. Admin: Update feature

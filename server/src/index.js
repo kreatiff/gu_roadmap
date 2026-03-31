@@ -14,6 +14,7 @@ import sectionRoutes from './routes/sections.js';
 import voteRoutes from './routes/votes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+import { errorHandler } from './errorHandler.js';
 
 const server = fastify({
   logger: {
@@ -22,6 +23,9 @@ const server = fastify({
     }
   }
 });
+
+// Register unified error handler
+server.setErrorHandler(errorHandler);
 
 // 1. Plugins Registration
 server.register(cors, {
