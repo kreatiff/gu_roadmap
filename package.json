@@ -1,0 +1,16 @@
+{
+  "name": "gu-roadmap",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "build": "npm run build --prefix client",
+    "start": "node server/src/index.js",
+    "seed": "node server/src/seed.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "dependencies": {
+    "dotenv": "^17.3.1"
+  }
+}
