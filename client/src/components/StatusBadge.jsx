@@ -1,4 +1,4 @@
-const StatusBadge = ({ status }) => {
+const StatusBadge = ({ status, name, color }) => {
   const labels = {
     under_review: 'Under Consideration',
     planned: 'Coming Soon',
@@ -7,7 +7,7 @@ const StatusBadge = ({ status }) => {
     declined: 'Declined'
   };
 
-  const colors = {
+  const defaultColors = {
     under_review: '#64748b',
     planned: '#e8341c', 
     in_progress: '#ea580c',
@@ -15,21 +15,19 @@ const StatusBadge = ({ status }) => {
     declined: '#000'
   };
 
-  const bgColors = {
-    under_review: '#f1f5f9',
-    planned: '#fff1f0',
-    in_progress: '#fff7ed',
-    launched: '#ecfdf5',
-    declined: '#f8fafc'
-  };
+  const displayLabel = name || labels[status] || status;
+  const displayColor = color || defaultColors[status] || '#64748b';
+  
+  // Dynamic soft background (10% opacity)
+  const bgColor = `${displayColor}1a`; 
 
   return (
     <span style={{
       ...styles.badge,
-      color: colors[status] || '#64748b',
-      backgroundColor: bgColors[status] || '#f1f5f9'
+      color: displayColor,
+      backgroundColor: bgColor
     }}>
-      {labels[status] || status}
+      {displayLabel}
     </span>
   );
 };

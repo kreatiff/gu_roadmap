@@ -11,6 +11,7 @@ import { config } from './config.js';
 import authRoutes from './routes/auth.js';
 import featureRoutes from './routes/features.js';
 import sectionRoutes from './routes/sections.js';
+import stageRoutes from './routes/stages.js';
 import voteRoutes from './routes/votes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -56,6 +57,7 @@ server.register(fastifyStatic, {
 server.register(authRoutes, { prefix: '/api/auth' });
 server.register(featureRoutes, { prefix: '/api/features' });
 server.register(sectionRoutes, { prefix: '/api/sections' });
+server.register(stageRoutes, { prefix: '/api/stages' });
 server.register(voteRoutes, { prefix: '/api/features' }); // Voting nested under features
 
 // 4. Fallback for React Router (SPA)

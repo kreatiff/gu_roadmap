@@ -57,19 +57,15 @@ const PrioritySelect = ({ priority, onChange }) => {
   );
 };
 
-const StatusSelect = ({ status, onChange }) => {
-  const options = [
-    { value: 'under_review', label: 'Under Consideration', bg: '#f1f5f9', color: '#475569' },
-    { value: 'planned', label: 'Planned', bg: '#fef2f2', color: '#e8341c' },
-    { value: 'in_progress', label: 'In Progress', bg: '#fff7ed', color: '#ea580c' },
-    { value: 'launched', label: 'Launched', bg: '#ecfdf5', color: '#059669' }
-  ];
+const StatusSelect = ({ status, stageId, stages, onChange }) => {
+  const current = stages.find(s => s.id === stageId || s.slug === status) || stages[0] || { name: 'Unknown', color: '#64748b' };
   
-  const current = options.find(o => o.value === status) || options[0];
+  // Create a soft background color from the hex
+  const bg = `${current.color}15`; // 8% opacity for the select background
 
   return (
     <select 
-      value={status} 
+      value={stageId || status} 
       onChange={(e) => onChange(e.target.value)}
       style={{
         appearance: 'none',
@@ -77,7 +73,7 @@ const StatusSelect = ({ status, onChange }) => {
         borderRadius: 'var(--radius-sm)',
         fontSize: '0.75rem',
         fontWeight: '700',
-        backgroundColor: current.bg,
+        backgroundColor: bg,
         color: current.color,
         border: 'none',
         cursor: 'pointer',
@@ -87,16 +83,16 @@ const StatusSelect = ({ status, onChange }) => {
         backgroundPosition: 'right 6px center',
       }}
     >
-      {options.map(opt => (
-        <option key={opt.value} value={opt.value} style={{ backgroundColor: '#fff', color: '#000' }}>
-          {opt.label}
+      {stages.map(opt => (
+        <option key={opt.id} value={opt.id} style={{ backgroundColor: '#fff', color: '#000' }}>
+          {opt.name}
         </option>
       ))}
     </select>
   );
 };
 
-const FeaturesTable = ({ features, onUpdateFeatureField }) => {
+const FeaturesTable = ({ features, stages, onUpdateFeatureField }) => {
   const [expandedGroups, setExpandedGroups] = useState({});
   const [sortConfig, setSortConfig] = useState({ key: 'title', direction: 'asc' });
 
@@ -232,7 +228,9 @@ const FeaturesTable = ({ features, onUpdateFeatureField }) => {
                   <td style={styles.td}>
                     <StatusSelect 
                       status={feat.status} 
-                      onChange={(newStatus) => onUpdateFeatureField(feat.id, 'status', newStatus)} 
+                      stageId={feat.stage_id}
+                      stages={stages}
+                      onChange={(newStageId) => onUpdateFeatureField(feat.id, 'stage_id', newStageId)} 
                     />
                   </td>
                   <td style={styles.td}>

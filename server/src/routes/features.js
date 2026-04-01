@@ -16,16 +16,18 @@ export default async function featureRoutes(fastify, options) {
 
     let query = `
       SELECT f.*, s.name as section_name, s.color as section_color,
+      st.name as stage_name, st.color as stage_color, st.slug as stage_slug,
       (SELECT 1 FROM votes v WHERE v.feature_id = f.id AND v.user_id = ?) as user_voted
       FROM features f
       LEFT JOIN sections s ON f.section_id = s.id
+      LEFT JOIN stages st ON f.stage_id = st.id
       WHERE 1=1
     `;
     const params = [userId];
 
     if (status) {
-      query += ' AND f.status = ?';
-      params.push(status);
+      query += ' AND (f.status = ? OR st.slug = ?)';
+      params.push(status, status);
     }
 
     if (section) {
@@ -71,9 +73,11 @@ export default async function featureRoutes(fastify, options) {
 
     const query = `
       SELECT f.*, s.name as section_name, s.color as section_color,
+      st.name as stage_name, st.color as stage_color, st.slug as stage_slug,
       (SELECT 1 FROM votes v WHERE v.feature_id = f.id AND v.user_id = ?) as user_voted
       FROM features f
       LEFT JOIN sections s ON f.section_id = s.id
+      LEFT JOIN stages st ON f.stage_id = st.id
       WHERE f.id = ?
     `;
     
@@ -94,6 +98,7 @@ export default async function featureRoutes(fastify, options) {
       description, 
       section_id, 
       status, 
+      stage_id,
       impact, 
       effort,
       owner,
@@ -109,12 +114,19 @@ export default async function featureRoutes(fastify, options) {
 
     const stmt = db.prepare(`
       INSERT INTO features (
-        id, title, slug, description, section_id, status, 
+        id, title, slug, description, section_id, status, stage_id,
         impact, effort, owner, key_stakeholder, priority,
         created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
+
+    // If stage_id is missing, try to find a default from stages table
+    let finalStageId = stage_id;
+    if (!finalStageId) {
+      const defaultStage = db.prepare('SELECT id FROM stages ORDER BY order_idx ASC LIMIT 1').get();
+      finalStageId = defaultStage ? defaultStage.id : null;
+    }
 
     stmt.run(
       id, 
@@ -123,6 +135,7 @@ export default async function featureRoutes(fastify, options) {
       description || '', 
       section_id || null, 
       status || 'under_review',
+      finalStageId,
       impact || 1,
       effort || 1,
       owner || '',
@@ -149,7 +162,8 @@ export default async function featureRoutes(fastify, options) {
       key_stakeholder,
       priority,
       pinned,
-      tags
+      tags,
+      stage_id
     } = request.body;
     const now = new Date().toISOString();
 
@@ -162,7 +176,13 @@ export default async function featureRoutes(fastify, options) {
     }
     if (description !== undefined) { updates.push('description = ?'); params.push(description); }
     if (section_id !== undefined) { updates.push('section_id = ?'); params.push(section_id); }
-    if (status !== undefined) { updates.push('status = ?'); params.push(status); }
+    if (status !== undefined) { 
+      updates.push('status = ?'); params.push(status); 
+      // Also update stage_id if status is a known slug
+      const stage = db.prepare('SELECT id FROM stages WHERE slug = ?').get(status);
+      if (stage) { updates.push('stage_id = ?'); params.push(stage.id); }
+    }
+    if (stage_id !== undefined) { updates.push('stage_id = ?'); params.push(stage_id); }
     if (pinned !== undefined) { updates.push('pinned = ?'); params.push(pinned); }
     if (tags !== undefined) { updates.push('tags = ?'); params.push(JSON.stringify(tags)); }
     if (impact !== undefined) { updates.push('impact = ?'); params.push(impact); }

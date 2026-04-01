@@ -1,9 +1,9 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '../../../components/AdminLayout';
-import StatusBadge from '../../../components/StatusBadge';
 import { getFeatures, updateFeature } from '../../../api/features';
 import { getSections } from '../../../api/sections';
+import { getStages } from '../../../api/stages';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useToast } from '../../../contexts/ToastContext';
 import FeaturesTable from './FeaturesTable';
@@ -12,6 +12,7 @@ const AdminDashboardPage = () => {
   const { addToast } = useToast();
   const [features, setFeatures] = useState([]);
   const [sections, setSections] = useState([]);
+  const [stages, setStages] = useState([]);
   const [viewMode, setViewMode] = useState(() => {
     return localStorage.getItem('adminViewMode') || 'board';
   });
@@ -26,12 +27,14 @@ const AdminDashboardPage = () => {
 
   const fetchFeatures = async () => {
     try {
-      const [fData, sData] = await Promise.all([
+      const [fData, sData, stData] = await Promise.all([
         getFeatures({ limit: 1000 }),
-        getSections()
+        getSections(),
+        getStages()
       ]);
       setFeatures(fData.data || []);
       setSections(sData);
+      setStages(stData);
     } finally {
       setLoading(false);
     }
@@ -53,24 +56,18 @@ const AdminDashboardPage = () => {
   }, [features, searchTerm, selectedSectionId]);
 
   const columnsData = useMemo(() => {
-    return {
-      under_review: filteredFeatures.filter(f => f.status === 'under_review'),
-      planned: filteredFeatures.filter(f => f.status === 'planned'),
-      in_progress: filteredFeatures.filter(f => f.status === 'in_progress'),
-      launched: filteredFeatures.filter(f => f.status === 'launched')
-    };
-  }, [filteredFeatures]);
+    const map = {};
+    stages.forEach(s => {
+      map[s.id] = filteredFeatures.filter(f => f.stage_id === s.id || (f.stage_id === null && f.stage_slug === s.slug));
+    });
+    return map;
+  }, [filteredFeatures, stages]);
 
   useEffect(() => {
     fetchFeatures();
   }, []);
 
-  const columns = [
-    { id: 'under_review', title: 'Under Consideration', color: '#64748b' },
-    { id: 'planned', title: 'Planned', color: '#e8341c' },
-    { id: 'in_progress', title: 'In Progress', color: '#ea580c' },
-    { id: 'launched', title: 'Launched', color: '#059669' }
-  ];
+  const columns = stages;
 
   const onUpdateFeatureField = async (featureId, field, newValue) => {
     // 1. Find feature in flat list
@@ -102,29 +99,39 @@ const AdminDashboardPage = () => {
     if (!destination) return;
 
     // Dropped in same position
-    if (
-      destination.droppableId === source.droppableId &&
-      destination.index === source.index
-    ) {
-      return;
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+    
+    const draggableIdStr = draggableId.toString();
+    const sourceIdx = features.findIndex(f => f.id.toString() === draggableIdStr);
+    if (sourceIdx === -1) return;
+
+    // Found it. Let's move it.
+    const oldFeature = features[sourceIdx];
+    const newStageId = destination.droppableId;
+    
+    // Find destination stage metadata
+    const destStage = stages.find(s => s.id === newStageId);
+
+    // 1. Optimistic Update
+    const newFeatures = [...features];
+    newFeatures[sourceIdx] = { 
+      ...oldFeature, 
+      stage_id: newStageId,
+      stage_name: destStage?.name || oldFeature.stage_name, 
+      stage_color: destStage?.color || oldFeature.stage_color,
+      stage_slug: destStage?.slug || oldFeature.stage_slug,
+      status: destStage?.slug || oldFeature.status // Maintain legacy status sync
+    };
+    setFeatures(newFeatures);
+
+    // 2. API Call
+    try {
+      await updateFeature(draggableIdStr, { stage_id: newStageId, status: destStage?.slug });
+      addToast(`Moved to ${destStage?.name || 'new stage'}`, 'success');
+    } catch (err) {
+      addToast('Failed to move feature', 'error');
+      fetchFeatures(); // Revert on failure
     }
-
-    // Reuse our status update logic if moved between columns
-    if (source.droppableId !== destination.droppableId) {
-      onUpdateFeatureField(draggableId, 'status', destination.droppableId);
-      return;
-    }
-
-    // If just reordering within same column (Kanban specific reordering)
-    const start = columnsData[source.droppableId];
-    const newList = Array.from(start);
-    const [removed] = newList.splice(source.index, 1);
-    newList.splice(destination.index, 0, removed);
-
-    setColumnsData({
-      ...columnsData,
-      [source.droppableId]: newList
-    });
   };
 
   return (
@@ -210,18 +217,28 @@ const AdminDashboardPage = () => {
                 </button>
              </div>
            ) : viewMode === 'list' ? (
-             <FeaturesTable features={filteredFeatures} onUpdateFeatureField={onUpdateFeatureField} />
+             <FeaturesTable 
+              features={filteredFeatures} 
+              stages={stages}
+              onUpdateFeatureField={onUpdateFeatureField} 
+            />
            ) : (
             <DragDropContext onDragEnd={onDragEnd}>
               <div style={styles.board}>
                 {columns.map(col => {
                   const columnFeatures = columnsData[col.id] || [];
                   return (
-                    <div key={col.id} style={styles.column}>
+                    <div 
+                      key={col.id} 
+                      style={{ 
+                        ...styles.column, 
+                        backgroundColor: `${col.color}0D` // 5% opacity (0D in hex)
+                      }}
+                    >
                       <header style={styles.columnHeader}>
                         <div style={styles.columnTitleWrap}>
                            <span style={{ ...styles.columnDot, backgroundColor: col.color }} />
-                           <h3 style={styles.columnTitle}>{col.title}</h3>
+                           <h2 style={styles.columnTitle}>{col.name}</h2>
                            <span style={styles.columnCount}>{columnFeatures.length}</span>
                         </div>
                         <button style={styles.columnMoreBtn}>•••</button>
@@ -270,8 +287,8 @@ const AdminDashboardPage = () => {
                                            }}>
                                              {feat.priority}
                                            </span>
-                                           {feat.pinned === 1 && <span style={styles.pinTag}>★</span>}
-                                         </div>
+                                           {feat.pinned === 1 && <span style={styles.pinIcon}>★</span>}
+                                          </div>
                                       </div>
                                       <h4 style={styles.cardTitle}>{feat.title}</h4>
                                       {feat.owner && <div style={styles.cardOwner}>Owner: {feat.owner}</div>}
@@ -444,7 +461,6 @@ const styles = {
     display: 'flex',
     flexDirection: 'column',
     gap: 'var(--space-4)',
-    backgroundColor: 'rgba(0, 0, 0, 0.03)',
     padding: 'var(--space-4)',
     borderRadius: 'var(--radius-lg)',
     minHeight: '600px'

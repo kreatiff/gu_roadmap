@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import AdminLayout from '../../../components/AdminLayout';
 import { getFeatures, createFeature, updateFeature } from '../../../api/features';
 import { getSections } from '../../../api/sections';
+import { getStages } from '../../../api/stages';
 import { useToast } from '../../../contexts/ToastContext';
 
 const AdminFeatureFormPage = () => {
@@ -12,12 +13,14 @@ const AdminFeatureFormPage = () => {
   const { addToast } = useToast();
 
   const [sections, setSections] = useState([]);
+  const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(isEdit);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     section_id: '',
     status: 'under_review',
+    stage_id: '',
     pinned: 0,
     tags: [],
     impact: 1,
@@ -29,8 +32,12 @@ const AdminFeatureFormPage = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const sData = await getSections();
+      const [sData, stData] = await Promise.all([
+        getSections(),
+        getStages()
+      ]);
       setSections(sData);
+      setStages(stData);
 
       if (isEdit) {
         try {
@@ -43,6 +50,7 @@ const AdminFeatureFormPage = () => {
               description: feature.description,
               section_id: feature.section_id || '',
               status: feature.status,
+              stage_id: feature.stage_id || '',
               pinned: feature.pinned,
               tags: typeof feature.tags === 'string' ? JSON.parse(feature.tags) : feature.tags || [],
               impact: feature.impact || 1,
@@ -126,15 +134,13 @@ const AdminFeatureFormPage = () => {
             <div style={styles.field}>
               <label style={styles.label}>Current Status</label>
               <select 
-                value={formData.status} 
-                onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                value={formData.stage_id || formData.status} 
+                onChange={(e) => setFormData(prev => ({ ...prev, stage_id: e.target.value }))}
                 style={styles.select}
               >
-                <option value="under_review">Under Consideration</option>
-                <option value="planned">Planned / Coming Soon</option>
-                <option value="in_progress">Active Development</option>
-                <option value="launched">Released / Launched</option>
-                <option value="declined">Declined</option>
+                {stages.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
               </select>
             </div>
 

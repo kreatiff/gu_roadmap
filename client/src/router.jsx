@@ -5,6 +5,7 @@ import RoadmapPage from './pages/RoadmapPage/RoadmapPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage/AdminDashboardPage';
 import AdminFeatureFormPage from './pages/admin/AdminFeatureFormPage/AdminFeatureFormPage';
 import AdminSectionsPage from './pages/admin/AdminSectionsPage/AdminSectionsPage';
+import AdminStagesPage from './pages/admin/AdminStagesPage/AdminStagesPage';
 import LoginSplashPage from './pages/LoginSplashPage/LoginSplashPage';
 
 // Pages
@@ -69,6 +70,12 @@ const AppRouter = () => {
         <Route path="/admin/sections" element={
           <ProtectedRoute adminOnly>
             <AdminSectionsPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/admin/stages" element={
+          <ProtectedRoute adminOnly>
+            <AdminStagesPage />
           </ProtectedRoute>
         } />
 

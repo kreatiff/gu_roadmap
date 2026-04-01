@@ -23,7 +23,11 @@ const FeatureCard = ({ feature, onClick }) => {
     >
       <div style={styles.header}>
         <div style={styles.badgeContainer}>
-           <StatusBadge status={feature.status} />
+            <StatusBadge 
+              status={feature.stage_slug || feature.status} 
+              name={feature.stage_name} 
+              color={feature.stage_color} 
+            />
         </div>
         <div style={styles.voteIndicator}>
            <svg style={styles.voteIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

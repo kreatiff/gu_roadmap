@@ -4,6 +4,7 @@ import Navbar from '../../components/Navbar';
 import FeatureCard from '../../components/FeatureCard';
 import { getFeatures } from '../../api/features';
 import { getSections } from '../../api/sections';
+import { getStages } from '../../api/stages';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useAuth } from '../../contexts/AuthContext';
 import EmptyState from '../../components/EmptyState';
@@ -17,6 +18,7 @@ const RoadmapPage = () => {
 
   const [features, setFeatures] = useState([]);
   const [sections, setSections] = useState([]);
+  const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({ status: '', section: '', search: '' });
   const [viewMode, setViewMode] = useState('grid');
@@ -33,7 +35,7 @@ const RoadmapPage = () => {
       if (append) setIsFetchingMore(true);
       else setLoading(true);
 
-      const [fRes, sData] = await Promise.all([
+       const [fRes, sData, stData] = await Promise.all([
         getFeatures({ 
           status: filter.status, 
           section: filter.section, 
@@ -41,7 +43,8 @@ const RoadmapPage = () => {
           page: pageNum,
           limit: 12
         }),
-        append ? Promise.resolve(sections) : getSections()
+        append ? Promise.resolve(sections) : getSections(),
+        append ? Promise.resolve(stages) : getStages()
       ]);
       
       const newFeatures = fRes.data || [];
@@ -50,6 +53,7 @@ const RoadmapPage = () => {
       } else {
         setFeatures(newFeatures);
         setSections(sData);
+        setStages(stData);
       }
       
       setHasMore(fRes.meta?.hasMore || false);
@@ -84,10 +88,7 @@ const RoadmapPage = () => {
 
   const statuses = [
     { id: '', label: 'All Projects' },
-    { id: 'under_review', label: 'Under Consideration' },
-    { id: 'planned', label: 'Coming Soon' },
-    { id: 'in_progress', label: 'Active Development' },
-    { id: 'launched', label: 'Released' }
+    ...stages.map(s => ({ id: s.slug, label: s.name }))
   ];
 
   return (
