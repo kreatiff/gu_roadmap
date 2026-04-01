@@ -89,18 +89,48 @@ export default async function featureRoutes(fastify, options) {
 
   // 2. Admin: Create new feature
   fastify.post('/', { preHandler: [requireAdmin] }, async (request, reply) => {
-    const { title, description, section_id, status = 'under_review', pinned = 0, tags = [] } = request.body;
+    const { 
+      title, 
+      description, 
+      section_id, 
+      status, 
+      impact, 
+      effort,
+      owner,
+      key_stakeholder,
+      priority
+    } = request.body;
     
     if (!title) return reply.code(400).send({ error: 'Title is required' });
 
-    const id = uuidv4();
     const slug = slugify(title, { lower: true, strict: true });
     const now = new Date().toISOString();
+    const id = uuidv4();
 
-    db.prepare(`
-      INSERT INTO features (id, title, slug, description, status, section_id, tags, pinned, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, title, slug, description, status, section_id, JSON.stringify(tags), pinned, now, now);
+    const stmt = db.prepare(`
+      INSERT INTO features (
+        id, title, slug, description, section_id, status, 
+        impact, effort, owner, key_stakeholder, priority,
+        created_at, updated_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    stmt.run(
+      id, 
+      title, 
+      slug, 
+      description || '', 
+      section_id || null, 
+      status || 'under_review',
+      impact || 1,
+      effort || 1,
+      owner || '',
+      key_stakeholder || '',
+      priority || 'Medium',
+      now, 
+      now
+    );
 
     return { id, title, slug };
   });
@@ -108,7 +138,19 @@ export default async function featureRoutes(fastify, options) {
   // 3. Admin: Update feature
   fastify.put('/:id', { preHandler: [requireAdmin] }, async (request, reply) => {
     const { id } = request.params;
-    const { title, description, section_id, status, pinned, tags } = request.body;
+    const { 
+      title, 
+      description, 
+      section_id, 
+      status, 
+      impact, 
+      effort,
+      owner,
+      key_stakeholder,
+      priority,
+      pinned,
+      tags
+    } = request.body;
     const now = new Date().toISOString();
 
     const updates = [];
@@ -123,6 +165,11 @@ export default async function featureRoutes(fastify, options) {
     if (status !== undefined) { updates.push('status = ?'); params.push(status); }
     if (pinned !== undefined) { updates.push('pinned = ?'); params.push(pinned); }
     if (tags !== undefined) { updates.push('tags = ?'); params.push(JSON.stringify(tags)); }
+    if (impact !== undefined) { updates.push('impact = ?'); params.push(impact); }
+    if (effort !== undefined) { updates.push('effort = ?'); params.push(effort); }
+    if (owner !== undefined) { updates.push('owner = ?'); params.push(owner); }
+    if (key_stakeholder !== undefined) { updates.push('key_stakeholder = ?'); params.push(key_stakeholder); }
+    if (priority !== undefined) { updates.push('priority = ?'); params.push(priority); }
 
     if (updates.length === 0) return reply.code(400).send({ error: 'No updates provided' });
 

@@ -19,7 +19,12 @@ const AdminFeatureFormPage = () => {
     section_id: '',
     status: 'under_review',
     pinned: 0,
-    tags: []
+    tags: [],
+    impact: 1,
+    effort: 1,
+    owner: '',
+    key_stakeholder: '',
+    priority: 'Medium'
   });
 
   useEffect(() => {
@@ -39,7 +44,12 @@ const AdminFeatureFormPage = () => {
               section_id: feature.section_id || '',
               status: feature.status,
               pinned: feature.pinned,
-              tags: typeof feature.tags === 'string' ? JSON.parse(feature.tags) : feature.tags || []
+              tags: typeof feature.tags === 'string' ? JSON.parse(feature.tags) : feature.tags || [],
+              impact: feature.impact || 1,
+              effort: feature.effort || 1,
+              owner: feature.owner || '',
+              key_stakeholder: feature.key_stakeholder || '',
+              priority: feature.priority || 'Medium'
             });
           }
         } finally {
@@ -143,6 +153,84 @@ const AdminFeatureFormPage = () => {
             </div>
           </div>
 
+          <div style={styles.row}>
+            <div style={styles.field}>
+              <label style={styles.label}>Impact ({formData.impact})</label>
+              <div style={styles.sliderContainer}>
+                <input 
+                  type="range" 
+                  min="1" 
+                  max="5" 
+                  value={formData.impact} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, impact: parseInt(e.target.value) }))}
+                  style={styles.rangeInput}
+                />
+                <div style={styles.sliderLabels}>
+                  <span>Low</span>
+                  <span>High</span>
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>Effort ({formData.effort})</label>
+              <div style={styles.sliderContainer}>
+                <input 
+                  type="range" 
+                  min="1" 
+                  max="5" 
+                  value={formData.effort} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, effort: parseInt(e.target.value) }))}
+                  style={styles.rangeInput}
+                />
+                <div style={styles.sliderLabels}>
+                  <span>Low</span>
+                  <span>High</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={styles.sectionDivider}>Strategic Internal Data (Admin Only)</div>
+
+          <div style={styles.row}>
+            <div style={styles.field}>
+              <label style={styles.label}>Strategic Priority</label>
+              <select 
+                value={formData.priority} 
+                onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value }))}
+                style={styles.select}
+              >
+                <option value="Low">Low Priority</option>
+                <option value="Medium">Medium Priority</option>
+                <option value="High">High Priority</option>
+                <option value="Critical">Critical / Blocker</option>
+              </select>
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>Feature Owner</label>
+              <input 
+                type="text" 
+                value={formData.owner} 
+                onChange={(e) => setFormData(prev => ({ ...prev, owner: e.target.value }))}
+                style={styles.input}
+                placeholder="Name (Area/Team)"
+              />
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>Key Stakeholder</label>
+              <input 
+                type="text" 
+                value={formData.key_stakeholder} 
+                onChange={(e) => setFormData(prev => ({ ...prev, key_stakeholder: e.target.value }))}
+                style={styles.input}
+                placeholder="User/Department"
+              />
+            </div>
+          </div>
+
           <div style={styles.field}>
             <label style={styles.label}>Tags (comma-separated)</label>
             <input 
@@ -205,7 +293,20 @@ const styles = {
   formFooter: { display: 'flex', alignItems: 'center', gap: 'var(--space-6)', marginTop: 'var(--space-4)', paddingTop: 'var(--space-8)', borderTop: '1px solid var(--border-color)' },
   submitBtn: { backgroundColor: 'var(--gu-red)', color: '#fff', padding: '12px 24px', borderRadius: 'var(--radius-md)', fontWeight: '700', fontSize: '1rem', cursor: 'pointer' },
   secondaryBtn: { color: 'var(--text-secondary)', fontWeight: '600', fontSize: '0.9375rem', textDecoration: 'none' },
-  message: { padding: 'var(--space-16)', textAlign: 'center', color: 'var(--text-muted)' }
+  message: { padding: 'var(--space-16)', textAlign: 'center', color: 'var(--text-muted)' },
+  sliderContainer: { display: 'flex', flexDirection: 'column', gap: '4px', padding: '4px 0' },
+  rangeInput: { width: '100%', cursor: 'pointer', accentColor: 'var(--gu-red)' },
+  sliderLabels: { display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' },
+  sectionDivider: {
+    fontSize: '0.875rem',
+    fontWeight: '800',
+    color: 'var(--text-muted)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.05em',
+    paddingBottom: 'var(--space-2)',
+    borderBottom: '1px solid var(--border-color)',
+    marginTop: 'var(--space-4)'
+  }
 };
 
 export default AdminFeatureFormPage;

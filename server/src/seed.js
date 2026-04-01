@@ -29,72 +29,75 @@ const seed = () => {
 
   // 3. Insert Features
   const now = new Date().toISOString();
-  const features = [
-    {
-      id: uuidv4(),
-      title: 'Dark Mode for Mobile App',
-      description: 'Add a high-contrast dark theme to the official Griffith App to reduce eye strain at night.',
-      status: 'in_progress',
-      section_id: sections[0].id,
-      vote_count: 42,
-      tags: JSON.stringify(['UI/UX', 'Accessibility']),
-      pinned: 1
-    },
-    {
-      id: uuidv4(),
-      title: 'Real-time Shuttle Bus Tracking',
-      description: 'Integrate live GPS data from campus shuttles directly into the student portal.',
-      status: 'planned',
-      section_id: sections[1].id,
-      vote_count: 156,
-      tags: JSON.stringify(['Transport', 'Real-time']),
-      pinned: 0
-    },
-    {
-      id: uuidv4(),
-      title: 'Simplified Timetable View',
-      description: 'A more intuitive way to view weekly classes and export them to Google/Outlook calendars.',
-      status: 'under_review',
-      section_id: sections[1].id,
-      vote_count: 89,
-      tags: JSON.stringify(['Calendar', 'Utility']),
-      pinned: 1
-    },
-    {
-      id: uuidv4(),
-      title: 'Automated Assignment Reminders',
-      description: 'Push notifications for upcoming Canvas deadlines 24 hours before they are due.',
-      status: 'launched',
-      section_id: sections[2].id,
-      vote_count: 210,
-      tags: JSON.stringify(['Productivity', 'Canvas']),
-      pinned: 0
-    },
-    {
-      id: uuidv4(),
-      title: 'Campus-wide WiFi 6 Upgrade',
-      description: 'Roll out faster, more reliable Wi-Fi 6 across all study areas and libraries.',
-      status: 'in_progress',
-      section_id: sections[3].id,
-      vote_count: 312,
-      tags: JSON.stringify(['Infrastructure']),
-      pinned: 0
-    }
+  
+  const categories = [
+    { name: 'Mobile App', s_id: sections[0].id, items: [
+      'Dark Mode', 'NFC Digital ID', 'Class Timetable Widget', 'Offline Map', 'Shuttle Notifications', 'Emergency SOS button', 'Library booking integration', 'Cafeteria Pre-order'
+    ]},
+    { name: 'Student Portal', s_id: sections[1].id, items: [
+      'Real-time Shuttle Tracking', 'GPA Calculator', 'Enrollment Assistant', 'Financial Statement Export', 'Degree Progress Tracker', 'Direct Messaging for Tutors', 'Personalized News Feed', 'Scholarship Finder'
+    ]},
+    { name: 'LMS (Canvas)', s_id: sections[2].id, items: [
+      'Automated Assignment Reminders', 'Voice-to-Text for Discussions', 'Enhanced Quiz Feedback', 'Mobile Grading Interface', 'Anonymous Peer Review', 'Speedy Gradebook', 'Plagiarism Checker UI', 'Reading List Integration'
+    ]},
+    { name: 'Campus Tech', s_id: sections[3].id, items: [
+      'Campus-wide WiFi 6', 'Find my Printer', 'Lab Availability Map', 'Smart Vending Machines', 'Solar Charging Stations', 'Interactive Information Kiosks', 'Locker Booking System', 'Collaborative Room Booking'
+    ]}
   ];
 
   const insertFeature = db.prepare(`
-    INSERT INTO features (id, title, slug, description, status, section_id, vote_count, tags, pinned, created_at, updated_at)
-    VALUES (@id, @title, @slug, @description, @status, @section_id, @vote_count, @tags, @pinned, @now, @now)
+    INSERT INTO features (
+      id, title, slug, description, status, section_id, vote_count, 
+      impact, effort, owner, key_stakeholder, priority, 
+      tags, pinned, created_at, updated_at
+    )
+    VALUES (@id, @title, @slug, @description, @status, @section_id, @vote_count, @impact, @effort, @owner, @stakeholder, @priority, @tags, @pinned, @now, @now)
   `);
 
-  for (const feature of features) {
-    feature.slug = slugify(feature.title, { lower: true, strict: true });
-    feature.now = now;
-    insertFeature.run(feature);
+  const owners = [
+    'Sarah Miller (Digital ID)', 'James Chen (LMS)', 'Emma Watson (Campus Exp)', 'David Lee (Mobile)', 'Michael Brown (Portal)', 'Linda Garcia (Student Svcs)'
+  ];
+  const stakeholders = [
+    'Prof. Smith (DVC-A)', 'Dr. Jones (Registrar)', 'IT Services Board', 'Student Guild Reps', 'LMS Steering Committee', 'Campus Facilities'
+  ];
+  const priorities = ['Low', 'Medium', 'High', 'Critical'];
+
+  for (const cat of categories) {
+    for (const item of cat.items) {
+      const id = uuidv4();
+      const impact = Math.floor(Math.random() * 5) + 1;
+      const effort = Math.floor(Math.random() * 5) + 1;
+      const vote_count = Math.floor(Math.random() * 500);
+      const isPinned = Math.random() > 0.8 ? 1 : 0;
+      const statuses = ['under_review', 'planned', 'in_progress', 'launched'];
+      const status = statuses[Math.floor(Math.random() * statuses.length)];
+      const priority = priorities[Math.floor(Math.random() * priorities.length)];
+      const owner = owners[Math.floor(Math.random() * owners.length)];
+      const stakeholder = stakeholders[Math.floor(Math.random() * stakeholders.length)];
+
+      insertFeature.run({
+        id,
+        title: item,
+        slug: slugify(item, { lower: true, strict: true }),
+        description: `This is a highly requested feature for the ${cat.name} ecosystem. Implementing this will significantly improve user experience and student engagement.`,
+        status: status,
+        section_id: cat.s_id,
+        vote_count,
+        impact,
+        effort,
+        owner,
+        stakeholder,
+        priority,
+        tags: JSON.stringify([cat.name, 'Strategic']),
+        pinned: isPinned,
+        now
+      });
+    }
   }
 
-  console.log('✅ Database seeded successfully.');
+  console.log('✅ Database seeded with 32 features successfully.');
 };
+
 
 try {
   seed();

@@ -5,6 +5,7 @@ import StatusBadge from '../../../components/StatusBadge';
 import { getFeatures, updateFeature } from '../../../api/features';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useToast } from '../../../contexts/ToastContext';
+import FeaturesTable from './FeaturesTable';
 
 const AdminDashboardPage = () => {
   const { addToast } = useToast();
@@ -15,7 +16,16 @@ const AdminDashboardPage = () => {
     in_progress: [],
     launched: []
   });
+  const [features, setFeatures] = useState([]);
+  const [viewMode, setViewMode] = useState(() => {
+    return localStorage.getItem('adminViewMode') || 'board';
+  });
   const [loading, setLoading] = useState(true);
+
+  // Save view selection
+  useEffect(() => {
+    localStorage.setItem('adminViewMode', viewMode);
+  }, [viewMode]);
 
   const fetchFeatures = async () => {
     try {
@@ -30,6 +40,7 @@ const AdminDashboardPage = () => {
         launched: rawData.filter(f => f.status === 'launched')
       };
       setColumnsData(partitioned);
+      setFeatures(rawData);
     } finally {
       setLoading(false);
     }
@@ -46,6 +57,38 @@ const AdminDashboardPage = () => {
     { id: 'launched', title: 'Launched', color: '#059669' }
   ];
 
+  const onUpdateFeatureField = async (featureId, field, newValue) => {
+    // 1. Find feature in flat list
+    const featureIdx = features.findIndex(f => f.id.toString() === featureId.toString());
+    if (featureIdx === -1) return;
+
+    const oldFeature = features[featureIdx];
+    if (oldFeature[field] === newValue) return;
+
+    // 2. Optimistic Update (flat features list)
+    const newFeatures = [...features];
+    newFeatures[featureIdx] = { ...oldFeature, [field]: newValue };
+    setFeatures(newFeatures);
+
+    // 3. Partition into columns for board view
+    const partitioned = {
+      under_review: newFeatures.filter(f => f.status === 'under_review'),
+      planned: newFeatures.filter(f => f.status === 'planned'),
+      in_progress: newFeatures.filter(f => f.status === 'in_progress'),
+      launched: newFeatures.filter(f => f.status === 'launched')
+    };
+    setColumnsData(partitioned);
+
+    // 4. API Call
+    try {
+      await updateFeature(featureId, { [field]: newValue });
+      addToast(`Updated ${field.replace('_', ' ')}`, 'success');
+    } catch (err) {
+      addToast(`Failed to update ${field}`, 'error');
+      fetchFeatures();
+    }
+  };
+
   const onDragEnd = async (result) => {
     const { destination, source, draggableId } = result;
 
@@ -60,48 +103,22 @@ const AdminDashboardPage = () => {
       return;
     }
 
-    const start = columnsData[source.droppableId];
-    const finish = columnsData[destination.droppableId];
-
-    // Case 1: Moving within the same column (just reordering locally)
-    if (start === finish) {
-      const newList = Array.from(start);
-      const [removed] = newList.splice(source.index, 1);
-      newList.splice(destination.index, 0, removed);
-
-      setColumnsData({
-        ...columnsData,
-        [source.droppableId]: newList
-      });
+    // Reuse our status update logic if moved between columns
+    if (source.droppableId !== destination.droppableId) {
+      onUpdateFeatureField(draggableId, 'status', destination.droppableId);
       return;
     }
 
-    // Case 2: Moving to a different column (Status Change)
-    const startList = Array.from(start);
-    const [movedFeature] = startList.splice(source.index, 1);
-    
-    // Update local feature status
-    const updatedFeature = { ...movedFeature, status: destination.droppableId };
-    
-    const finishList = Array.from(finish);
-    finishList.splice(destination.index, 0, updatedFeature);
+    // If just reordering within same column (Kanban specific reordering)
+    const start = columnsData[source.droppableId];
+    const newList = Array.from(start);
+    const [removed] = newList.splice(source.index, 1);
+    newList.splice(destination.index, 0, removed);
 
-    // Optimistic Update
     setColumnsData({
       ...columnsData,
-      [source.droppableId]: startList,
-      [destination.droppableId]: finishList
+      [source.droppableId]: newList
     });
-
-    // API Call
-    try {
-      await updateFeature(draggableId, { status: destination.droppableId });
-      addToast(`Updated status to ${destination.droppableId.split('_').join(' ')}`, 'success');
-    } catch (err) {
-      addToast('Failed to update status', 'error');
-      // Revert on error
-      fetchFeatures();
-    }
   };
 
   return (
@@ -137,6 +154,20 @@ const AdminDashboardPage = () => {
               <input type="text" placeholder="Search features, tags, or votes..." style={styles.searchInput} />
            </div>
            <div style={styles.filterActions}>
+              <div style={styles.viewToggleGroup}>
+                <button 
+                  style={viewMode === 'board' ? styles.viewToggleBtnActive : styles.viewToggleBtn}
+                  onClick={() => setViewMode('board')}
+                >
+                  Board
+                </button>
+                <button 
+                  style={viewMode === 'list' ? styles.viewToggleBtnActive : styles.viewToggleBtn}
+                  onClick={() => setViewMode('list')}
+                >
+                  List
+                </button>
+              </div>
               <span style={styles.filterLabel}>Filter:</span>
               <select style={styles.select}>
                 <option>All Tags</option>
@@ -153,6 +184,8 @@ const AdminDashboardPage = () => {
         <div style={styles.kanbanContainer}>
           {loading ? (
             <div style={styles.message}>Loading roadmap board...</div>
+          ) : viewMode === 'list' ? (
+            <FeaturesTable features={features} onUpdateFeatureField={onUpdateFeatureField} />
           ) : (
             <DragDropContext onDragEnd={onDragEnd}>
               <div style={styles.board}>
@@ -205,9 +238,18 @@ const AdminDashboardPage = () => {
                                     }}>
                                       <div style={styles.cardHeader}>
                                          <span style={styles.cardTag}>{feat.section_name || 'GENERAL'}</span>
-                                         {feat.pinned === 1 && <span style={styles.pinTag}>★</span>}
+                                         <div style={styles.cardHeaderRight}>
+                                           <span style={{ 
+                                             ...styles.priorityBadge, 
+                                             backgroundColor: styles.priorityColors[feat.priority] || '#94a3b8' 
+                                           }}>
+                                             {feat.priority}
+                                           </span>
+                                           {feat.pinned === 1 && <span style={styles.pinTag}>★</span>}
+                                         </div>
                                       </div>
                                       <h4 style={styles.cardTitle}>{feat.title}</h4>
+                                      {feat.owner && <div style={styles.cardOwner}>Owner: {feat.owner}</div>}
                                       <div style={styles.cardFooter}>
                                          <div style={styles.voteCount}>
                                             <svg style={styles.voteIcon} viewBox="0 0 24 24" fill="currentColor">
@@ -323,6 +365,35 @@ const styles = {
     fontSize: '0.875rem',
     backgroundColor: '#ffffff'
   },
+  viewToggleGroup: {
+    display: 'flex',
+    backgroundColor: '#f1f5f9',
+    padding: '4px',
+    borderRadius: 'var(--radius-md)',
+    marginRight: '12px'
+  },
+  viewToggleBtn: {
+    padding: '6px 14px',
+    fontSize: '0.75rem',
+    fontWeight: '700',
+    color: 'var(--text-secondary)',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    backgroundColor: 'transparent',
+    border: 'none',
+    transition: 'all 0.2s',
+  },
+  viewToggleBtnActive: {
+    padding: '6px 14px',
+    fontSize: '0.75rem',
+    fontWeight: '800',
+    color: 'var(--text-primary)',
+    backgroundColor: '#ffffff',
+    borderRadius: '4px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+    cursor: 'pointer',
+    border: 'none',
+  },
   filterActions: {
     display: 'flex',
     alignItems: 'center',
@@ -418,6 +489,25 @@ const styles = {
     justifyContent: 'space-between',
     alignItems: 'center'
   },
+  cardHeaderRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-2)'
+  },
+  priorityBadge: {
+    fontSize: '0.625rem',
+    fontWeight: '800',
+    color: '#fff',
+    padding: '1px 6px',
+    borderRadius: '4px',
+    textTransform: 'uppercase'
+  },
+  priorityColors: {
+    'Critical': '#dc2626',
+    'High': '#ea580c',
+    'Medium': '#f59e0b',
+    'Low': '#94a3b8'
+  },
   cardTag: {
     fontSize: '0.625rem',
     fontWeight: '800',
@@ -435,6 +525,12 @@ const styles = {
     fontWeight: '700',
     color: 'var(--text-primary)',
     lineHeight: '1.4'
+  },
+  cardOwner: {
+    fontSize: '0.75rem',
+    fontWeight: '600',
+    color: 'var(--text-muted)',
+    marginTop: '2px'
   },
   cardFooter: {
     display: 'flex',

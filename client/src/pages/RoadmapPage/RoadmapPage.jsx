@@ -8,6 +8,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { useAuth } from '../../contexts/AuthContext';
 import EmptyState from '../../components/EmptyState';
 import FeatureDetailModal from '../../components/FeatureDetailModal';
+import PriorityMatrix from '../../components/PriorityMatrix';
 
 const RoadmapPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -18,6 +19,7 @@ const RoadmapPage = () => {
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState({ status: '', section: '', search: '' });
+  const [viewMode, setViewMode] = useState('grid');
   
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -166,35 +168,62 @@ const RoadmapPage = () => {
                     </svg>
                   </div>
                 </div>
+
+                <div style={styles.viewSwitcher}>
+                  <button 
+                    onClick={() => setViewMode('grid')}
+                    style={{ ...styles.viewBtn, ...(viewMode === 'grid' ? styles.viewBtnActive : {}) }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                    Grid
+                  </button>
+                  <button 
+                    onClick={() => setViewMode('matrix')}
+                    style={{ ...styles.viewBtn, ...(viewMode === 'matrix' ? styles.viewBtnActive : {}) }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"></path><path d="M7 12h10"></path><path d="M12 7v10"></path></svg>
+                    Priority Matrix
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Feature Grid */}
-            <div style={styles.grid}>
-              {loading && page === 1 ? (
-                <div style={styles.infoMessage}>Loading modern roadmap...</div>
-              ) : features.length > 0 ? (
-                features.map((f, index) => {
-                  const isLast = index === features.length - 1;
-                  return (
-                    <div ref={isLast ? lastFeatureElementRef : null} key={f.id}>
-                      <FeatureCard 
-                        feature={f} 
-                        onClick={() => {
-                          searchParams.set('feature', f.id);
-                          setSearchParams(searchParams);
-                        }}
-                      />
-                    </div>
-                  );
-                })
+            {/* Feature Grid or Matrix */}
+            {loading && page === 1 ? (
+              <div style={styles.infoMessage}>Loading modern roadmap...</div>
+            ) : features.length > 0 ? (
+              viewMode === 'grid' ? (
+                <div style={styles.grid}>
+                  {features.map((f, index) => {
+                    const isLast = index === features.length - 1;
+                    return (
+                      <div ref={isLast ? lastFeatureElementRef : null} key={f.id}>
+                        <FeatureCard 
+                          feature={f} 
+                          onClick={() => {
+                            searchParams.set('feature', f.id);
+                            setSearchParams(searchParams);
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               ) : (
-                <EmptyState 
-                  title="No roadmap items found" 
-                  description="There are currently no features matching these criteria. Try removing some filters or searching for something else."
+                <PriorityMatrix 
+                  features={features.filter(f => f.impact && f.effort)} 
+                  onFeatureClick={(f) => {
+                    searchParams.set('feature', f.id);
+                    setSearchParams(searchParams);
+                  }}
                 />
-              )}
-            </div>
+              )
+            ) : (
+              <EmptyState 
+                title="No roadmap items found" 
+                description="There are currently no features matching these criteria. Try removing some filters or searching for something else."
+              />
+            )}
             
             {isFetchingMore && (
               <div style={styles.footerActions}>
@@ -417,6 +446,33 @@ const styles = {
     borderRadius: 'var(--radius-md)',
     fontSize: '1rem',
     fontWeight: '700'
+  },
+  viewSwitcher: {
+    display: 'flex',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    padding: '4px',
+    borderRadius: 'var(--radius-md)',
+    gap: '4px',
+    marginLeft: 'auto'
+  },
+  viewBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-2)',
+    padding: '6px 12px',
+    fontSize: '0.8125rem',
+    fontWeight: '700',
+    color: 'var(--text-secondary)',
+    borderRadius: 'var(--radius-sm)',
+    border: 'none',
+    backgroundColor: 'transparent',
+    cursor: 'pointer',
+    transition: 'all 0.2s'
+  },
+  viewBtnActive: {
+    backgroundColor: '#ffffff',
+    color: 'var(--text-primary)',
+    boxShadow: 'var(--shadow-sm)'
   }
 };
 

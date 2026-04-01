@@ -31,6 +31,8 @@ db.exec(`
                 CHECK(status IN ('under_review', 'planned', 'in_progress', 'launched', 'declined')),
     section_id  TEXT REFERENCES sections(id) ON DELETE SET NULL,
     vote_count  INTEGER DEFAULT 0,
+    impact      INTEGER DEFAULT 1,
+    effort      INTEGER DEFAULT 1,
     tags        TEXT DEFAULT '[]',
     pinned      INTEGER DEFAULT 0,
     created_at  TEXT NOT NULL,
@@ -43,5 +45,20 @@ db.exec(`
     PRIMARY KEY (user_id, feature_id)
   );
 `);
+
+// ── Lightweight Migrations ───────────────────────────────────────────────────
+const addColumn = (col, type, def) => {
+  try {
+    db.prepare(`ALTER TABLE features ADD COLUMN ${col} ${type} DEFAULT ${def}`).run();
+  } catch (e) {
+    // Column likely already exists
+  }
+};
+
+addColumn('impact', 'INTEGER', 1);
+addColumn('effort', 'INTEGER', 1);
+addColumn('owner', 'TEXT', '""');
+addColumn('key_stakeholder', 'TEXT', '""');
+addColumn('priority', 'TEXT', '"Medium"');
 
 export default db;
