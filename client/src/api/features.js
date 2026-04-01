@@ -5,6 +5,10 @@ export const getFeatures = (params = {}) => {
   return api(`/api/features?${query}`);
 };
 
+export const getFeatureById = (id) => {
+  return api(`/api/features/${id}`);
+};
+
 export const createFeature = (data) => {
   return api('/api/features', {
     method: 'POST',

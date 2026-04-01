@@ -1,28 +1,33 @@
-import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 const Navbar = () => {
-  const { user, isAuthenticated, login, logout, isAdmin } = useAuth();
+  const { user, login, logout, isAdmin } = useAuth();
 
   return (
     <nav style={styles.nav}>
       <div className="container" style={styles.container}>
         <Link to="/" style={styles.logo}>
-          <span style={styles.logoRed}>GU</span>
-          <span style={styles.logoGold}> Roadmap</span>
+          <span style={styles.logoGu}>GU</span>
+          <span style={styles.logoRoadmap}>ROADMAP</span>
         </Link>
-        
         <div style={styles.actions}>
-          {isAuthenticated ? (
-            <>
-              {isAdmin && (
-                <Link to="/admin" style={styles.adminBadge}>Admin Panel</Link>
-              )}
+          {isAdmin && (
+            <Link to="/admin" style={styles.adminBtn}>
+              ADMIN PANEL
+            </Link>
+          )}
+          {user ? (
+            <div style={styles.userSection}>
               <span style={styles.userEmail}>{user.email}</span>
-              <button onClick={logout} style={styles.buttonSecondary}>Logout</button>
-            </>
+              <button onClick={logout} style={styles.logoutBtn}>
+                LOGOUT
+              </button>
+            </div>
           ) : (
-            <button onClick={login} style={styles.buttonPrimary}>Sign In</button>
+            <button onClick={login} style={styles.loginBtn}>
+              SIGN IN
+            </button>
           )}
         </div>
       </div>
@@ -32,58 +37,74 @@ const Navbar = () => {
 
 const styles = {
   nav: {
-    height: 'var(--space-16)',
-    zIndex: 10,
-    backgroundColor: 'var(--gu-black)',
-    borderBottom: '2px solid var(--gu-red)', // Strong branding
+    height: '64px',
+    backgroundColor: '#ffffff',
+    borderBottom: '1px solid var(--border-color)',
     position: 'sticky',
-    top: 0
+    top: 0,
+    zIndex: 100,
+    display: 'flex',
+    alignItems: 'center'
   },
   container: {
-    height: '100%',
     display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between'
+    justifyContent: 'space-between',
+    alignItems: 'center'
   },
   logo: {
-    fontSize: 'var(--space-6)',
-    fontWeight: 'var(--font-weight-bold)',
-    textTransform: 'uppercase',
-    letterSpacing: '-1px'
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    fontSize: '1.25rem',
+    fontWeight: '800',
+    textDecoration: 'none',
+    letterSpacing: '-0.02em'
   },
-  logoRed: { color: 'var(--gu-red)' },
-  logoGold: { color: 'var(--gu-gold)' },
+  logoGu: {
+    color: 'var(--gu-red)'
+  },
+  logoRoadmap: {
+    color: 'var(--text-primary)'
+  },
   actions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-6)'
+  },
+  adminBtn: {
+    fontSize: '0.75rem',
+    fontWeight: '700',
+    textDecoration: 'none',
+    color: 'var(--gu-red)',
+    border: '1.5px solid var(--gu-red)',
+    padding: '6px 12px',
+    borderRadius: 'var(--radius-md)',
+    transition: 'all 0.15s ease'
+  },
+  userSection: {
     display: 'flex',
     alignItems: 'center',
     gap: 'var(--space-4)'
   },
-  adminBadge: {
-    backgroundColor: 'var(--gu-gold)',
-    color: '#000',
-    padding: '0.25rem 0.5rem',
-    fontSize: '0.75rem',
-    fontWeight: 'bold',
-    textTransform: 'uppercase'
-  },
   userEmail: {
-    color: 'var(--text-muted)',
-    fontSize: '0.875rem'
+    fontSize: '0.8125rem',
+    color: 'var(--text-secondary)',
+    fontWeight: '500'
   },
-  buttonPrimary: {
+  logoutBtn: {
+    fontSize: '0.8125rem',
+    color: 'var(--text-secondary)',
+    fontWeight: '600',
+    textDecoration: 'none',
+    transition: 'color 0.15s ease'
+  },
+  loginBtn: {
     backgroundColor: 'var(--gu-red)',
-    color: '#fff',
-    padding: '0.5rem 1rem',
-    textTransform: 'uppercase',
-    fontWeight: 'bold',
-    border: '2px solid transparent'
-  },
-  buttonSecondary: {
-    color: 'var(--gu-red)',
-    padding: '0.5rem 1rem',
-    textTransform: 'uppercase',
-    fontWeight: 'bold',
-    border: '2px solid var(--gu-red)'
+    color: '#ffffff',
+    padding: '8px 16px',
+    borderRadius: 'var(--radius-md)',
+    fontSize: '0.875rem',
+    fontWeight: '600'
   }
 };
 

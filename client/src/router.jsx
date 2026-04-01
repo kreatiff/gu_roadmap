@@ -5,19 +5,20 @@ import RoadmapPage from './pages/RoadmapPage/RoadmapPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage/AdminDashboardPage';
 import AdminFeatureFormPage from './pages/admin/AdminFeatureFormPage/AdminFeatureFormPage';
 import AdminSectionsPage from './pages/admin/AdminSectionsPage/AdminSectionsPage';
+import LoginSplashPage from './pages/LoginSplashPage/LoginSplashPage';
 
 // Pages
-const NotFound = () => <div style={{ padding: '4rem', textAlign: 'center', backgroundColor: 'var(--gu-black)', color: '#fff', minHeight: '100vh' }}><h1>404 Not Found</h1><p>The requested Griffith Roadmap page does not exist.</p></div>;
+const NotFound = () => (
+  <div style={{ padding: 'var(--space-16) 0', textAlign: 'center', backgroundColor: 'var(--bg-base)', minHeight: '100vh' }}>
+    <h1 style={{ fontSize: '3rem', marginBottom: 'var(--space-4)' }}>404 Not Found</h1>
+    <p style={{ color: 'var(--text-secondary)' }}>The requested Griffith Roadmap page does not exist.</p>
+    <Link to="/" style={{ display: 'inline-block', marginTop: 'var(--space-6)', fontWeight: '700' }}>← Back to Public Roadmap</Link>
+  </div>
+);
 
 const ProtectedRoute = ({ children, adminOnly = false }) => {
-  const { user, loading, isAuthenticated, isAdmin } = useAuth();
+  const { isAdmin } = useAuth();
   
-  if (loading) return <div style={{ padding: '4rem', textAlign: 'center', fontWeight: 'bold' }}>Checking Griffith Session...</div>;
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
-  }
-
   if (adminOnly && !isAdmin) {
     return <Navigate to="/" replace />;
   }
@@ -26,10 +27,24 @@ const ProtectedRoute = ({ children, adminOnly = false }) => {
 };
 
 const AppRouter = () => {
+  const { loading, isAuthenticated } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
+        <p style={{ fontWeight: '700', fontSize: '1.25rem' }}>Verifying Profile...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginSplashPage />;
+  }
+
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public Routes */}
+        {/* Core Application */}
         <Route path="/" element={<RoadmapPage />} />
         
         {/* Admin Routes */}

@@ -1,17 +1,35 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import Navbar from '../../../components/Navbar';
+import AdminLayout from '../../../components/AdminLayout';
 import StatusBadge from '../../../components/StatusBadge';
-import { getFeatures, deleteFeature, updateFeature } from '../../../api/features';
+import { getFeatures, updateFeature } from '../../../api/features';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { useToast } from '../../../contexts/ToastContext';
 
 const AdminDashboardPage = () => {
-  const [features, setFeatures] = useState([]);
+  const { addToast } = useToast();
+  // State is now an object mapping statusId -> array of features
+  const [columnsData, setColumnsData] = useState({
+    under_review: [],
+    planned: [],
+    in_progress: [],
+    launched: []
+  });
   const [loading, setLoading] = useState(true);
 
   const fetchFeatures = async () => {
     try {
-      const data = await getFeatures();
-      setFeatures(data);
+      const result = await getFeatures({ limit: 1000 });
+      const rawData = result.data || [];
+      
+      // Partition data into columns
+      const partitioned = {
+        under_review: rawData.filter(f => f.status === 'under_review'),
+        planned: rawData.filter(f => f.status === 'planned'),
+        in_progress: rawData.filter(f => f.status === 'in_progress'),
+        launched: rawData.filter(f => f.status === 'launched')
+      };
+      setColumnsData(partitioned);
     } finally {
       setLoading(false);
     }
@@ -21,193 +39,439 @@ const AdminDashboardPage = () => {
     fetchFeatures();
   }, []);
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this feature? This action cannot be undone.')) return;
-    try {
-      await deleteFeature(id);
-      fetchFeatures();
-    } catch (err) {
-      alert('Failed to delete feature');
-    }
-  };
+  const columns = [
+    { id: 'under_review', title: 'Under Consideration', color: '#64748b' },
+    { id: 'planned', title: 'Planned', color: '#e8341c' },
+    { id: 'in_progress', title: 'In Progress', color: '#ea580c' },
+    { id: 'launched', title: 'Launched', color: '#059669' }
+  ];
 
-  const togglePinned = async (feature) => {
+  const onDragEnd = async (result) => {
+    const { destination, source, draggableId } = result;
+
+    // Dropped outside a list
+    if (!destination) return;
+
+    // Dropped in same position
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return;
+    }
+
+    const start = columnsData[source.droppableId];
+    const finish = columnsData[destination.droppableId];
+
+    // Case 1: Moving within the same column (just reordering locally)
+    if (start === finish) {
+      const newList = Array.from(start);
+      const [removed] = newList.splice(source.index, 1);
+      newList.splice(destination.index, 0, removed);
+
+      setColumnsData({
+        ...columnsData,
+        [source.droppableId]: newList
+      });
+      return;
+    }
+
+    // Case 2: Moving to a different column (Status Change)
+    const startList = Array.from(start);
+    const [movedFeature] = startList.splice(source.index, 1);
+    
+    // Update local feature status
+    const updatedFeature = { ...movedFeature, status: destination.droppableId };
+    
+    const finishList = Array.from(finish);
+    finishList.splice(destination.index, 0, updatedFeature);
+
+    // Optimistic Update
+    setColumnsData({
+      ...columnsData,
+      [source.droppableId]: startList,
+      [destination.droppableId]: finishList
+    });
+
+    // API Call
     try {
-      await updateFeature(feature.id, { pinned: feature.pinned === 1 ? 0 : 1 });
-      fetchFeatures();
+      await updateFeature(draggableId, { status: destination.droppableId });
+      addToast(`Updated status to ${destination.droppableId.split('_').join(' ')}`, 'success');
     } catch (err) {
-      alert('Failed to update pinned status');
+      addToast('Failed to update status', 'error');
+      // Revert on error
+      fetchFeatures();
     }
   };
 
   return (
-    <div style={styles.page}>
-      <Navbar />
-      
-      <main className="container" style={styles.main}>
-        <div style={styles.header}>
-          <h1 style={styles.title}>Feature Management</h1>
-          <div style={styles.actions}>
-            <Link to="/admin/sections" style={styles.buttonSecondary}>Manage Sections</Link>
-            <Link to="/admin/features/new" style={styles.buttonPrimary}>+ New Feature</Link>
+    <AdminLayout>
+      <div style={styles.content}>
+        <header style={styles.header}>
+          <div>
+            <div style={styles.breadcrumb}>PROJECT › INDIGO ETHER</div>
+            <h1 style={styles.h1}>Roadmap Editor</h1>
           </div>
+          <div style={styles.headerActions}>
+            <button style={styles.syncBtn}>
+              <svg style={styles.btnIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Sync with Public Roadmap
+            </button>
+            <Link to="/admin/features/new" style={styles.newFeatureBtn}>
+              <svg style={styles.btnIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              New Feature
+            </Link>
+          </div>
+        </header>
+
+        {/* Global Filter Bar */}
+        <div style={styles.filterBar}>
+           <div style={styles.searchWrapper}>
+              <svg style={styles.searchIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+              </svg>
+              <input type="text" placeholder="Search features, tags, or votes..." style={styles.searchInput} />
+           </div>
+           <div style={styles.filterActions}>
+              <span style={styles.filterLabel}>Filter:</span>
+              <select style={styles.select}>
+                <option>All Tags</option>
+              </select>
+              <button style={styles.iconBtn}>
+                 <svg style={styles.btnIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 4h18M6 8h12M9 12h6M12 16h0" />
+                 </svg>
+              </button>
+           </div>
         </div>
 
-        <div style={styles.tableWrapper}>
+        {/* Kanban Board */}
+        <div style={styles.kanbanContainer}>
           {loading ? (
-            <div style={styles.message}>Loading features...</div>
+            <div style={styles.message}>Loading roadmap board...</div>
           ) : (
-            <table style={styles.table}>
-              <thead>
-                <tr>
-                  <th style={styles.th}>Pinned</th>
-                  <th style={styles.th}>Title</th>
-                  <th style={styles.th}>Section</th>
-                  <th style={styles.th}>Status</th>
-                  <th style={styles.th}>Votes</th>
-                  <th style={styles.th}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {features.map(f => (
-                  <tr key={f.id} style={styles.tr}>
-                    <td style={styles.td}>
-                      <button onClick={() => togglePinned(f)} style={styles.pinBtn}>
-                        {f.pinned === 1 ? '★' : '☆'}
-                      </button>
-                    </td>
-                    <td style={styles.td}>
-                      <div style={styles.featureTitle}>{f.title}</div>
-                      <div style={styles.featureSlug}>{f.slug}</div>
-                    </td>
-                    <td style={styles.td}>
-                      <span style={{ ...styles.sectionBadge, backgroundColor: f.section_color || '#ccc' }}>
-                        {f.section_name || 'No Section'}
-                      </span>
-                    </td>
-                    <td style={styles.td}><StatusBadge status={f.status} /></td>
-                    <td style={styles.td}>{f.vote_count}</td>
-                    <td style={styles.td}>
-                      <div style={styles.btnGroup}>
-                        <Link to={`/admin/features/${f.id}/edit`} style={styles.editBtn}>Edit</Link>
-                        <button onClick={() => handleDelete(f.id)} style={styles.deleteBtn}>Delete</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <DragDropContext onDragEnd={onDragEnd}>
+              <div style={styles.board}>
+                {columns.map(col => {
+                  const columnFeatures = columnsData[col.id] || [];
+                  return (
+                    <div key={col.id} style={styles.column}>
+                      <header style={styles.columnHeader}>
+                        <div style={styles.columnTitleWrap}>
+                           <span style={{ ...styles.columnDot, backgroundColor: col.color }} />
+                           <h3 style={styles.columnTitle}>{col.title}</h3>
+                           <span style={styles.columnCount}>{columnFeatures.length}</span>
+                        </div>
+                        <button style={styles.columnMoreBtn}>•••</button>
+                      </header>
+                      
+                      <Droppable droppableId={col.id}>
+                        {(provided, snapshot) => (
+                          <div 
+                            {...provided.droppableProps}
+                            ref={provided.innerRef}
+                            style={{
+                              ...styles.columnCards,
+                              backgroundColor: snapshot.isDraggingOver ? '#f9fafb' : 'transparent',
+                              minHeight: '200px',
+                              borderRadius: 'var(--radius-md)',
+                              transition: 'background-color 0.2s ease'
+                            }}
+                          >
+                            {columnFeatures.map((feat, index) => (
+                              <Draggable key={feat.id.toString()} draggableId={feat.id.toString()} index={index}>
+                                {(provided, snapshot) => (
+                                  <div
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    {...provided.dragHandleProps}
+                                    style={{
+                                      ...styles.card,
+                                      ...provided.draggableProps.style,
+                                      opacity: snapshot.isDragging ? 0.9 : 1,
+                                      boxShadow: snapshot.isDragging ? 'var(--shadow-lg)' : 'var(--shadow-sm)',
+                                      cursor: 'grab'
+                                    }}
+                                  >
+                                    <div onClick={(e) => {
+                                      // Allow link behavior on click if not dragging
+                                      if (!snapshot.isDragging) {
+                                        window.location.href = `/admin/features/${feat.id}/edit`;
+                                      }
+                                    }}>
+                                      <div style={styles.cardHeader}>
+                                         <span style={styles.cardTag}>{feat.section_name || 'GENERAL'}</span>
+                                         {feat.pinned === 1 && <span style={styles.pinTag}>★</span>}
+                                      </div>
+                                      <h4 style={styles.cardTitle}>{feat.title}</h4>
+                                      <div style={styles.cardFooter}>
+                                         <div style={styles.voteCount}>
+                                            <svg style={styles.voteIcon} viewBox="0 0 24 24" fill="currentColor">
+                                               <path d="M14 6L8 12L14 18V6Z" style={{ transform: 'rotate(90deg)', transformOrigin: 'center' }}/>
+                                            </svg>
+                                            {feat.vote_count}
+                                         </div>
+                                         <div style={styles.cardAvatars}>
+                                            <div style={styles.avatarMini}>+3</div>
+                                         </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
+                  );
+                })}
+              </div>
+            </DragDropContext>
           )}
         </div>
-      </main>
-    </div>
+      </div>
+    </AdminLayout>
   );
 };
 
 const styles = {
-  page: {
-    minHeight: '100vh',
-    backgroundColor: 'var(--bg-base)',
-    color: 'var(--text-primary)'
-  },
-  main: {
-    padding: 'var(--space-12) var(--space-6)',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 'var(--space-8)'
+  content: {
+    padding: 'var(--space-10) var(--space-8)'
   },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'flex-start',
+    marginBottom: 'var(--space-10)'
   },
-  title: {
-    fontSize: '2.5rem',
-    color: 'var(--gu-black)'
+  breadcrumb: {
+    fontSize: '0.625rem',
+    fontWeight: '700',
+    color: 'var(--text-muted)',
+    letterSpacing: '0.1em',
+    marginBottom: 'var(--space-2)'
   },
-  actions: {
+  h1: {
+    fontSize: '2.25rem',
+    fontWeight: '800',
+    color: 'var(--text-primary)',
+    letterSpacing: '-0.04em'
+  },
+  headerActions: {
     display: 'flex',
+    gap: 'var(--space-3)'
+  },
+  syncBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-2)',
+    padding: '10px 16px',
+    backgroundColor: '#e5e7eb',
+    color: 'var(--text-primary)',
+    borderRadius: 'var(--radius-md)',
+    fontSize: '0.875rem',
+    fontWeight: '600'
+  },
+  newFeatureBtn: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-2)',
+    padding: '10px 16px',
+    backgroundColor: 'var(--gu-red)',
+    color: '#ffffff',
+    borderRadius: 'var(--radius-md)',
+    fontSize: '0.875rem',
+    fontWeight: '600',
+    textDecoration: 'none'
+  },
+  btnIcon: {
+    width: '18px',
+    height: '18px'
+  },
+  filterBar: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 'var(--space-10)',
     gap: 'var(--space-4)'
   },
-  tableWrapper: {
-    backgroundColor: '#fff',
-    border: '2px solid var(--gu-black)',
-    boxShadow: 'var(--shadow-md)',
-    overflowX: 'auto'
+  searchWrapper: {
+    position: 'relative',
+    flex: 1,
+    maxWidth: '540px'
   },
-  table: {
+  searchIcon: {
+    position: 'absolute',
+    left: '12px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    width: '18px',
+    height: '18px',
+    color: 'var(--text-muted)'
+  },
+  searchInput: {
     width: '100%',
-    borderCollapse: 'collapse',
-    textAlign: 'left'
+    padding: '10px 10px 10px 40px',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--border-color)',
+    fontSize: '0.875rem',
+    backgroundColor: '#ffffff'
   },
-  th: {
-    padding: '1rem',
-    borderBottom: '2px solid var(--gu-black)',
-    backgroundColor: 'var(--gu-black)',
-    color: '#fff',
-    textTransform: 'uppercase',
+  filterActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-3)'
+  },
+  filterLabel: {
+    fontSize: '0.8125rem',
+    color: 'var(--text-secondary)',
+    fontWeight: '500'
+  },
+  select: {
+    padding: '8px 12px',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--border-color)',
+    backgroundColor: '#ffffff',
+    fontSize: '0.8125rem',
+    fontWeight: '600',
+    color: 'var(--gu-red)'
+  },
+  iconBtn: {
+    padding: '8px',
+    borderRadius: 'var(--radius-md)',
+    border: '1px solid var(--border-color)',
+    color: 'var(--text-muted)'
+  },
+  kanbanContainer: {
+    overflowX: 'auto',
+    paddingBottom: 'var(--space-4)'
+  },
+  board: {
+    display: 'flex',
+    gap: 'var(--space-6)',
+    minWidth: '1100px'
+  },
+  column: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-4)'
+  },
+  columnHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 'var(--space-2)'
+  },
+  columnTitleWrap: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-2)'
+  },
+  columnDot: {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%'
+  },
+  columnTitle: {
+    fontSize: '0.875rem',
+    fontWeight: '700',
+    color: 'var(--text-primary)'
+  },
+  columnCount: {
     fontSize: '0.75rem',
-    fontWeight: 'bold'
+    fontWeight: '600',
+    color: 'var(--text-muted)',
+    backgroundColor: '#e5e7eb',
+    padding: '1px 6px',
+    borderRadius: '10px'
   },
-  tr: {
-    borderBottom: '1px solid var(--border-color)'
-  },
-  td: {
-    padding: '1rem',
-    fontSize: '0.9rem'
-  },
-  featureTitle: {
-    fontWeight: 'bold',
-    color: 'var(--gu-black)'
-  },
-  featureSlug: {
+  columnMoreBtn: {
     fontSize: '0.75rem',
     color: 'var(--text-muted)'
   },
-  sectionBadge: {
-    padding: '2px 8px',
-    color: '#fff',
-    fontSize: '0.65rem',
-    fontWeight: 'bold',
-    textTransform: 'uppercase'
+  columnCards: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-3)'
   },
-  pinBtn: {
-    fontSize: '1.25rem',
+  card: {
+    backgroundColor: '#ffffff',
+    border: '1px solid var(--border-color)',
+    borderRadius: 'var(--radius-md)',
+    padding: 'var(--space-4)',
+    textDecoration: 'none',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 'var(--space-3)',
+    transition: 'all 0.1s ease',
+    boxShadow: 'var(--shadow-sm)'
+  },
+  cardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  cardTag: {
+    fontSize: '0.625rem',
+    fontWeight: '800',
+    backgroundColor: '#f3f4f6',
+    color: 'var(--text-secondary)',
+    padding: '2px 6px',
+    borderRadius: '4px'
+  },
+  pinTag: {
+    fontSize: '0.75rem',
     color: 'var(--gu-gold)'
   },
-  btnGroup: {
+  cardTitle: {
+    fontSize: '0.875rem',
+    fontWeight: '700',
+    color: 'var(--text-primary)',
+    lineHeight: '1.4'
+  },
+  cardFooter: {
     display: 'flex',
-    gap: 'var(--space-4)'
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 'var(--space-2)'
   },
-  editBtn: {
-    color: 'var(--gu-red)',
-    fontWeight: 'bold',
-    fontSize: '0.8rem',
-    textTransform: 'uppercase'
+  voteCount: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    fontSize: '0.8125rem',
+    fontWeight: '700',
+    color: 'var(--text-secondary)'
   },
-  deleteBtn: {
-    color: 'var(--text-muted)',
-    fontWeight: 'bold',
-    fontSize: '0.8rem',
-    textTransform: 'uppercase'
+  voteIcon: {
+    width: '14px',
+    height: '14px'
   },
-  buttonPrimary: {
+  cardAvatars: {
+    display: 'flex'
+  },
+  avatarMini: {
+    width: '20px',
+    height: '20px',
+    borderRadius: '50%',
     backgroundColor: 'var(--gu-red)',
-    color: '#fff',
-    padding: '0.5rem 1rem',
-    textTransform: 'uppercase',
-    fontWeight: 'bold',
-    border: '2px solid transparent'
-  },
-  buttonSecondary: {
-    color: 'var(--gu-black)',
-    padding: '0.5rem 1rem',
-    textTransform: 'uppercase',
-    fontWeight: 'bold',
-    border: '2px solid var(--gu-black)'
+    color: '#ffffff',
+    fontSize: '0.5rem',
+    fontWeight: '800',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: '2px solid #ffffff'
   },
   message: {
-    padding: '4rem',
+    padding: 'var(--space-16)',
     textAlign: 'center',
     color: 'var(--text-muted)'
   }

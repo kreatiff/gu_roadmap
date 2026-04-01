@@ -7,8 +7,12 @@ export default async function featureRoutes(fastify, options) {
 
   // 1. Unified endpoint for listing and filtering features
   fastify.get('/', { preHandler: [optionalAuthenticate] }, async (request, reply) => {
-    const { status, section, search } = request.query;
+    const { status, section, search, page = 1, limit = 12 } = request.query;
     const userId = request.user ? request.user.sub : null;
+    
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 12;
+    const offsetNum = (pageNum - 1) * limitNum;
 
     let query = `
       SELECT f.*, s.name as section_name, s.color as section_color,
@@ -36,15 +40,51 @@ export default async function featureRoutes(fastify, options) {
 
     // Always sort by pinned first, then popular, then newest
     query += ' ORDER BY f.pinned DESC, f.vote_count DESC, f.created_at DESC';
+    
+    // Add pagination limit/offset
+    query += ' LIMIT ? OFFSET ?';
+    params.push(limitNum, offsetNum);
 
     const features = db.prepare(query).all(...params);
     
     // Parse tags JSON string back to array if needed
-    return features.map(f => ({
+    const data = features.map(f => ({
       ...f,
       user_voted: Boolean(f.user_voted),
       tags: JSON.parse(f.tags || '[]')
     }));
+
+    return {
+      data,
+      meta: {
+        page: pageNum,
+        limit: limitNum,
+        hasMore: data.length === limitNum
+      }
+    };
+  });
+
+  // 1.1 Single Feature detail (for deep-linking modals)
+  fastify.get('/:id', { preHandler: [optionalAuthenticate] }, async (request, reply) => {
+    const { id } = request.params;
+    const userId = request.user ? request.user.sub : null;
+
+    const query = `
+      SELECT f.*, s.name as section_name, s.color as section_color,
+      (SELECT 1 FROM votes v WHERE v.feature_id = f.id AND v.user_id = ?) as user_voted
+      FROM features f
+      LEFT JOIN sections s ON f.section_id = s.id
+      WHERE f.id = ?
+    `;
+    
+    const feature = db.prepare(query).get(userId, id);
+    if (!feature) return reply.code(404).send({ error: 'Feature not found' });
+
+    return {
+      ...feature,
+      user_voted: Boolean(feature.user_voted),
+      tags: JSON.parse(feature.tags || '[]')
+    };
   });
 
   // 2. Admin: Create new feature
