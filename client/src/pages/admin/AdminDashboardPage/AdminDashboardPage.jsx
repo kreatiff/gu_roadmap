@@ -136,12 +136,6 @@ const AdminDashboardPage = () => {
             <h1 style={styles.h1}>Roadmap Editor</h1>
           </div>
           <div style={styles.headerActions}>
-            <button style={styles.syncBtn}>
-              <svg style={styles.btnIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Sync with Public Roadmap
-            </button>
             <Link to="/admin/features/new" style={styles.newFeatureBtn}>
               <svg style={styles.btnIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 5v14M5 12h14" />
@@ -336,17 +330,6 @@ const styles = {
   headerActions: {
     display: 'flex',
     gap: 'var(--space-3)'
-  },
-  syncBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 'var(--space-2)',
-    padding: '10px 16px',
-    backgroundColor: '#e5e7eb',
-    color: 'var(--text-primary)',
-    borderRadius: 'var(--radius-md)',
-    fontSize: '0.875rem',
-    fontWeight: '600'
   },
   newFeatureBtn: {
     display: 'flex',
