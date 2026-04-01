@@ -1,26 +1,23 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '../../../components/AdminLayout';
 import StatusBadge from '../../../components/StatusBadge';
 import { getFeatures, updateFeature } from '../../../api/features';
+import { getSections } from '../../../api/sections';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useToast } from '../../../contexts/ToastContext';
 import FeaturesTable from './FeaturesTable';
 
 const AdminDashboardPage = () => {
   const { addToast } = useToast();
-  // State is now an object mapping statusId -> array of features
-  const [columnsData, setColumnsData] = useState({
-    under_review: [],
-    planned: [],
-    in_progress: [],
-    launched: []
-  });
   const [features, setFeatures] = useState([]);
+  const [sections, setSections] = useState([]);
   const [viewMode, setViewMode] = useState(() => {
     return localStorage.getItem('adminViewMode') || 'board';
   });
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSectionId, setSelectedSectionId] = useState('');
 
   // Save view selection
   useEffect(() => {
@@ -29,22 +26,40 @@ const AdminDashboardPage = () => {
 
   const fetchFeatures = async () => {
     try {
-      const result = await getFeatures({ limit: 1000 });
-      const rawData = result.data || [];
-      
-      // Partition data into columns
-      const partitioned = {
-        under_review: rawData.filter(f => f.status === 'under_review'),
-        planned: rawData.filter(f => f.status === 'planned'),
-        in_progress: rawData.filter(f => f.status === 'in_progress'),
-        launched: rawData.filter(f => f.status === 'launched')
-      };
-      setColumnsData(partitioned);
-      setFeatures(rawData);
+      const [fData, sData] = await Promise.all([
+        getFeatures({ limit: 1000 }),
+        getSections()
+      ]);
+      setFeatures(fData.data || []);
+      setSections(sData);
     } finally {
       setLoading(false);
     }
   };
+
+  const filteredFeatures = useMemo(() => {
+    return features.filter(f => {
+      const matchesSearch = 
+        !searchTerm || 
+        (f.title && f.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (f.owner && f.owner.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (f.section_name && f.section_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (Array.isArray(f.tags) && f.tags.join(' ').toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesSection = !selectedSectionId || f.section_id === selectedSectionId;
+
+      return matchesSearch && matchesSection;
+    });
+  }, [features, searchTerm, selectedSectionId]);
+
+  const columnsData = useMemo(() => {
+    return {
+      under_review: filteredFeatures.filter(f => f.status === 'under_review'),
+      planned: filteredFeatures.filter(f => f.status === 'planned'),
+      in_progress: filteredFeatures.filter(f => f.status === 'in_progress'),
+      launched: filteredFeatures.filter(f => f.status === 'launched')
+    };
+  }, [filteredFeatures]);
 
   useEffect(() => {
     fetchFeatures();
@@ -69,15 +84,6 @@ const AdminDashboardPage = () => {
     const newFeatures = [...features];
     newFeatures[featureIdx] = { ...oldFeature, [field]: newValue };
     setFeatures(newFeatures);
-
-    // 3. Partition into columns for board view
-    const partitioned = {
-      under_review: newFeatures.filter(f => f.status === 'under_review'),
-      planned: newFeatures.filter(f => f.status === 'planned'),
-      in_progress: newFeatures.filter(f => f.status === 'in_progress'),
-      launched: newFeatures.filter(f => f.status === 'launched')
-    };
-    setColumnsData(partitioned);
 
     // 4. API Call
     try {
@@ -151,7 +157,13 @@ const AdminDashboardPage = () => {
               <svg style={styles.searchIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
               </svg>
-              <input type="text" placeholder="Search features, tags, or votes..." style={styles.searchInput} />
+               <input 
+                 type="text" 
+                 placeholder="Search by title, owner, or #tags..." 
+                 style={styles.searchInput} 
+                 value={searchTerm}
+                 onChange={(e) => setSearchTerm(e.target.value)}
+               />
            </div>
            <div style={styles.filterActions}>
               <div style={styles.viewToggleGroup}>
@@ -169,9 +181,16 @@ const AdminDashboardPage = () => {
                 </button>
               </div>
               <span style={styles.filterLabel}>Filter:</span>
-              <select style={styles.select}>
-                <option>All Tags</option>
-              </select>
+               <select 
+                 style={styles.select} 
+                 value={selectedSectionId}
+                 onChange={(e) => setSelectedSectionId(e.target.value)}
+               >
+                 <option value="">All Categories</option>
+                 {sections.map(s => (
+                   <option key={s.id} value={s.id}>{s.name}</option>
+                 ))}
+               </select>
               <button style={styles.iconBtn}>
                  <svg style={styles.btnIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 4h18M6 8h12M9 12h6M12 16h0" />
@@ -181,12 +200,24 @@ const AdminDashboardPage = () => {
         </div>
 
         {/* Kanban Board */}
-        <div style={styles.kanbanContainer}>
-          {loading ? (
-            <div style={styles.message}>Loading roadmap board...</div>
-          ) : viewMode === 'list' ? (
-            <FeaturesTable features={features} onUpdateFeatureField={onUpdateFeatureField} />
-          ) : (
+         <div style={styles.kanbanContainer}>
+           {loading ? (
+             <div style={styles.message}>Loading roadmap board...</div>
+           ) : filteredFeatures.length === 0 && (searchTerm || selectedSectionId) ? (
+             <div style={styles.emptyContainer}>
+                <div style={styles.emptyIcon}>🔍</div>
+                <h3 style={styles.emptyTitle}>No matching features found</h3>
+                <p style={styles.emptyText}>Adjust your filters or search terms to find what you're looking for.</p>
+                <button 
+                  style={styles.clearFiltersBtn}
+                  onClick={() => { setSearchTerm(''); setSelectedSectionId(''); }}
+                >
+                  Clear all filters
+                </button>
+             </div>
+           ) : viewMode === 'list' ? (
+             <FeaturesTable features={filteredFeatures} onUpdateFeatureField={onUpdateFeatureField} />
+           ) : (
             <DragDropContext onDragEnd={onDragEnd}>
               <div style={styles.board}>
                 {columns.map(col => {
@@ -207,13 +238,13 @@ const AdminDashboardPage = () => {
                           <div 
                             {...provided.droppableProps}
                             ref={provided.innerRef}
-                            style={{
-                              ...styles.columnCards,
-                              backgroundColor: snapshot.isDraggingOver ? '#f9fafb' : 'transparent',
-                              minHeight: '200px',
-                              borderRadius: 'var(--radius-md)',
-                              transition: 'background-color 0.2s ease'
-                            }}
+                             style={{
+                               ...styles.columnCards,
+                               backgroundColor: snapshot.isDraggingOver ? 'rgba(0,0,0,0.05)' : 'transparent',
+                               minHeight: '400px',
+                               borderRadius: 'var(--radius-md)',
+                               transition: 'background-color 0.2s ease'
+                             }}
                           >
                             {columnFeatures.map((feat, index) => (
                               <Draggable key={feat.id.toString()} draggableId={feat.id.toString()} index={index}>
@@ -250,17 +281,14 @@ const AdminDashboardPage = () => {
                                       </div>
                                       <h4 style={styles.cardTitle}>{feat.title}</h4>
                                       {feat.owner && <div style={styles.cardOwner}>Owner: {feat.owner}</div>}
-                                      <div style={styles.cardFooter}>
-                                         <div style={styles.voteCount}>
-                                            <svg style={styles.voteIcon} viewBox="0 0 24 24" fill="currentColor">
-                                               <path d="M14 6L8 12L14 18V6Z" style={{ transform: 'rotate(90deg)', transformOrigin: 'center' }}/>
-                                            </svg>
-                                            {feat.vote_count}
-                                         </div>
-                                         <div style={styles.cardAvatars}>
-                                            <div style={styles.avatarMini}>+3</div>
-                                         </div>
-                                      </div>
+                                       <div style={styles.cardFooter}>
+                                          <div style={styles.voteBadge}>
+                                             <svg style={styles.voteIcon} viewBox="0 0 24 24" fill="currentColor">
+                                                <path d="M12 5l-8 8h16l-8-8z" />
+                                             </svg>
+                                             {feat.vote_count} votes
+                                          </div>
+                                       </div>
                                     </div>
                                   </div>
                                 )}
@@ -432,7 +460,11 @@ const styles = {
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
-    gap: 'var(--space-4)'
+    gap: 'var(--space-4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
+    padding: 'var(--space-4)',
+    borderRadius: 'var(--radius-lg)',
+    minHeight: '600px'
   },
   columnHeader: {
     display: 'flex',
@@ -534,42 +566,73 @@ const styles = {
   },
   cardFooter: {
     display: 'flex',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     alignItems: 'center',
     marginTop: 'var(--space-2)'
   },
-  voteCount: {
+  voteBadge: {
     display: 'flex',
     alignItems: 'center',
-    gap: '4px',
-    fontSize: '0.8125rem',
-    fontWeight: '700',
-    color: 'var(--text-secondary)'
+    gap: '6px',
+    fontSize: '0.75rem',
+    fontWeight: '800',
+    color: 'var(--gu-red)',
+    backgroundColor: '#fff1f1',
+    padding: '4px 8px',
+    borderRadius: '6px',
+    border: '1px solid #fee2e2'
   },
   voteIcon: {
-    width: '14px',
-    height: '14px'
-  },
-  cardAvatars: {
-    display: 'flex'
-  },
-  avatarMini: {
-    width: '20px',
-    height: '20px',
-    borderRadius: '50%',
-    backgroundColor: 'var(--gu-red)',
-    color: '#ffffff',
-    fontSize: '0.5rem',
-    fontWeight: '800',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    border: '2px solid #ffffff'
+    width: '12px',
+    height: '12px'
   },
   message: {
     padding: 'var(--space-16)',
     textAlign: 'center',
     color: 'var(--text-muted)'
+  },
+  emptyContainer: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '80px 20px',
+    backgroundColor: '#f8fafc',
+    borderRadius: 'var(--radius-xl)',
+    border: '2px dashed #e2e8f0',
+    textAlign: 'center',
+    marginTop: 'var(--space-4)'
+  },
+  emptyIcon: {
+    fontSize: '48px',
+    marginBottom: 'var(--space-4)',
+    filter: 'grayscale(1)',
+    opacity: 0.5
+  },
+  emptyTitle: {
+    fontSize: '1.25rem',
+    fontWeight: '700',
+    color: 'var(--text-primary)',
+    marginBottom: 'var(--space-2)'
+  },
+  emptyText: {
+    fontSize: '0.875rem',
+    color: 'var(--text-secondary)',
+    maxWidth: '400px',
+    lineHeight: '1.6',
+    marginBottom: 'var(--space-6)'
+  },
+  clearFiltersBtn: {
+    padding: '10px 20px',
+    backgroundColor: '#ffffff',
+    border: '1px solid var(--border-color)',
+    borderRadius: 'var(--radius-md)',
+    fontSize: '0.875rem',
+    fontWeight: '700',
+    color: 'var(--gu-red)',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    boxShadow: 'var(--shadow-sm)'
   }
 };
 
