@@ -295,11 +295,11 @@
   gap: 6px;
   font-size: 0.75rem;
   font-weight: 800;
-  color: var(--gu-red);
-  background-color: #fff1f1;
+  color: #0c4bea;
+  background-color: #e8f0ff;
   padding: 4px 8px;
   border-radius: 6px;
-  border: 1px solid #fee2e2;
+  border: 1px solid #e8f0ff;
 }
 
 .voteIcon {

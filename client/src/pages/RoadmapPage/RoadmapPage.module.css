@@ -164,6 +164,12 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: var(--space-8);
+  transition: opacity 0.3s ease-in-out;
+}
+
+.gridLoading {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .infoMessage {

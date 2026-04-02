@@ -31,44 +31,54 @@ const RoadmapPage = () => {
   
   const debouncedSearch = useDebounce(filter.search, 400);
 
-  const fetchData = useCallback(async (pageNum, append = false) => {
+  // Fetch metadata once on mount
+  useEffect(() => {
+    const fetchMetadata = async () => {
+      try {
+        const [sData, stData] = await Promise.all([getSections(), getStages()]);
+        setSections(sData);
+        setStages(stData);
+      } catch (err) {
+        console.error('Failed to fetch metadata:', err);
+      }
+    };
+    fetchMetadata();
+  }, []);
+
+  const fetchFeatures = useCallback(async (pageNum, append = false) => {
     try {
       if (append) setIsFetchingMore(true);
       else setLoading(true);
 
-       const [fRes, sData, stData] = await Promise.all([
-        getFeatures({ 
-          status: filter.status, 
-          section: filter.section, 
-          search: debouncedSearch,
-          page: pageNum,
-          limit: 12
-        }),
-        append ? Promise.resolve(sections) : getSections(),
-        append ? Promise.resolve(stages) : getStages()
-      ]);
+      const fRes = await getFeatures({ 
+        status: filter.status, 
+        section: filter.section, 
+        search: debouncedSearch,
+        page: pageNum,
+        limit: 12
+      });
       
       const newFeatures = fRes.data || [];
       if (append) {
         setFeatures(prev => [...prev, ...newFeatures]);
       } else {
         setFeatures(newFeatures);
-        setSections(sData);
-        setStages(stData);
       }
       
       setHasMore(fRes.meta?.hasMore || false);
+    } catch (err) {
+      console.error('Failed to fetch features:', err);
     } finally {
       setLoading(false);
       setIsFetchingMore(false);
     }
-  }, [filter.status, filter.section, debouncedSearch, sections, stages]);
+  }, [filter.status, filter.section, debouncedSearch]);
 
   // Triggered on filter changes
   useEffect(() => {
     setPage(1);
-    fetchData(1, false);
-  }, [fetchData]);
+    fetchFeatures(1, false);
+  }, [fetchFeatures]);
 
   // Observer callback for infinite scroll
   const lastFeatureElementRef = useCallback(node => {
@@ -79,12 +89,12 @@ const RoadmapPage = () => {
       if (entries[0].isIntersecting && hasMore) {
         const nextPage = page + 1;
         setPage(nextPage);
-        fetchData(nextPage, true);
+        fetchFeatures(nextPage, true);
       }
     }, { rootMargin: '200px' });
     
     if (node) observer.current.observe(node);
-  }, [loading, isFetchingMore, hasMore, page, fetchData]);
+  }, [loading, isFetchingMore, hasMore, page, fetchFeatures]);
 
   const statuses = [
     { id: '', label: 'All Projects' },
@@ -183,11 +193,11 @@ const RoadmapPage = () => {
             </div>
 
             {/* Feature Grid or Matrix */}
-            {loading && page === 1 ? (
+            {loading && features.length === 0 ? (
               <div className={styles.infoMessage}>Loading modern roadmap...</div>
             ) : features.length > 0 ? (
               viewMode === 'grid' ? (
-                <div className={styles.grid}>
+                <div className={`${styles.grid} ${loading ? styles.gridLoading : ''}`}>
                   {features.map((f, index) => {
                     const isLast = index === features.length - 1;
                     return (
@@ -242,7 +252,7 @@ const RoadmapPage = () => {
             searchParams.delete('feature');
             setSearchParams(searchParams);
           }}
-          onUpdate={() => fetchData(1, false)}
+          onUpdate={() => fetchFeatures(1, false)}
         />
       )}
 
