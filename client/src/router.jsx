@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 
 import RoadmapPage from './pages/RoadmapPage/RoadmapPage';
@@ -7,13 +7,14 @@ import AdminFeatureFormPage from './pages/admin/AdminFeatureFormPage/AdminFeatur
 import AdminSectionsPage from './pages/admin/AdminSectionsPage/AdminSectionsPage';
 import AdminStagesPage from './pages/admin/AdminStagesPage/AdminStagesPage';
 import LoginSplashPage from './pages/LoginSplashPage/LoginSplashPage';
+import styles from './AppRouter.module.css';
 
 // Pages
 const NotFound = () => (
-  <div style={{ padding: 'var(--space-16) 0', textAlign: 'center', backgroundColor: 'var(--bg-base)', minHeight: '100vh' }}>
-    <h1 style={{ fontSize: '3rem', marginBottom: 'var(--space-4)' }}>404 Not Found</h1>
-    <p style={{ color: 'var(--text-secondary)' }}>The requested Griffith Roadmap page does not exist.</p>
-    <Link to="/" style={{ display: 'inline-block', marginTop: 'var(--space-6)', fontWeight: '700' }}>← Back to Public Roadmap</Link>
+  <div className={styles.notFound}>
+    <h1 className={styles.h1}>404</h1>
+    <p>The requested Griffith Roadmap page does not exist.</p>
+    <Link to="/" className={styles.notFoundLink}>← Back to Public Roadmap</Link>
   </div>
 );
 
@@ -32,8 +33,9 @@ const AppRouter = () => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', height: '100vh', justifyContent: 'center', alignItems: 'center', backgroundColor: 'var(--bg-base)', color: 'var(--text-primary)' }}>
-        <p style={{ fontWeight: '700', fontSize: '1.25rem' }}>Verifying Profile...</p>
+      <div className={styles.loadingScreen}>
+        <div className={styles.loadingSpinner}></div>
+        <p className={styles.loadingText}>Verifying Profile...</p>
       </div>
     );
   }

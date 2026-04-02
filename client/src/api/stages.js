@@ -24,3 +24,10 @@ export const deleteStage = (id, reassignTo = null) => {
     body: reassignTo ? JSON.stringify({ reassignTo }) : undefined
   });
 };
+
+export const reorderStages = (stageIds) => {
+  return api('/api/stages/reorder', {
+    method: 'POST',
+    body: JSON.stringify({ stageIds })
+  });
+};

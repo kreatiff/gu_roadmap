@@ -1,0 +1,78 @@
+.upvoteBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 46px;
+  padding: 6px 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  cursor: pointer;
+  background-color: transparent;
+  color: var(--text-primary);
+}
+
+.upvoteBoxLarge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 80px;
+  padding: 12px 8px;
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--border-color);
+  transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  cursor: pointer;
+  background-color: transparent;
+  color: var(--text-primary);
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+}
+
+.iconLarge {
+  width: 24px;
+  height: 24px;
+}
+
+.count {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.countLarge {
+  font-size: 1.25rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.voted {
+  background-color: var(--gu-red);
+  border-color: var(--gu-red);
+  color: #ffffff;
+}
+
+.voted .icon, .voted .iconLarge {
+  color: #ffffff;
+}
+
+.voted .count, .voted .countLarge {
+  color: #ffffff;
+}
+
+.animating {
+  transform: scale(1.2);
+  animation: votePulse 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes votePulse {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}

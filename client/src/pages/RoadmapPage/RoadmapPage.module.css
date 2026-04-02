@@ -1,0 +1,242 @@
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-base);
+}
+
+.header {
+  padding: var(--space-12) 0 var(--space-8);
+  background-color: var(--bg-surface);
+}
+
+.headerContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.headerText {
+  max-width: 650px;
+}
+
+.h1 {
+  margin-bottom: var(--space-4);
+}
+
+.headerSubtitle {
+  font-size: 1.125rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.main {
+  flex: 1;
+  padding-bottom: var(--space-16);
+}
+
+.statusRow {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-8);
+  margin-top: var(--space-8);
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.statusPill {
+  padding: 6px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  white-space: nowrap;
+  background-color: var(--bg-surface);
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.statusPillActive {
+  background-color: var(--gu-red);
+  color: #ffffff;
+  border-color: var(--gu-red);
+}
+
+.statusPill:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.filterSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-bottom: var(--space-10);
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: row;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.searchInput {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  font-size: 0.9375rem;
+  width: 100%;
+  max-width: 360px;
+  background-color: #ffffff;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.searchInput:focus {
+  border-color: var(--gu-red);
+}
+
+.dropdownWrapper {
+  position: relative;
+  width: 100%;
+  max-width: 240px;
+}
+
+.sectionSelect {
+  appearance: none;
+  padding: 12px 40px 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background-color: #ffffff;
+  width: 100%;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.dropdownArrow {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+}
+
+.viewSwitcher {
+  display: flex;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  gap: 4px;
+  margin-left: auto;
+}
+
+.viewBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  border: none;
+  background-color: transparent;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.viewBtnActive {
+  background-color: #ffffff;
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--space-8);
+}
+
+.infoMessage {
+  grid-column: 1 / -1;
+  padding: var(--space-16);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.footerActions {
+  margin-top: var(--space-12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.showingText {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.footer {
+  padding: var(--space-8) 0;
+  border-top: 1px solid var(--border-color);
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background-color: var(--bg-surface);
+}
+
+.authWall {
+  padding: var(--space-20) 0;
+  display: flex;
+  justify-content: center;
+}
+
+.authCard {
+  max-width: 500px;
+  text-align: center;
+  padding: var(--space-12);
+  background-color: #ffffff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-color);
+}
+
+.authTitle {
+  font-size: 1.75rem;
+  font-weight: 800;
+  margin-bottom: var(--space-4);
+  color: var(--text-primary);
+}
+
+.authDesc {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-8);
+  line-height: 1.6;
+}
+
+.loginBtn {
+  padding: 14px 32px;
+  background-color: var(--gu-red);
+  color: #ffffff;
+  border-radius: var(--radius-md);
+  font-size: 1rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.loginBtn:hover {
+  opacity: 0.9;
+}

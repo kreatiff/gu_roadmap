@@ -27,7 +27,8 @@ db.exec(`
     name        TEXT NOT NULL,
     color       TEXT DEFAULT '#64748b',
     order_idx   INTEGER DEFAULT 0,
-    slug        TEXT UNIQUE NOT NULL
+    slug        TEXT UNIQUE NOT NULL,
+    is_visible  INTEGER DEFAULT 1
   );
 
   CREATE TABLE IF NOT EXISTS features (
@@ -69,6 +70,14 @@ addColumn('owner', 'TEXT', '""');
 addColumn('key_stakeholder', 'TEXT', '""');
 addColumn('priority', 'TEXT', '"Medium"');
 addColumn('stage_id', 'TEXT', 'NULL');
+
+// Migration for stages table
+const addColumnToStages = (col, type, def) => {
+  try {
+    db.prepare(`ALTER TABLE stages ADD COLUMN ${col} ${type} DEFAULT ${def}`).run();
+  } catch (e) {}
+};
+addColumnToStages('is_visible', 'INTEGER', 1);
 
 // ── Initial Migration: Seed Stages and Map Features ──────────────────────────
 const seedStages = [

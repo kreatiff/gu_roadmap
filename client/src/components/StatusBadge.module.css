@@ -1,0 +1,10 @@
+.badge {
+  padding: 4px 10px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  display: inline-block;
+  letter-spacing: 0.04em;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+}

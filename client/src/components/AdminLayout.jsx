@@ -1,8 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import styles from './AdminLayout.module.css';
 
 const AdminLayout = ({ children }) => {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const location = useLocation();
 
   const menuItems = [
@@ -13,26 +14,22 @@ const AdminLayout = ({ children }) => {
   ];
 
   return (
-    <div style={styles.adminContainer}>
+    <div className={styles.adminContainer}>
       {/* Sidebar */}
-      <aside style={styles.sidebar}>
-        <div style={styles.brand}>
-          <h2 style={styles.brandTitle}>Admin Portal</h2>
-          <p style={styles.brandSubtitle}>Feature Management</p>
+      <aside className={styles.sidebar}>
+        <div className={styles.brand}>
+          <h2 className={styles.brandTitle}>Admin Portal</h2>
+          <p className={styles.brandSubtitle}>Feature Management</p>
         </div>
 
-        <nav style={styles.nav}>
+        <nav className={styles.nav}>
           {menuItems.map((item) => (
             <Link 
               key={item.path} 
               to={item.path} 
-              style={{
-                ...styles.navItem,
-                backgroundColor: location.pathname === item.path ? '#f3f4f6' : 'transparent',
-                color: location.pathname === item.path ? 'var(--gu-red)' : 'var(--text-secondary)'
-              }}
+              className={`${styles.navItem} ${location.pathname === item.path ? styles.navItemActive : ''}`}
             >
-              <svg style={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d={item.icon} />
               </svg>
               {item.label}
@@ -40,9 +37,9 @@ const AdminLayout = ({ children }) => {
           ))}
         </nav>
 
-        <div style={styles.sidebarFooter}>
-          <button onClick={logout} style={styles.logoutBtn}>
-            <svg style={styles.logoutIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <div className={styles.sidebarFooter}>
+          <button onClick={logout} className={styles.logoutBtn}>
+            <svg className={styles.logoutIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" />
             </svg>
             Logout
@@ -51,91 +48,11 @@ const AdminLayout = ({ children }) => {
       </aside>
 
       {/* Main Content Area */}
-      <main style={styles.mainContent}>
+      <main className={styles.mainContent}>
          {children}
       </main>
     </div>
   );
-};
-
-const styles = {
-  adminContainer: {
-    display: 'flex',
-    minHeight: '100vh',
-    backgroundColor: '#ffffff'
-  },
-  sidebar: {
-    width: '260px',
-    borderRight: '1px solid var(--border-color)',
-    display: 'flex',
-    flexDirection: 'column',
-    position: 'fixed',
-    top: 0,
-    bottom: 0,
-    backgroundColor: '#ffffff'
-  },
-  brand: {
-    padding: 'var(--space-10) var(--space-8)',
-    borderBottom: '1px solid var(--border-color)'
-  },
-  brandTitle: {
-    fontSize: '1.25rem',
-    fontWeight: '800',
-    letterSpacing: '-0.02em',
-    color: 'var(--text-primary)'
-  },
-  brandSubtitle: {
-    fontSize: '0.75rem',
-    color: 'var(--text-muted)',
-    fontWeight: '500',
-    marginTop: '2px'
-  },
-  nav: {
-    flex: 1,
-    padding: 'var(--space-4)'
-  },
-  navItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 'var(--space-3)',
-    padding: 'var(--space-3) var(--space-4)',
-    borderRadius: 'var(--radius-md)',
-    textDecoration: 'none',
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    marginBottom: '4px',
-    transition: 'all 0.15s ease'
-  },
-  navIcon: {
-    width: '18px',
-    height: '18px'
-  },
-  sidebarFooter: {
-    padding: 'var(--space-6)',
-    borderTop: '1px solid var(--border-color)'
-  },
-  logoutBtn: {
-    width: '100%',
-    display: 'flex',
-    alignItems: 'center',
-    gap: 'var(--space-3)',
-    padding: 'var(--space-3) var(--space-4)',
-    borderRadius: 'var(--radius-md)',
-    color: 'var(--text-secondary)',
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    transition: 'background-color 0.15s ease'
-  },
-  logoutIcon: {
-    width: '18px',
-    height: '18px'
-  },
-  mainContent: {
-    flex: 1,
-    marginLeft: '260px',
-    backgroundColor: '#f9fafb',
-    minHeight: '100vh'
-  }
 };
 
 export default AdminLayout;

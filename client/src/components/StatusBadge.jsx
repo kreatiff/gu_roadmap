@@ -1,3 +1,5 @@
+import styles from './StatusBadge.module.css';
+
 const StatusBadge = ({ status, name, color }) => {
   const labels = {
     under_review: 'Under Consideration',
@@ -22,27 +24,16 @@ const StatusBadge = ({ status, name, color }) => {
   const bgColor = `${displayColor}1a`; 
 
   return (
-    <span style={{
-      ...styles.badge,
-      color: displayColor,
-      backgroundColor: bgColor
-    }}>
+    <span 
+      className={styles.badge}
+      style={{
+        color: displayColor,
+        backgroundColor: bgColor
+      }}
+    >
       {displayLabel}
     </span>
   );
-};
-
-const styles = {
-  badge: {
-    padding: '4px 10px',
-    fontSize: '0.6875rem',
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    display: 'inline-block',
-    letterSpacing: '0.04em',
-    borderRadius: 'var(--radius-pill)',
-    whiteSpace: 'nowrap'
-  }
 };
 
 export default StatusBadge;

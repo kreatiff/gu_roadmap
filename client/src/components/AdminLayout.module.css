@@ -1,0 +1,145 @@
+.adminContainer {
+  display: flex;
+  min-height: 100vh;
+  background-color: #ffffff;
+}
+
+.sidebar {
+  width: 260px;
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  background-color: #ffffff;
+  z-index: 50;
+}
+
+.brand {
+  padding: var(--space-10) var(--space-8);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.brandTitle {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.brandSubtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.nav {
+  flex: 1;
+  padding: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+  transition: all 0.15s ease;
+  color: var(--text-secondary);
+}
+
+.navItem:hover {
+  background-color: var(--bg-primary);
+  color: var(--gu-red);
+}
+
+.navItemActive {
+  background-color: var(--bg-secondary) !important;
+  color: var(--gu-red) !important;
+}
+
+.navIcon {
+  width: 18px;
+  height: 18px;
+}
+
+.sidebarFooter {
+  padding: var(--space-6);
+  border-top: 1px solid var(--border-color);
+}
+
+.logoutBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.logoutBtn:hover {
+  background-color: #fff1f1;
+  color: var(--gu-red);
+}
+
+.logoutIcon {
+  width: 18px;
+  height: 18px;
+}
+
+.mainContent {
+  flex: 1;
+  margin-left: 260px;
+  background-color: #f9fafb;
+  min-height: 100vh;
+}
+
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 200px;
+  }
+  .mainContent {
+    margin-left: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .adminContainer {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    height: auto;
+    position: relative;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .mainContent {
+    margin-left: 0;
+  }
+  .nav {
+    display: flex;
+    overflow-x: auto;
+    padding: var(--space-2);
+    gap: var(--space-2);
+  }
+  .navItem {
+    margin-bottom: 0;
+    white-space: nowrap;
+  }
+}
