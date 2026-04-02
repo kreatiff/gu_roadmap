@@ -14,6 +14,19 @@ const DotScale = ({ value, color }) => {
   );
 };
 
+const GravityBadge = ({ score }) => {
+  let colorClass = styles.gravityLow;
+  if (score >= 60) colorClass = styles.gravityHigh;
+  else if (score >= 30) colorClass = styles.gravityMid;
+
+  return (
+    <div className={`${styles.gravityBadge} ${colorClass}`}>
+      <span className={styles.gravityIcon}>⚡</span>
+      {score}
+    </div>
+  );
+};
+
 const PrioritySelect = ({ priority, onChange }) => {
   const options = [
     { value: 'Low', label: 'Low', bg: '#f1f5f9', color: '#64748b' },
@@ -88,7 +101,7 @@ const SortHeader = ({ label, sortKey, width, textAlign = 'left', sortConfig, onS
 
 const FeaturesTable = ({ features, stages, onUpdateFeatureField }) => {
   const [expandedGroups, setExpandedGroups] = useState({});
-  const [sortConfig, setSortConfig] = useState({ key: 'title', direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'gravity_score', direction: 'desc' });
 
   const handleSort = (key) => {
     let direction = 'asc';
@@ -119,7 +132,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField }) => {
         let valA = a[sortConfig.key];
         let valB = b[sortConfig.key];
         
-        if (sortConfig.key === 'vote_count') {
+        if (sortConfig.key === 'vote_count' || sortConfig.key === 'gravity_score' || sortConfig.key === 'impact' || sortConfig.key === 'effort') {
           valA = Number(valA);
           valB = Number(valB);
         }
@@ -158,6 +171,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField }) => {
             <SortHeader label="Votes" sortKey="vote_count" width="8%" textAlign="center" sortConfig={sortConfig} onSort={handleSort} />
             <SortHeader label="Impact" sortKey="impact" width="8%" sortConfig={sortConfig} onSort={handleSort} />
             <SortHeader label="Effort" sortKey="effort" width="8%" sortConfig={sortConfig} onSort={handleSort} />
+            <SortHeader label="Gravity" sortKey="gravity_score" width="10%" textAlign="center" sortConfig={sortConfig} onSort={handleSort} />
           </tr>
         </thead>
         <tbody>
@@ -165,7 +179,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField }) => {
             <React.Fragment key={group.name}>
               {/* Group Header Row */}
               <tr className={styles.groupRow} onClick={() => toggleGroup(group.name)}>
-                <td colSpan="8" className={styles.groupTd}>
+                <td colSpan="9" className={styles.groupTd}>
                   <div className={styles.groupDiv}>
                     <svg 
                       className={styles.chevron} 
@@ -230,13 +244,16 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField }) => {
                   <td className={styles.td}>
                     <DotScale value={feat.effort || 1} color="#f59e0b" />
                   </td>
+                  <td className={styles.td} style={{ textAlign: 'center' }}>
+                    <GravityBadge score={feat.gravity_score || 0} />
+                  </td>
                 </tr>
               ))}
             </React.Fragment>
           ))}
           {groupedFeatures.length === 0 && (
             <tr>
-              <td colSpan="8" className={styles.emptyCell}>
+              <td colSpan="9" className={styles.emptyCell}>
                 No features found. Provide a wider search or add new features.
               </td>
             </tr>

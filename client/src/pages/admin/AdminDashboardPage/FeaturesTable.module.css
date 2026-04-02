@@ -193,3 +193,38 @@
   font-weight: 700;
   text-transform: none;
 }
+
+.gravityBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background-color: #f1f5f9;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+}
+
+.gravityIcon {
+  font-size: 0.9rem;
+}
+
+.gravityHigh {
+  background-color: #ecfdf5;
+  color: #059669;
+  border-color: #10b98130;
+}
+
+.gravityMid {
+  background-color: #fffbeb;
+  color: #d97706;
+  border-color: #f59e0b30;
+}
+
+.gravityLow {
+  background-color: #f8fafc;
+  color: #64748b;
+  border-color: #cbd5e130;
+}

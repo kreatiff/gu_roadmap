@@ -46,6 +46,12 @@
   align-items: flex-start;
 }
 
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .badgeContainer {
   display: flex;
   flex-direction: column;
@@ -69,6 +75,24 @@
   width: 14px;
   height: 14px;
   color: var(--gu-red);
+}
+
+.gravityIndicator {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  background-color: #f8fafc;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  border: 1px solid #e2e8f0;
+}
+
+.gravityIcon {
+  font-size: 0.9rem;
+  margin-right: 1px;
 }
 
 .body {

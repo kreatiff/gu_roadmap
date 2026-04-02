@@ -21,11 +21,19 @@ const FeatureCard = ({ feature, onClick }) => {
               color={stage_color} 
             />
         </div>
-        <div className={styles.voteIndicator}>
-           <svg className={styles.voteIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 19V5m-7 7l7-7 7 7"/>
-           </svg>
-           <span>{feature.vote_count}</span>
+        <div className={styles.headerRight}>
+          <div className={styles.voteIndicator}>
+             <svg className={styles.voteIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 19V5m-7 7l7-7 7 7"/>
+             </svg>
+             <span>{feature.vote_count}</span>
+          </div>
+          {(feature.gravity_score > 0) && (
+            <div className={styles.gravityIndicator}>
+              <span className={styles.gravityIcon}>⚡</span>
+              <span>{feature.gravity_score}</span>
+            </div>
+          )}
         </div>
       </div>
 

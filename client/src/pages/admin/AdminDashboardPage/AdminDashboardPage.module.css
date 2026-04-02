@@ -302,6 +302,37 @@
   border: 1px solid #e8f0ff;
 }
 
+.gravityBadge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  background-color: #f1f5f9;
+  color: var(--text-secondary);
+}
+
+.gravityHigh {
+  background-color: #ecfdf5;
+  color: #059669;
+}
+
+.gravityMid {
+  background-color: #fffbeb;
+  color: #d97706;
+}
+
+.gravityLow {
+  background-color: #f8fafc;
+  color: #64748b;
+}
+
+.gravityIcon {
+  font-size: 0.825rem;
+}
+
 .voteIcon {
   width: 12px;
   height: 12px;

@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { recalculateAllGravityScores } from './lib/gravityUtils.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = join(__dirname, '../data/database.sqlite');
@@ -42,6 +43,68 @@ try {
   if (tableExists('features') && columnExists('features', 'section_id')) {
     db.exec("ALTER TABLE features RENAME COLUMN section_id TO category_id");
     console.log('Renamed features.section_id to category_id');
+  }
+
+  // 3. Fix foreign key if it points to legacy 'sections'
+  if (tableExists('features')) {
+    const fkInfo = db.prepare("PRAGMA foreign_key_list(features)").all();
+    const needsFkFix = fkInfo.some(fk => fk.table === 'sections' && fk.from === 'category_id');
+    
+    if (needsFkFix) {
+      console.log('Migrating features table to fix legacy foreign key (sections -> categories)...');
+      
+      // Disable foreign keys temporarily for this schema change
+      db.pragma('foreign_keys = OFF');
+      
+      try {
+        db.transaction(() => {
+          // Create matching features_new table with correct reference
+          db.exec(`
+            CREATE TABLE features_new (
+              id              TEXT PRIMARY KEY,
+              title           TEXT NOT NULL,
+              slug            TEXT UNIQUE NOT NULL,
+              description     TEXT DEFAULT '',
+              status          TEXT DEFAULT 'under_review',
+              category_id     TEXT REFERENCES categories(id) ON DELETE SET NULL,
+              vote_count      INTEGER DEFAULT 0,
+              impact          INTEGER DEFAULT 1,
+              effort          INTEGER DEFAULT 1,
+              tags            TEXT DEFAULT '[]',
+              pinned          INTEGER DEFAULT 0,
+              owner           TEXT DEFAULT "",
+              key_stakeholder TEXT DEFAULT "",
+              priority        TEXT DEFAULT "Medium",
+              stage_id        TEXT DEFAULT NULL,
+              gravity_score   REAL DEFAULT 0,
+              created_at      TEXT NOT NULL,
+              updated_at      TEXT NOT NULL
+            )
+          `);
+          
+          // Copy data
+          db.exec(`
+            INSERT INTO features_new (
+              id, title, slug, description, status, category_id, vote_count, 
+              impact, effort, tags, pinned, owner, key_stakeholder, 
+              priority, stage_id, gravity_score, created_at, updated_at
+            ) 
+            SELECT 
+              id, title, slug, description, status, category_id, vote_count, 
+              impact, effort, tags, pinned, owner, key_stakeholder, 
+              priority, stage_id, gravity_score, created_at, updated_at 
+            FROM features
+          `);
+          
+          // Drop old and rename
+          db.exec("DROP TABLE features");
+          db.exec("ALTER TABLE features_new RENAME TO features");
+        })();
+        console.log('Successfully fixed features foreign key.');
+      } finally {
+        db.pragma('foreign_keys = ON');
+      }
+    }
   }
 } catch (e) {
   console.error('Initial Rename Migration Error:', e);
@@ -106,6 +169,7 @@ addColumn('owner', 'TEXT', '""');
 addColumn('key_stakeholder', 'TEXT', '""');
 addColumn('priority', 'TEXT', '"Medium"');
 addColumn('stage_id', 'TEXT', 'NULL');
+addColumn('gravity_score', 'REAL', 0);
 
 // Migration for stages table
 const addColumnToStages = (col, type, def) => {
@@ -131,6 +195,7 @@ const seedStages = [
   { id: 'stg_5', name: 'Declined', color: '#94a3b8', slug: 'declined', order_idx: 4 }
 ];
 
+
 try {
   const insertStage = db.prepare('INSERT OR IGNORE INTO stages (id, name, color, slug, order_idx) VALUES (?, ?, ?, ?, ?)');
   seedStages.forEach(s => insertStage.run(s.id, s.name, s.color, s.slug, s.order_idx));
@@ -141,6 +206,9 @@ try {
     SET stage_id = (SELECT id FROM stages WHERE slug = features.status)
     WHERE stage_id IS NULL
   `).run();
+
+  // Initial backfill of gravity scores
+  recalculateAllGravityScores(db);
 } catch (e) {
   console.error('Migration failed:', e);
 }

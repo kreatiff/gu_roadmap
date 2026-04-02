@@ -42,14 +42,24 @@ const PriorityMatrix = ({ features, onFeatureClick, selectedFeatureId }) => {
               return (
                 <div key={`${y}-${x}`} className={styles.cell}>
                   <div className={styles.cluster}>
-                    {cellFeatures.map(f => (
-                      <button
-                        key={f.id}
-                        onClick={() => onFeatureClick(f)}
-                        className={`${styles.featureDot} ${selectedFeatureId === f.id ? styles.featureDotSelected : ''}`}
-                        title={f.title}
-                      />
-                    ))}
+                    {cellFeatures.map(f => {
+                      const score = f.gravity_score || 0;
+                      // Map score 0-100 to size 8-28px
+                      const size = 8 + (score / 100) * 20;
+                      return (
+                        <button
+                          key={f.id}
+                          onClick={() => onFeatureClick(f)}
+                          className={`${styles.featureDot} ${selectedFeatureId === f.id ? styles.featureDotSelected : ''}`}
+                          style={{ 
+                            width: `${size}px`, 
+                            height: `${size}px`,
+                            backgroundColor: selectedFeatureId === f.id ? '#0c4bea' : (score >= 60 ? '#10b981' : score >= 30 ? '#f59e0b' : '#cbd5e1')
+                          }}
+                          title={`${f.title}\nGravity: ${score}/100\nImpact: ${f.impact}, Effort: ${f.effort}\nVotes: ${f.vote_count}`}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
               );

@@ -2,6 +2,7 @@ import db from '../db.js';
 import { v4 as uuidv4 } from 'uuid';
 import slugify from 'slugify';
 import { requireAdmin, optionalAuthenticate } from '../auth.js';
+import { recalculateAllGravityScores } from '../lib/gravityUtils.js';
 
 export default async function featureRoutes(fastify, options) {
 
@@ -144,6 +145,9 @@ export default async function featureRoutes(fastify, options) {
       now, 
       now
     );
+    
+    // Recalculate scores since maxVotes or inputs might have changed
+    recalculateAllGravityScores(db);
 
     return { id, title, slug };
   });
@@ -175,18 +179,32 @@ export default async function featureRoutes(fastify, options) {
       params.push(title, slugify(title, { lower: true, strict: true }));
     }
     if (description !== undefined) { updates.push('description = ?'); params.push(description); }
-    if (category_id !== undefined) { updates.push('category_id = ?'); params.push(category_id); }
-    if (status !== undefined) { 
-      updates.push('status = ?'); params.push(status); 
-      // Also update stage_id if status is a known slug
+    if (category_id !== undefined) { updates.push('category_id = ?'); params.push(category_id || null); }
+    
+    // Status and Stage synchronization
+    if (stage_id !== undefined) {
+      updates.push('stage_id = ?');
+      params.push(stage_id);
+      // Sync status string based on stage slug
+      const stage = db.prepare('SELECT slug FROM stages WHERE id = ?').get(stage_id);
+      if (stage) {
+        updates.push('status = ?');
+        params.push(stage.slug);
+      }
+    } else if (status !== undefined) {
+      updates.push('status = ?');
+      params.push(status);
       const stage = db.prepare('SELECT id FROM stages WHERE slug = ?').get(status);
-      if (stage) { updates.push('stage_id = ?'); params.push(stage.id); }
+      if (stage) {
+        updates.push('stage_id = ?');
+        params.push(stage.id);
+      }
     }
-    if (stage_id !== undefined) { updates.push('stage_id = ?'); params.push(stage_id); }
-    if (pinned !== undefined) { updates.push('pinned = ?'); params.push(pinned); }
+
+    if (pinned !== undefined) { updates.push('pinned = ?'); params.push(pinned ? 1 : 0); }
     if (tags !== undefined) { updates.push('tags = ?'); params.push(JSON.stringify(tags)); }
-    if (impact !== undefined) { updates.push('impact = ?'); params.push(impact); }
-    if (effort !== undefined) { updates.push('effort = ?'); params.push(effort); }
+    if (impact !== undefined) { updates.push('impact = ?'); params.push(parseInt(impact) || 1); }
+    if (effort !== undefined) { updates.push('effort = ?'); params.push(parseInt(effort) || 1); }
     if (owner !== undefined) { updates.push('owner = ?'); params.push(owner); }
     if (key_stakeholder !== undefined) { updates.push('key_stakeholder = ?'); params.push(key_stakeholder); }
     if (priority !== undefined) { updates.push('priority = ?'); params.push(priority); }
@@ -199,10 +217,24 @@ export default async function featureRoutes(fastify, options) {
     const query = `UPDATE features SET ${updates.join(', ')} WHERE id = ?`;
     params.push(id);
 
-    const result = db.prepare(query).run(...params);
-    if (result.changes === 0) return reply.code(404).send({ error: 'Feature not found' });
+    try {
+      const result = db.prepare(query).run(...params);
+      if (result.changes === 0) return reply.code(404).send({ error: 'Feature not found' });
 
-    return { ok: true };
+      // Recalculate scores if formula inputs changed
+      const scoringFields = ['impact', 'effort', 'priority', 'vote_count'];
+      const hasScoringChange = updates.some(u => scoringFields.some(f => u.includes(f)));
+      if (hasScoringChange) {
+        recalculateAllGravityScores(db);
+      }
+
+      return { ok: true };
+    } catch (error) {
+      console.error('SQLITE_ERROR in Feature Update:', error);
+      console.error('Query:', query);
+      console.error('Params:', params);
+      return reply.code(500).send({ error: 'Internal Server Error', message: error.message });
+    }
   });
 
   // 4. Admin: Delete feature (cascades to votes)
@@ -210,6 +242,9 @@ export default async function featureRoutes(fastify, options) {
     const { id } = request.params;
     const result = db.prepare('DELETE FROM features WHERE id = ?').run(id);
     if (result.changes === 0) return reply.code(404).send({ error: 'Feature not found' });
+    
+    // Recalculate scores as max_votes might have changed
+    recalculateAllGravityScores(db);
     return { ok: true };
   });
 

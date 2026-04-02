@@ -1,5 +1,6 @@
 import db from '../db.js';
 import { authenticate } from '../auth.js';
+import { recalculateAllGravityScores } from '../lib/gravityUtils.js';
 
 export default async function voteRoutes(fastify, options) {
 
@@ -28,6 +29,7 @@ export default async function voteRoutes(fastify, options) {
     const { sub: userId } = request.user;
 
     castVoteTx(userId, featureId);
+    recalculateAllGravityScores(db);
     return { ok: true };
   });
 
@@ -41,6 +43,7 @@ export default async function voteRoutes(fastify, options) {
       return reply.code(404).send({ error: 'Vote not found or already removed' });
     }
 
+    recalculateAllGravityScores(db);
     return { ok: true };
   });
 

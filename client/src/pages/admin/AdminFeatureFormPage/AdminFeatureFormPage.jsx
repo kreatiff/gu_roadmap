@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import AdminLayout from '../../../components/AdminLayout';
 import { getFeatures, createFeature, updateFeature } from '../../../api/features';
@@ -15,6 +15,7 @@ const AdminFeatureFormPage = () => {
 
   const [categories, setCategories] = useState([]);
   const [stages, setStages] = useState([]);
+  const [maxVotes, setMaxVotes] = useState(0);
   const [loading, setLoading] = useState(isEdit);
   const [formData, setFormData] = useState({
     title: '',
@@ -44,6 +45,9 @@ const AdminFeatureFormPage = () => {
         try {
           const res = await getFeatures({ limit: 1000 });
           const fData = res.data || [];
+          const currentMaxVotes = Math.max(...fData.map(f => f.vote_count || 0), 0);
+          setMaxVotes(currentMaxVotes);
+          
           const feature = fData.find(f => f.id === id);
           if (feature) {
             setFormData({
@@ -58,7 +62,8 @@ const AdminFeatureFormPage = () => {
               effort: feature.effort || 1,
               owner: feature.owner || '',
               key_stakeholder: feature.key_stakeholder || '',
-              priority: feature.priority || 'Medium'
+              priority: feature.priority || 'Medium',
+              vote_count: feature.vote_count || 0
             });
           }
         } finally {
@@ -89,6 +94,17 @@ const AdminFeatureFormPage = () => {
     const tags = e.target.value.split(',').map(tag => tag.trim()).filter(Boolean);
     setFormData(prev => ({ ...prev, tags }));
   };
+
+  const calculatedScore = useMemo(() => {
+    const multipliers = { Low: 0.5, Medium: 1.0, High: 1.5, Critical: 2.0 };
+    const m = multipliers[formData.priority] || 1.0;
+    const v = formData.vote_count || 0;
+    const votesNorm = maxVotes > 0 ? (v / maxVotes) * 5 : 0;
+    const safeEffort = formData.effort > 0 ? formData.effort : 1;
+    const raw = (votesNorm * formData.impact * m) / safeEffort;
+    const score = Math.ceil((raw / 50) * 100);
+    return Math.min(score, 100);
+  }, [formData.impact, formData.effort, formData.priority, formData.vote_count, maxVotes]);
 
   if (loading) return (
     <AdminLayout>
@@ -197,6 +213,24 @@ const AdminFeatureFormPage = () => {
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className={styles.priorityPreviewRow}>
+            <div className={`${styles.gravityPreview} ${
+              calculatedScore >= 60 ? styles.gravityHigh : 
+              calculatedScore >= 30 ? styles.gravityMid : 
+              styles.gravityLow
+            }`}>
+              <div className={styles.gravityPreviewLabel}>Estimated Gravity Score</div>
+              <div className={styles.gravityPreviewValue}>
+                <span className={styles.gravityIcon}>⚡</span>
+                {calculatedScore}
+                <span className={styles.gravityMax}>/ 100</span>
+              </div>
+            </div>
+            <p className={styles.gravityHelpText}>
+              This score is calculated based on votes ({formData.vote_count || 0}), impact, effort, and strategic priority. Or {maxVotes} max votes.
+            </p>
           </div>
 
           <div className={styles.categoryDivider}>Strategic Internal Data (Admin Only)</div>

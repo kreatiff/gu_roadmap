@@ -102,6 +102,26 @@ const FeatureDetailModal = ({ featureId, onClose, onUpdate }) => {
                         </div>
                      </div>
                   </div>
+
+                  {feature.gravity_score > 0 && (
+                    <div className={styles.gravitySection}>
+                      <h3 className={styles.sidebarTitle}>Gravity Score</h3>
+                      <div className={styles.gravityValue}>
+                        <span className={styles.gravityIcon}>⚡</span>
+                        {feature.gravity_score}
+                        <span className={styles.gravityMax}>/ 100</span>
+                      </div>
+                      <div className={`${styles.gravityLevel} ${
+                        feature.gravity_score >= 60 ? styles.gravityHigh : 
+                        feature.gravity_score >= 30 ? styles.gravityMid : 
+                        styles.gravityLow
+                      }`}>
+                        {feature.gravity_score >= 60 ? 'High Priority' : 
+                         feature.gravity_score >= 30 ? 'Medium Momentum' : 
+                         'Steady'}
+                      </div>
+                    </div>
+                  )}
                </aside>
             </div>
           </div>

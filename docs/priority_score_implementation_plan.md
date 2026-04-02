@@ -2,22 +2,26 @@
 
 ## Overview
 
-Implement a computed `priority_score` field on the `features` table using a **RICE-inspired formula modulated by the admin's strategic `priority` field** as a confidence multiplier. The score is recalculated on every write that touches any of its inputs and is surfaced in both the Admin and Public UIs.
+Implement a computed `priority_score` field on the `features` table using a **RICE-inspired formula modulated by the admin's strategic `priority` field** as a confidence multiplier. The score is normalised to a 0–100 scale, recalculated on every write that touches any of its inputs, and surfaced in both the Admin and Public UIs.
 
 ### Formula
 
 ```
 priority_multiplier = { Low: 0.5, Medium: 1.0, High: 1.5, Critical: 2.0 }
-votes_norm          = ROUND((vote_count / MAX(vote_count across all features)) * 5, 2)   -- scaled to 1–5; fallback to 1.0 if max is 0
+votes_norm          = (vote_count / MAX(vote_count across all features)) * 5   -- scaled to 1–5; 0 if max is 0
 raw_score           = (votes_norm * impact * priority_multiplier) / effort
-priority_score      = ROUND(raw_score, 4)                                                 -- stored as REAL, 4 decimal places
+priority_score      = ROUND((raw_score / 50) * 100, 2)                         -- normalised to 0–100
 ```
 
+**Why divide by 50?** The theoretical maximum of `raw_score` is `(5 × 5 × 2.0) / 1 = 50`, achieved by a feature with max normalised votes, impact=5, effort=1, and Critical priority. Dividing by 50 and multiplying by 100 maps the full range cleanly to 0–100.
+
 **Edge cases:**
+
 - `effort = 0` → treat as `1` to avoid division by zero (should not occur given 1–5 slider, but guard anyway).
-- `vote_count = 0` → `votes_norm = 0`, so `raw_score = 0`.
+- `vote_count = 0` → `votes_norm = 0`, so `priority_score = 0.00`.
 - `priority = NULL` → treat multiplier as `1.0`.
 - `impact = NULL` → treat as `3` (mid-range neutral).
+- `priority_score` is capped at `100.00` — if formula inputs are somehow out of expected bounds, clamp the result.
 
 ---
 
@@ -45,7 +49,7 @@ Implement and export two functions:
 
 ### `calculatePriorityScore(feature, maxVotes)`
 
-Pure function. Takes a single feature object and the current max `vote_count` across all features. Returns a `Number`.
+Pure function. Takes a single feature object and the current max `vote_count` across all features. Returns a `Number` between `0` and `100`.
 
 ```
 priority_multiplier_map = { Low: 0.5, Medium: 1.0, High: 1.5, Critical: 2.0 }
@@ -55,8 +59,9 @@ multiplier = priority_multiplier_map[feature.priority] ?? 1.0
 safe_effort = feature.effort > 0 ? feature.effort : 1
 safe_impact = feature.impact ?? 3
 
-raw = (votes_norm * safe_impact * multiplier) / safe_effort
-return Math.round(raw * 10000) / 10000
+raw_score = (votes_norm * safe_impact * multiplier) / safe_effort
+score = Math.round(((raw_score / 50) * 100) * 100) / 100   // 2 decimal places
+return Math.min(score, 100)                                  // clamp to 100
 ```
 
 ### `recalculateAllScores(db)`
@@ -81,6 +86,7 @@ Export both functions. Do not import any route or HTTP layer here — keep this 
 **File to modify:** `server/routes/features.js` (or equivalent Fastify route file)
 
 Identify every route handler that mutates a field used in the formula:
+
 - `vote_count` — the voting endpoint (e.g. `POST /features/:id/vote`)
 - `impact` — feature create/update
 - `effort` — feature create/update
@@ -119,17 +125,17 @@ Do **not** call recalculation on reads, status-only updates, tag/pin changes, or
 ### Table View
 
 - Add a **"Score"** column header, sortable, positioned after the existing "Priority" column.
-- Render `priority_score` formatted to 2 decimal places (e.g. `3.75`).
-- Apply a subtle colour scale to the cell background or text:
-  - `score >= 6` → green tint (`--gu-green` or closest available token)
-  - `score >= 3 and < 6` → amber tint
-  - `score < 3` → no tint (neutral)
+- Render `priority_score` formatted to 2 decimal places followed by `/100` (e.g. `73.50 / 100`).
+- Apply a subtle colour scale to the cell background or text based on the 0–100 range:
+  - `score >= 60` → green tint (`--gu-green` or closest available token)
+  - `score >= 30 and < 60` → amber tint
+  - `score < 30` → no tint (neutral)
 - Wire the column into the existing multi-column sort handler, sorting numerically descending.
 
 ### Kanban Board View
 
 - On each Kanban card, add a small score badge alongside the existing Priority badge.
-- Format: a pill labelled `⚡ 3.75` or similar. Keep it visually subordinate to the Priority badge (smaller font, muted colour).
+- Format: a pill labelled `⚡ 73.50` or similar. Keep it visually subordinate to the Priority badge (smaller font, muted colour).
 
 ---
 
@@ -148,7 +154,7 @@ Do **not** call recalculation on reads, status-only updates, tag/pin changes, or
 
 **File to modify:** The public feature card component.
 
-- Add a small `⚡ Score: 3.75` indicator to the card footer, alongside the existing vote count.
+- Add a small `⚡ 73.50 / 100` indicator to the card footer, alongside the existing vote count.
 - Keep it visually lightweight — this is informational, not the primary CTA.
 
 ### Priority Matrix (Impact vs Effort Chart)
@@ -156,8 +162,9 @@ Do **not** call recalculation on reads, status-only updates, tag/pin changes, or
 **File to modify:** The matrix/quadrant chart component.
 
 - Use `priority_score` to size the data point (bubble chart style): higher score = larger bubble radius.
-- Clamp bubble size: `min-radius = 8px`, `max-radius = 28px`. Scale linearly between the min and max `priority_score` values in the current dataset.
-- Add a tooltip on hover that shows: Feature title, Score, Votes, Impact, Effort, Priority.
+- Since the score is already on a fixed 0–100 scale, size bubbles linearly against this absolute range rather than the dataset min/max — this gives consistent sizing across sessions.
+- Clamp bubble size: `min-radius = 8px`, `max-radius = 28px`. Map `score 0 → 8px`, `score 100 → 28px`.
+- Add a tooltip on hover that shows: Feature title, Score (x / 100), Votes, Impact, Effort, Priority.
 
 ---
 
@@ -168,7 +175,7 @@ Do **not** call recalculation on reads, status-only updates, tag/pin changes, or
 Add a **"Priority Score"** section that shows not just the final number but its components, so students understand how it is calculated:
 
 ```
-Priority Score: 3.75
+Priority Score: 73.50 / 100
   ├─ Votes (normalised): 3.2 / 5
   ├─ Impact: 4 / 5
   ├─ Effort: 3 / 5
@@ -188,7 +195,7 @@ Display this only when `priority_score` is present and `> 0`. The strategic weig
 - Add a read-only **"Estimated Score"** display field inside the Strategic Section, positioned after the Impact/Effort sliders.
 - Recompute it client-side in real time as the user adjusts Impact, Effort, and Priority dropdowns:
   - Use the same formula as Step 2. For `votes_norm`, use the current feature's `vote_count` and the `maxVotes` value fetched alongside the feature data (add this to the GET /admin/features/:id response or derive from the list).
-  - Format to 2 decimal places.
+  - Format as `XX.XX / 100`.
 - Label it: `Estimated Priority Score (preview)` with a muted style to indicate it is non-editable.
 
 ---
@@ -198,29 +205,31 @@ Display this only when `priority_score` is present and `> 0`. The strategic weig
 The coding agent must verify the following before considering the implementation complete:
 
 1. **Migration safety:** Running the server twice does not throw a "column already exists" error.
-2. **Backfill correctness:** After migration, query `SELECT id, priority_score FROM features` — no row should have `NULL` or `0` unless `vote_count = 0` and `impact` is unset.
-3. **Vote triggers recalc:** Cast a vote on feature A; confirm feature B's `priority_score` also updates (because `max_votes` may have changed).
-4. **Edge case — single feature:** When only one feature exists, `votes_norm = 5.0` (it is the max), score is non-zero if `vote_count > 0`.
-5. **Edge case — zero votes:** Feature with `vote_count = 0` has `priority_score = 0` regardless of impact/effort/priority.
-6. **Public API exclusion:** Confirm `owner`, `key_stakeholder`, and `priority` (raw text) are not present in `GET /features` response body. `priority_score` (number) **is** present.
-7. **Admin table sort:** Clicking "Score" column header sorts correctly ascending and descending.
-8. **No N+1 queries:** `recalculateAllScores` uses a single SELECT for all features and a single transaction for all UPDATEs — not one UPDATE per HTTP request cycle.
-9. **Formula parity:** The client-side preview in the form (Step 9) produces the same value as the server-stored score for the same inputs. Write at least one manual test case to verify.
+2. **Backfill correctness:** After migration, query `SELECT id, priority_score FROM features` — no row should have `NULL`. Zero-vote features should have `0.00`.
+3. **Score ceiling:** A feature with `vote_count = MAX`, `impact = 5`, `effort = 1`, `priority = Critical` should produce exactly `100.00`.
+4. **Vote triggers recalc:** Cast a vote on feature A; confirm feature B's `priority_score` also updates (because `max_votes` may have changed).
+5. **Edge case — single feature:** When only one feature exists with `vote_count > 0`, `votes_norm = 5.0` (it is the max). Confirm score is non-zero.
+6. **Edge case — zero votes:** Feature with `vote_count = 0` has `priority_score = 0.00` regardless of impact/effort/priority.
+7. **Public API exclusion:** Confirm `owner`, `key_stakeholder`, and `priority` (raw text) are not present in `GET /features` response body. `priority_score` (number) **is** present.
+8. **Admin table sort:** Clicking "Score" column header sorts correctly ascending and descending.
+9. **No N+1 queries:** `recalculateAllScores` uses a single SELECT for all features and a single transaction for all UPDATEs — not one UPDATE per HTTP request cycle.
+10. **Formula parity:** The client-side preview in the form (Step 9) produces the same value as the server-stored score for the same inputs. Write at least one manual test case to verify.
+11. **Colour scale:** Spot-check three features covering each colour band (≥60, 30–59, <30) and confirm correct tinting in the admin table.
 
 ---
 
 ## Summary of Files Affected
 
-| File | Change Type |
-|---|---|
-| `server/migrations/003_add_priority_score.sql` | **Create** |
-| `server/db.js` | **Modify** — apply migration + backfill on startup |
-| `server/lib/scoringUtils.js` | **Create** |
-| `server/routes/features.js` | **Modify** — hook recalc into vote, create, update handlers |
-| Admin table component | **Modify** — add Score column, sorting, colour scale |
-| Admin Kanban card component | **Modify** — add score badge |
-| `AdminDashboardPage` | **Modify** — default sort by score |
-| Public feature card component | **Modify** — add score indicator |
-| Priority Matrix component | **Modify** — bubble sizing by score, tooltip |
-| Feature detail modal component | **Modify** — score breakdown section |
-| Strategic Feature Form component | **Modify** — live score preview |
+| File                                           | Change Type                                                   |
+| ---------------------------------------------- | ------------------------------------------------------------- |
+| `server/migrations/003_add_priority_score.sql` | **Create**                                                    |
+| `server/db.js`                                 | **Modify** — apply migration + backfill on startup            |
+| `server/lib/scoringUtils.js`                   | **Create**                                                    |
+| `server/routes/features.js`                    | **Modify** — hook recalc into vote, create, update handlers   |
+| Admin table component                          | **Modify** — add Score column, sorting, colour scale          |
+| Admin Kanban card component                    | **Modify** — add score badge                                  |
+| `AdminDashboardPage`                           | **Modify** — default sort by score                            |
+| Public feature card component                  | **Modify** — add score indicator                              |
+| Priority Matrix component                      | **Modify** — absolute bubble sizing by score (0–100), tooltip |
+| Feature detail modal component                 | **Modify** — score breakdown section                          |
+| Strategic Feature Form component               | **Modify** — live score preview                               |
