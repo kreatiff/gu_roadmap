@@ -1,0 +1,23 @@
+services:
+  app:
+    image: ghcr.io/kreatiff/gu_roadmap:latest
+    container_name: gu_roadmap
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - gu_roadmap_data:/app/server/data
+    environment:
+      - PORT=${PORT:-3001}
+      - NODE_ENV=${NODE_ENV:-production}
+      - JWT_SECRET=${JWT_SECRET}
+      - COOKIE_SECRET=${COOKIE_SECRET}
+      - CLIENT_ORIGIN=${CLIENT_ORIGIN}
+      - OIDC_ISSUER=${OIDC_ISSUER}
+      - OIDC_CLIENT_ID=${OIDC_CLIENT_ID:-gu-roadmap}
+      - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}
+      - OIDC_REDIRECT_URI=${OIDC_REDIRECT_URI}
+      - ADMIN_EMAILS=${ADMIN_EMAILS}
+
+volumes:
+  gu_roadmap_data:
