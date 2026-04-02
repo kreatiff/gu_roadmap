@@ -2,24 +2,27 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import AdminLayout from '../../../components/AdminLayout';
-import { getStages, createStage, updateStage, deleteStage, reorderStages } from '../../../api/stages';
+import { getCategories, createCategory, updateCategory, deleteCategory, reorderCategories } from '../../../api/categories';
 import { useToast } from '../../../contexts/ToastContext';
-import styles from './AdminStagesPage.module.css';
+import IconPicker from '../../../components/IconPicker';
+import CategoryIcon from '../../../components/CategoryIcon';
+import styles from './AdminCategoriesPage.module.css';
 
-const AdminStagesPage = () => {
+const AdminCategoriesPage = () => {
   const { addToast } = useToast();
-  const [stages, setStages] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newStage, setNewStage] = useState({ name: '', color: '#64748b', order_idx: 0, is_visible: 1 });
-  
+  const [newCategory, setNewCategory] = useState({ name: '', color: '#e8341c', icon: 'Briefcase', order_idx: 0 });
+
+  // Deletion & Migration state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [stageToDelete, setStageToDelete] = useState(null);
+  const [categoryToDelete, setCategoryToDelete] = useState(null);
   const [reassignTo, setReassignTo] = useState('');
 
-  const fetchStages = async () => {
+  const fetchCategories = async () => {
     try {
-      const data = await getStages();
-      setStages(data);
+      const data = await getCategories();
+      setCategories(data);
       if (data.length > 0) setReassignTo(data[0].id);
     } finally {
       setLoading(false);
@@ -27,76 +30,77 @@ const AdminStagesPage = () => {
   };
 
   useEffect(() => {
-    fetchStages();
+    fetchCategories();
   }, []);
 
   const handleCreate = async (e) => {
     e.preventDefault();
-    if (!newStage.name) return;
+    if (!newCategory.name) return;
     try {
-      await createStage({ ...newStage, order_idx: stages.length });
-      setNewStage({ name: '', color: '#64748b', order_idx: stages.length + 1, is_visible: 1 });
-      addToast('Stage created successfully', 'success');
-      fetchStages();
+      await createCategory({ ...newCategory, order_idx: categories.length });
+      setNewCategory({ name: '', color: '#e8341c', icon: 'Briefcase', order_idx: categories.length + 1 });
+      addToast('Category created successfully', 'success');
+      fetchCategories();
     } catch {
-      addToast('Failed to create stage', 'error');
+      addToast('Failed to create category', 'error');
     }
   };
 
-  const handleDeleteAttempt = async (stage) => {
+  const handleDeleteAttempt = async (category) => {
     try {
-      await deleteStage(stage.id);
-      addToast('Stage deleted', 'success');
-      fetchStages();
+      await deleteCategory(category.id);
+      addToast('Category deleted', 'success');
+      fetchCategories();
     } catch (err) {
       if (err.status === 409) {
-        setStageToDelete(stage);
+        setCategoryToDelete(category);
         setShowDeleteModal(true);
-        const firstOther = stages.find(s => s.id !== stage.id);
+        const firstOther = categories.find(c => c.id !== category.id);
         if (firstOther) setReassignTo(firstOther.id);
       } else {
-        addToast('Failed to delete stage', 'error');
+        addToast('Failed to delete category', 'error');
       }
     }
   };
 
   const handleConfirmDeleteWithReassign = async () => {
     try {
-      await deleteStage(stageToDelete.id, reassignTo);
-      addToast('Stage deleted and features moved', 'success');
+      await deleteCategory(categoryToDelete.id, reassignTo);
+      addToast('Category deleted and features migrated', 'success');
       setShowDeleteModal(false);
-      setStageToDelete(null);
-      fetchStages();
+      setCategoryToDelete(null);
+      fetchCategories();
     } catch {
-      addToast('Deletion failed', 'error');
+      addToast('Migration failed', 'error');
     }
   };
 
   const handleUpdate = async (id, data) => {
     try {
-      setStages(prev => prev.map(s => s.id === id ? { ...s, ...data } : s));
-      await updateStage(id, data);
+      // Optimistic update
+      setCategories(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
+      await updateCategory(id, data);
     } catch {
-      addToast('Failed to update stage', 'error');
-      fetchStages();
+      addToast('Failed to update category', 'error');
+      fetchCategories();
     }
   };
 
   const onDragEnd = async (result) => {
     if (!result.destination) return;
-    const reordered = Array.from(stages);
+    const reordered = Array.from(categories);
     const [removed] = reordered.splice(result.source.index, 1);
     reordered.splice(result.destination.index, 0, removed);
 
-    setStages(reordered);
+    setCategories(reordered);
     
     try {
-      await reorderStages(reordered.map(s => s.id));
+      await reorderCategories(reordered.map(c => c.id));
       addToast('Order updated', 'success');
-      fetchStages();
+      fetchCategories();
     } catch {
-      addToast('Failed to reorder stages', 'error');
-      fetchStages();
+      addToast('Failed to reorder categories', 'error');
+      fetchCategories();
     }
   };
 
@@ -106,45 +110,53 @@ const AdminStagesPage = () => {
         <header className={styles.header}>
           <div>
             <div className={styles.breadcrumb}>ADMIN › CONFIGURATION</div>
-            <h1 className={styles.h1}>Roadmap Stages</h1>
+            <h1 className={styles.h1}>Categories</h1>
           </div>
           <Link to="/admin" className={styles.backBtn}>← Back to Dashboard</Link>
         </header>
 
-        <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>Add New Stage</h3>
+        <section className={styles.category}>
+          <h3 className={styles.categoryTitle}>Add New Category</h3>
           <form onSubmit={handleCreate} className={styles.formInline}>
             <input 
               type="text" 
-              placeholder="e.g. Backlog, Testing, Beta..." 
-              value={newStage.name}
-              onChange={(e) => setNewStage(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="e.g. Mobile App, Student Portal..." 
+              value={newCategory.name}
+              onChange={(e) => setNewCategory(prev => ({ ...prev, name: e.target.value }))}
               className={styles.input}
               required
             />
             <div className={styles.colorWrapper}>
                <label className={styles.colorLabel}>Theme:</label>
-               <input 
-                type="color" 
-                value={newStage.color}
-                onChange={(e) => setNewStage(prev => ({ ...prev, color: e.target.value }))}
-                className={styles.colorPicker}
-                style={{ borderColor: newStage.color }}
-              />
+                <input 
+                 type="color" 
+                 value={newCategory.color}
+                 onChange={(e) => setNewCategory(prev => ({ ...prev, color: e.target.value }))}
+                 className={styles.colorPicker}
+                 style={{ borderColor: newCategory.color }}
+               />
             </div>
-            <button type="submit" className={styles.buttonPrimary}>Add Stage</button>
+            <div className={styles.iconWrapper}>
+               <label className={styles.colorLabel}>Icon:</label>
+               <IconPicker 
+                 selectedIcon={newCategory.icon} 
+                 onSelect={(icon) => setNewCategory(prev => ({ ...prev, icon }))}
+                 color={newCategory.color}
+               />
+            </div>
+            <button type="submit" className={styles.buttonPrimary}>Add Category</button>
           </form>
         </section>
 
-        <section className={styles.section}>
-          <h3 className={styles.sectionTitle}>Workflow Pipeline</h3>
+        <section className={styles.category}>
+          <h3 className={styles.categoryTitle}>Application Scope</h3>
           <div className={styles.listWrapper}>
             {loading ? (
-              <div className={styles.message}>Loading stages...</div>
+              <div className={styles.message}>Loading categories...</div>
             ) : (
               <div className={styles.tableWrapper}>
                 <DragDropContext onDragEnd={onDragEnd}>
-                  <Droppable droppableId="stages-table">
+                  <Droppable droppableId="categories-table">
                     {(provided) => (
                       <table 
                         className={styles.table}
@@ -153,27 +165,26 @@ const AdminStagesPage = () => {
                       >
                         <thead>
                           <tr>
-                            <th className={styles.th} style={{ width: '40px' }}></th>
-                            <th className={styles.th} style={{ width: '60px' }}>#</th>
-                            <th className={styles.th}>Stage Name</th>
-                            <th className={styles.th} style={{ width: '100px', textAlign: 'center' }}>Features</th>
-                            <th className={styles.th} style={{ width: '120px' }}>Theme</th>
-                            <th className={styles.th} style={{ width: '140px' }}>Visibility</th>
-                            <th className={styles.th} style={{ width: '80px', textAlign: 'right' }}>Actions</th>
+                             <th className={styles.th} style={{ width: '40px' }}></th>
+                             <th className={styles.th} style={{ width: '60px' }}>#</th>
+                             <th className={styles.th}>Category Name</th>
+                             <th className={styles.th} style={{ width: '160px' }}>Icon</th>
+                             <th className={styles.th} style={{ width: '100px', textAlign: 'center' }}>Features</th>
+                             <th className={styles.th} style={{ width: '120px' }}>Theme</th>
+                             <th className={styles.th} style={{ width: '80px', textAlign: 'right' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {stages.map((s, index) => (
-                            <Draggable key={s.id} draggableId={s.id} index={index}>
+                          {categories.map((c, index) => (
+                            <Draggable key={c.id} draggableId={c.id} index={index}>
                               {(provided, snapshot) => (
                                 <tr 
                                   ref={provided.innerRef}
                                   {...provided.draggableProps}
-                                  className={styles.tr}
+                                  className={`${styles.tr} ${snapshot.isDragging ? styles.isDragging : ''}`}
                                   style={{
                                     ...provided.draggableProps.style,
-                                    backgroundColor: snapshot.isDragging ? 'var(--bg-secondary)' : '#fff',
-                                    boxShadow: snapshot.isDragging ? 'var(--shadow-lg)' : 'none'
+                                    backgroundColor: snapshot.isDragging ? 'var(--bg-secondary)' : '#fff'
                                   }}
                                 >
                                   {/* Drag Handle Cell */}
@@ -194,20 +205,33 @@ const AdminStagesPage = () => {
                                   {/* Name Cell */}
                                   <td className={styles.td}>
                                     <div className={styles.nameCell}>
-                                      <div className={styles.colorDot} style={{ backgroundColor: s.color }}></div>
+                                      <CategoryIcon 
+                                        name={c.icon} 
+                                        color={c.color} 
+                                        className={styles.rowIcon} 
+                                      />
                                       <input 
                                         className={styles.itemNameInput} 
-                                        value={s.name} 
-                                        onChange={(e) => handleUpdate(s.id, { name: e.target.value })}
-                                        onBlur={() => fetchStages()}
+                                        value={c.name} 
+                                        onChange={(e) => handleUpdate(c.id, { name: e.target.value })}
+                                        onBlur={() => fetchCategories()}
                                       />
                                     </div>
+                                  </td>
+
+                                  {/* Icon Picker Cell */}
+                                  <td className={styles.td}>
+                                    <IconPicker 
+                                      selectedIcon={c.icon || 'Briefcase'} 
+                                      onSelect={(icon) => handleUpdate(c.id, { icon })}
+                                      color={c.color}
+                                    />
                                   </td>
 
                                   {/* Feature Count Cell */}
                                   <td className={styles.td} style={{ textAlign: 'center' }}>
                                     <span className={styles.countBadge}>
-                                      {s.feature_count || 0}
+                                      {c.feature_count || 0}
                                     </span>
                                   </td>
 
@@ -216,48 +240,18 @@ const AdminStagesPage = () => {
                                     <div className={styles.colorPickerWrapper}>
                                       <input 
                                         type="color" 
-                                        value={s.color}
-                                        onChange={(e) => handleUpdate(s.id, { color: e.target.value })}
+                                        value={c.color}
+                                        onChange={(e) => handleUpdate(c.id, { color: e.target.value })}
                                         className={styles.colorPickerSmall}
-                                        style={{ borderColor: s.color }}
+                                        style={{ borderColor: c.color }}
                                       />
-                                      <span className={styles.hexLabel}>{s.color.toUpperCase()}</span>
+                                      <span className={styles.hexLabel}>{c.color.toUpperCase()}</span>
                                     </div>
-                                  </td>
-
-                                  {/* Visibility Cell */}
-                                  <td className={styles.td}>
-                                    <button 
-                                      onClick={() => handleUpdate(s.id, { is_visible: s.is_visible === 1 ? 0 : 1 })} 
-                                      className={styles.visibilityToggle}
-                                      style={{ 
-                                        backgroundColor: s.is_visible === 1 ? 'var(--bg-secondary)' : 'var(--error-bg)',
-                                        color: s.is_visible === 1 ? 'var(--text-secondary)' : 'var(--error-color)'
-                                      }}
-                                    >
-                                      {s.is_visible === 1 ? (
-                                        <>
-                                          <svg className={styles.iconSmall} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                                            <circle cx="12" cy="12" r="3" />
-                                          </svg>
-                                          Visible
-                                        </>
-                                      ) : (
-                                        <>
-                                          <svg className={styles.iconSmall} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-                                            <line x1="1" y1="1" x2="23" y2="23" />
-                                          </svg>
-                                          Hidden
-                                        </>
-                                      )}
-                                    </button>
                                   </td>
 
                                   {/* Actions Cell */}
                                   <td className={styles.td} style={{ textAlign: 'right' }}>
-                                    <button onClick={() => handleDeleteAttempt(s)} className={styles.deleteBtn} title="Delete stage">
+                                    <button onClick={() => handleDeleteAttempt(c)} className={styles.deleteBtn} title="Delete category">
                                       <svg className={styles.iconSmall} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                          <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
                                       </svg>
@@ -281,9 +275,9 @@ const AdminStagesPage = () => {
         {showDeleteModal && (
           <div className={styles.modalOverlay}>
             <div className={styles.modal}>
-              <h3 className={styles.modalTitle}>Safe Stage Deletion</h3>
+              <h3 className={styles.modalTitle}>Safe Category Deletion</h3>
               <p className={styles.modalText}>
-                The stage <strong>{stageToDelete?.name}</strong> has features assigned to it. 
+                The category <strong>{categoryToDelete?.name}</strong> has features assigned to it. 
                 Where should these features be moved?
               </p>
               <select 
@@ -291,8 +285,8 @@ const AdminStagesPage = () => {
                 value={reassignTo} 
                 onChange={(e) => setReassignTo(e.target.value)}
               >
-                {stages.filter(s => s.id !== stageToDelete?.id).map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
+                {categories.filter(c => c.id !== categoryToDelete?.id).map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
               <div className={styles.modalActions}>
@@ -307,4 +301,4 @@ const AdminStagesPage = () => {
   );
 };
 
-export default AdminStagesPage;
+export default AdminCategoriesPage;

@@ -23,7 +23,7 @@ The `features` table is the central entity. Below is the current schema and fiel
 | `slug` | TEXT | URL-friendly unique title. |
 | `description` | TEXT | Detailed markdown-supported description. |
 | `status` | TEXT | Enum: `under_review`, `planned`, `in_progress`, `launched`, `declined`. |
-| `section_id` | TEXT | Foreign key to `sections` (Mobile, LMS, etc.). |
+| `category_id` | TEXT | Foreign key to `categories` (Mobile, LMS, etc.). |
 | `vote_count` | INTEGER | Total student votes (managed via SQL transactions). |
 | `impact` | INTEGER | 1-5 strategic impact score. |
 | `effort` | INTEGER | 1-5 development effort score. |
@@ -45,12 +45,12 @@ The Admin area (`/admin`) is designed for high-density strategic management.
 - **Kanban Board:** Drag-and-drop status updates using `@hello-pangea/dnd`. Cards display color-coded **Priority** badges and **Owner** names.
 - **Interactive Table:**
   - **Sorting:** Multi-column sorting (Title, Status, Votes, Impact, Effort, Priority, Owner).
-  - **Grouping:** Features are grouped by `section_name` with collapsible headers.
+  - **Grouping:** Features are grouped by `category_name` with collapsible headers.
   - **Inline Editing:** `Status` and `Priority` are editable via integrated custom `<select>` components without leaving the table.
 
 ### 2. Strategic Feature Form
-- Includes standard fields (Title, Description, Section).
-- **Strategic Section:** Dedicated inputs for Impact/Effort sliders and strategic text fields (Priority, Owner, Stakeholder).
+- Includes standard fields (Title, Description, Category).
+- **Strategic Category Section:** Dedicated inputs for Impact/Effort sliders and strategic text fields (Priority, Owner, Stakeholder).
 - Optimistic UI pattern: Dashboard updates state immediately on save/delete.
 
 ---

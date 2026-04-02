@@ -1,13 +1,18 @@
 import { Link } from 'react-router-dom';
 import VoteButton from './VoteButton';
 import StatusBadge from './StatusBadge';
+import CategoryIcon from './CategoryIcon';
 import styles from './FeatureCard.module.css';
 
 const FeatureCard = ({ feature, onClick }) => {
-  const { status, stage_slug, stage_name, stage_color } = feature;
+  const { status, stage_slug, stage_name, stage_color, category_color, category_icon } = feature;
 
   return (
-    <div className={styles.card} onClick={onClick}>
+    <div 
+      className={styles.card} 
+      onClick={onClick}
+      style={{ '--category-color': category_color }}
+    >
       <div className={styles.header}>
         <div className={styles.badgeContainer}>
             <StatusBadge 
@@ -32,14 +37,16 @@ const FeatureCard = ({ feature, onClick }) => {
       </div>
 
       <div className={styles.footer}>
-        <div className={styles.sectionInfo}>
-           {feature.section_name && (
-             <span className={styles.sectionValue}>
-               <svg className={styles.sectionIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-               </svg>
-               {feature.section_name}
+        <div className={styles.categoryInfo}>
+           {feature.category_name && (
+             <span className={styles.categoryValue}>
+               <CategoryIcon 
+                 name={category_icon} 
+                 color={category_color} 
+                 size={14} 
+                 className={styles.categoryIcon} 
+               />
+               {feature.category_name}
              </span>
            )}
         </div>

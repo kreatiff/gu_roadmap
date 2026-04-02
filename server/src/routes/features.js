@@ -7,7 +7,7 @@ export default async function featureRoutes(fastify, options) {
 
   // 1. Unified endpoint for listing and filtering features
   fastify.get('/', { preHandler: [optionalAuthenticate] }, async (request, reply) => {
-    const { status, section, search, page = 1, limit = 12 } = request.query;
+    const { status, category, search, page = 1, limit = 12 } = request.query;
     const userId = request.user ? request.user.sub : null;
     
     const pageNum = parseInt(page, 10) || 1;
@@ -15,11 +15,11 @@ export default async function featureRoutes(fastify, options) {
     const offsetNum = (pageNum - 1) * limitNum;
 
     let query = `
-      SELECT f.*, s.name as section_name, s.color as section_color,
+      SELECT f.*, c.name as category_name, c.color as category_color, c.icon as category_icon,
       st.name as stage_name, st.color as stage_color, st.slug as stage_slug,
       (SELECT 1 FROM votes v WHERE v.feature_id = f.id AND v.user_id = ?) as user_voted
       FROM features f
-      LEFT JOIN sections s ON f.section_id = s.id
+      LEFT JOIN categories c ON f.category_id = c.id
       LEFT JOIN stages st ON f.stage_id = st.id
       WHERE 1=1
     `;
@@ -30,9 +30,9 @@ export default async function featureRoutes(fastify, options) {
       params.push(status, status);
     }
 
-    if (section) {
-      query += ' AND f.section_id = ?';
-      params.push(section);
+    if (category) {
+      query += ' AND f.category_id = ?';
+      params.push(category);
     }
 
     if (search) {
@@ -72,11 +72,11 @@ export default async function featureRoutes(fastify, options) {
     const userId = request.user ? request.user.sub : null;
 
     const query = `
-      SELECT f.*, s.name as section_name, s.color as section_color,
+      SELECT f.*, c.name as category_name, c.color as category_color, c.icon as category_icon,
       st.name as stage_name, st.color as stage_color, st.slug as stage_slug,
       (SELECT 1 FROM votes v WHERE v.feature_id = f.id AND v.user_id = ?) as user_voted
       FROM features f
-      LEFT JOIN sections s ON f.section_id = s.id
+      LEFT JOIN categories c ON f.category_id = c.id
       LEFT JOIN stages st ON f.stage_id = st.id
       WHERE f.id = ?
     `;
@@ -96,7 +96,7 @@ export default async function featureRoutes(fastify, options) {
     const { 
       title, 
       description, 
-      section_id, 
+      category_id, 
       status, 
       stage_id,
       impact, 
@@ -114,7 +114,7 @@ export default async function featureRoutes(fastify, options) {
 
     const stmt = db.prepare(`
       INSERT INTO features (
-        id, title, slug, description, section_id, status, stage_id,
+        id, title, slug, description, category_id, status, stage_id,
         impact, effort, owner, key_stakeholder, priority,
         created_at, updated_at
       )
@@ -133,7 +133,7 @@ export default async function featureRoutes(fastify, options) {
       title, 
       slug, 
       description || '', 
-      section_id || null, 
+      category_id || null, 
       status || 'under_review',
       finalStageId,
       impact || 1,
@@ -154,7 +154,7 @@ export default async function featureRoutes(fastify, options) {
     const { 
       title, 
       description, 
-      section_id, 
+      category_id, 
       status, 
       impact, 
       effort,
@@ -175,7 +175,7 @@ export default async function featureRoutes(fastify, options) {
       params.push(title, slugify(title, { lower: true, strict: true }));
     }
     if (description !== undefined) { updates.push('description = ?'); params.push(description); }
-    if (section_id !== undefined) { updates.push('section_id = ?'); params.push(section_id); }
+    if (category_id !== undefined) { updates.push('category_id = ?'); params.push(category_id); }
     if (status !== undefined) { 
       updates.push('status = ?'); params.push(status); 
       // Also update stage_id if status is a known slug

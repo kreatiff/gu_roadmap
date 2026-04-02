@@ -56,7 +56,7 @@ const FeatureDetailModal = ({ featureId, onClose, onUpdate }) => {
             <div className={styles.header}>
               <div className={styles.badgeRow}>
                 <StatusBadge status={feature.status} />
-                {feature.section_name && <span className={styles.sectionLabel}>{feature.section_name}</span>}
+                {feature.category_name && <span className={styles.categoryLabel}>{feature.category_name}</span>}
               </div>
               <h1 className={styles.title}>{feature.title}</h1>
             </div>

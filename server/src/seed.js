@@ -8,50 +8,50 @@ const seed = () => {
   // 1. Clear existing data
   db.prepare('DELETE FROM votes').run();
   db.prepare('DELETE FROM features').run();
-  db.prepare('DELETE FROM sections').run();
+  db.prepare('DELETE FROM categories').run();
 
-  // 2. Insert Sections
-  const sections = [
+  // 2. Insert Categories
+  const categorySeeds = [
     { id: uuidv4(), name: 'Mobile App', description: 'Griffith App for students', color: '#e8341c', order_idx: 0 },
     { id: uuidv4(), name: 'Student Portal', description: 'Web-based student dashboard', color: '#000000', order_idx: 1 },
     { id: uuidv4(), name: 'LMS (Canvas)', description: 'Learning Management System updates', color: '#721c24', order_idx: 2 },
     { id: uuidv4(), name: 'Campus Tech', description: 'Wi-Fi, Printing, and Labs', color: '#555555', order_idx: 3 },
   ];
 
-  const insertSection = db.prepare(`
-    INSERT INTO sections (id, name, description, color, order_idx)
+  const insertCategory = db.prepare(`
+    INSERT INTO categories (id, name, description, color, order_idx)
     VALUES (@id, @name, @description, @color, @order_idx)
   `);
 
-  for (const section of sections) {
-    insertSection.run(section);
+  for (const cat of categorySeeds) {
+    insertCategory.run(cat);
   }
 
   // 3. Insert Features
   const now = new Date().toISOString();
   
-  const categories = [
-    { name: 'Mobile App', s_id: sections[0].id, items: [
+  const featureCategories = [
+    { name: 'Mobile App', s_id: categorySeeds[0].id, items: [
       'Dark Mode', 'NFC Digital ID', 'Class Timetable Widget', 'Offline Map', 'Shuttle Notifications', 'Emergency SOS button', 'Library booking integration', 'Cafeteria Pre-order'
     ]},
-    { name: 'Student Portal', s_id: sections[1].id, items: [
+    { name: 'Student Portal', s_id: categorySeeds[1].id, items: [
       'Real-time Shuttle Tracking', 'GPA Calculator', 'Enrollment Assistant', 'Financial Statement Export', 'Degree Progress Tracker', 'Direct Messaging for Tutors', 'Personalized News Feed', 'Scholarship Finder'
     ]},
-    { name: 'LMS (Canvas)', s_id: sections[2].id, items: [
+    { name: 'LMS (Canvas)', s_id: categorySeeds[2].id, items: [
       'Automated Assignment Reminders', 'Voice-to-Text for Discussions', 'Enhanced Quiz Feedback', 'Mobile Grading Interface', 'Anonymous Peer Review', 'Speedy Gradebook', 'Plagiarism Checker UI', 'Reading List Integration'
     ]},
-    { name: 'Campus Tech', s_id: sections[3].id, items: [
+    { name: 'Campus Tech', s_id: categorySeeds[3].id, items: [
       'Campus-wide WiFi 6', 'Find my Printer', 'Lab Availability Map', 'Smart Vending Machines', 'Solar Charging Stations', 'Interactive Information Kiosks', 'Locker Booking System', 'Collaborative Room Booking'
     ]}
   ];
 
   const insertFeature = db.prepare(`
     INSERT INTO features (
-      id, title, slug, description, status, section_id, vote_count, 
+      id, title, slug, description, status, category_id, vote_count, 
       impact, effort, owner, key_stakeholder, priority, 
       tags, pinned, created_at, updated_at
     )
-    VALUES (@id, @title, @slug, @description, @status, @section_id, @vote_count, @impact, @effort, @owner, @stakeholder, @priority, @tags, @pinned, @now, @now)
+    VALUES (@id, @title, @slug, @description, @status, @category_id, @vote_count, @impact, @effort, @owner, @stakeholder, @priority, @tags, @pinned, @now, @now)
   `);
 
   const owners = [
@@ -62,7 +62,7 @@ const seed = () => {
   ];
   const priorities = ['Low', 'Medium', 'High', 'Critical'];
 
-  for (const cat of categories) {
+  for (const cat of featureCategories) {
     for (const item of cat.items) {
       const id = uuidv4();
       const impact = Math.floor(Math.random() * 5) + 1;
@@ -81,7 +81,7 @@ const seed = () => {
         slug: slugify(item, { lower: true, strict: true }),
         description: `This is a highly requested feature for the ${cat.name} ecosystem. Implementing this will significantly improve user experience and student engagement.`,
         status: status,
-        section_id: cat.s_id,
+        category_id: cat.s_id,
         vote_count,
         impact,
         effort,

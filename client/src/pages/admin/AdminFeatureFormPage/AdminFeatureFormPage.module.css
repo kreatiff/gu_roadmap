@@ -189,7 +189,7 @@
   text-transform: uppercase;
 }
 
-.sectionDivider {
+.categoryDivider {
   font-size: 0.875rem;
   font-weight: 800;
   color: var(--text-muted);

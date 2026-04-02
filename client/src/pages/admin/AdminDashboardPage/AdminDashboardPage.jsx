@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '../../../components/AdminLayout';
 import { getFeatures, updateFeature } from '../../../api/features';
-import { getSections } from '../../../api/sections';
+import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useToast } from '../../../contexts/ToastContext';
@@ -12,14 +12,14 @@ import styles from './AdminDashboardPage.module.css';
 const AdminDashboardPage = () => {
   const { addToast } = useToast();
   const [features, setFeatures] = useState([]);
-  const [sections, setSections] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [stages, setStages] = useState([]);
   const [viewMode, setViewMode] = useState(() => {
     return localStorage.getItem('adminViewMode') || 'board';
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedSectionId, setSelectedSectionId] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [showAllStages, setShowAllStages] = useState(false);
 
   // Save view selection
@@ -29,13 +29,13 @@ const AdminDashboardPage = () => {
 
   const fetchFeatures = async () => {
     try {
-      const [fData, sData, stData] = await Promise.all([
+      const [fData, cData, stData] = await Promise.all([
         getFeatures({ limit: 1000 }),
-        getSections(),
+        getCategories(),
         getStages()
       ]);
       setFeatures(fData.data || []);
-      setSections(sData);
+      setCategories(cData);
       setStages(stData);
     } finally {
       setLoading(false);
@@ -48,14 +48,14 @@ const AdminDashboardPage = () => {
         !searchTerm || 
         (f.title && f.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (f.owner && f.owner.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (f.section_name && f.section_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (f.category_name && f.category_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (Array.isArray(f.tags) && f.tags.join(' ').toLowerCase().includes(searchTerm.toLowerCase()));
       
-      const matchesSection = !selectedSectionId || f.section_id === selectedSectionId;
+      const matchesCategory = !selectedCategoryId || f.category_id === selectedCategoryId;
 
-      return matchesSearch && matchesSection;
+      return matchesSearch && matchesCategory;
     });
-  }, [features, searchTerm, selectedSectionId]);
+  }, [features, searchTerm, selectedCategoryId]);
 
   const columnsData = useMemo(() => {
     const map = {};
@@ -201,12 +201,12 @@ const AdminDashboardPage = () => {
               <span className={styles.filterLabel}>Filter:</span>
                <select 
                  className={styles.select} 
-                 value={selectedSectionId}
-                 onChange={(e) => setSelectedSectionId(e.target.value)}
+                 value={selectedCategoryId}
+                 onChange={(e) => setSelectedCategoryId(e.target.value)}
                >
                  <option value="">All Categories</option>
-                 {sections.map(s => (
-                   <option key={s.id} value={s.id}>{s.name}</option>
+                 {categories.map(c => (
+                   <option key={c.id} value={c.id}>{c.name}</option>
                  ))}
                </select>
               <button className={styles.iconBtn}>
@@ -221,14 +221,14 @@ const AdminDashboardPage = () => {
          <div className={styles.kanbanContainer}>
            {loading ? (
              <div className={styles.message}>Loading roadmap board...</div>
-           ) : filteredFeatures.length === 0 && (searchTerm || selectedSectionId) ? (
+           ) : filteredFeatures.length === 0 && (searchTerm || selectedCategoryId) ? (
              <div className={styles.emptyContainer}>
                 <div className={styles.emptyIcon}>🔍</div>
                 <h3 className={styles.emptyTitle}>No matching features found</h3>
                 <p className={styles.emptyText}>Adjust your filters or search terms to find what you're looking for.</p>
                 <button 
                   className={styles.clearFiltersBtn}
-                  onClick={() => { setSearchTerm(''); setSelectedSectionId(''); }}
+                  onClick={() => { setSearchTerm(''); setSelectedCategoryId(''); }}
                 >
                   Clear all filters
                 </button>
@@ -295,7 +295,7 @@ const AdminDashboardPage = () => {
                                       }
                                     }}>
                                       <div className={styles.cardHeader}>
-                                         <span className={styles.cardTag}>{feat.section_name || 'GENERAL'}</span>
+                                         <span className={styles.cardTag}>{feat.category_name || 'GENERAL'}</span>
                                          <div className={styles.cardHeaderRight}>
                                            <span className={`${styles.priorityBadge} ${priorityClasses[feat.priority] || ''}`}>
                                              {feat.priority}

@@ -11,10 +11,46 @@ const db = new Database(DB_PATH);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
+// ── Migration: Renames before Schema ───────────────────────────────────────────
+// This ensures that existing data is preserved before CREATE TABLE IF NOT EXISTS runs.
+try {
+  const tableExists = (name) => db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(name);
+  const columnExists = (table, col) => {
+    try {
+      const info = db.prepare(`PRAGMA table_info(${table})`).all();
+      return info.some(c => c.name === col);
+    } catch (e) { return false; }
+  };
+
+  // 1. Rename sections table to categories
+  if (tableExists('sections')) {
+    if (!tableExists('categories')) {
+      db.exec("ALTER TABLE sections RENAME TO categories");
+      console.log('Renamed table sections to categories');
+    } else {
+      // Both exist (likely due to a previous partially failed migration)
+      db.exec(`
+        INSERT OR IGNORE INTO categories (id, name, description, color, order_idx)
+        SELECT id, name, description, color, order_idx FROM sections
+      `);
+      db.exec("DROP TABLE sections");
+      console.log('Merged data from sections to categories and dropped sections');
+    }
+  }
+
+  // 2. Rename section_id column to category_id in features
+  if (tableExists('features') && columnExists('features', 'section_id')) {
+    db.exec("ALTER TABLE features RENAME COLUMN section_id TO category_id");
+    console.log('Renamed features.section_id to category_id');
+  }
+} catch (e) {
+  console.error('Initial Rename Migration Error:', e);
+}
+
 // ── Schema ──────────────────────────────────────────────────────────────────────
 
 db.exec(`
-  CREATE TABLE IF NOT EXISTS sections (
+  CREATE TABLE IF NOT EXISTS categories (
     id          TEXT PRIMARY KEY,
     name        TEXT NOT NULL,
     description TEXT DEFAULT '',
@@ -38,7 +74,7 @@ db.exec(`
     description TEXT DEFAULT '',
     status      TEXT DEFAULT 'under_review'
                 CHECK(status IN ('under_review', 'planned', 'in_progress', 'launched', 'declined')),
-    section_id  TEXT REFERENCES sections(id) ON DELETE SET NULL,
+    category_id TEXT REFERENCES categories(id) ON DELETE SET NULL,
     vote_count  INTEGER DEFAULT 0,
     impact      INTEGER DEFAULT 1,
     effort      INTEGER DEFAULT 1,
@@ -78,6 +114,13 @@ const addColumnToStages = (col, type, def) => {
   } catch (e) {}
 };
 addColumnToStages('is_visible', 'INTEGER', 1);
+// Migration for categories table
+const addColumnToCategories = (col, type, def) => {
+  try {
+    db.prepare(`ALTER TABLE categories ADD COLUMN ${col} ${type} DEFAULT ${def}`).run();
+  } catch (e) {}
+};
+addColumnToCategories('icon', 'TEXT', "'briefcase'");
 
 // ── Initial Migration: Seed Stages and Map Features ──────────────────────────
 const seedStages = [

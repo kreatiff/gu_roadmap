@@ -33,9 +33,9 @@ Session tokens: @fastify/jwt + @fastify/cookie
 Styling: Plain CSS with BEM/CSS Variables (or CSS Modules, Vite supports them out of the box).
 
 Data Models (SQLite Schema)
-features: id (TEXT UUID), title (TEXT), slug (TEXT UNIQUE), description (TEXT), status (TEXT), section_id (TEXT NULL), vote_count (INTEGER DEFAULT 0), tags (TEXT JSON), pinned (INTEGER DEFAULT 0), created_at (TEXT), updated_at (TEXT).
+features: id (TEXT UUID), title (TEXT), slug (TEXT UNIQUE), description (TEXT), status (TEXT), category_id (TEXT NULL), vote_count (INTEGER DEFAULT 0), tags (TEXT JSON), pinned (INTEGER DEFAULT 0), created_at (TEXT), updated_at (TEXT).
 
-sections: id (TEXT UUID), name (TEXT), description (TEXT), color (TEXT), order_idx (INTEGER).
+categories: id (TEXT UUID), name (TEXT), description (TEXT), color (TEXT), order_idx (INTEGER).
 
 votes: user_id (TEXT - SHA-256 hashed sub), feature_id (TEXT). Primary Key: (user_id, feature_id) (Enforces 1 vote per user natively).
 
@@ -49,7 +49,7 @@ GET /api/features public List + filter; adds userVoted if valid cookie present
 POST /api/features/:id/vote user Cast vote (Uses SQL Transaction)
 DELETE /api/features/:id/vote user Remove vote (Uses SQL Transaction)
 CRUD /api/features/_ admin Create, Update, Delete (cascades votes via SQL FOREIGN KEY)
-CRUD /api/sections/_ admin Section management
+CRUD /api/categories/_ admin Category management
 Complete File Structure (Updated)
 Code snippet
 ├── package.json
@@ -66,7 +66,7 @@ Code snippet
 │ └── routes/
 │ ├── auth.js # Sets/clears cookies
 │ ├── features.js # SQL queries
-│ ├── sections.js
+│ ├── categories.js
 │ └── votes.js # SQL Transactions
 │ └── data/
 │ └── .gitkeep # database.sqlite will be created here
@@ -120,7 +120,7 @@ Initialize better-sqlite3 at server/data/database.sqlite.
 
 CRITICAL: Execute db.pragma('journal_mode = WAL'); immediately after connection to enable high-concurrency reads/writes.
 
-Execute CREATE TABLE IF NOT EXISTS statements for features, sections, and votes. Ensure votes.feature_id has REFERENCES features(id) ON DELETE CASCADE.
+Execute CREATE TABLE IF NOT EXISTS statements for features, categories, and votes. Ensure votes.feature_id has REFERENCES features(id) ON DELETE CASCADE.
 
 Phase 2 — Secure Backend Auth & API
 Plugins (server/src/index.js):

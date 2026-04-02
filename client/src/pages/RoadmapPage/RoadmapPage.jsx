@@ -2,14 +2,14 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
 import FeatureCard from '../../components/FeatureCard';
+import CategoryDropdown from '../../components/CategoryDropdown';
 import { getFeatures } from '../../api/features';
-import { getSections } from '../../api/sections';
+import { getCategories } from '../../api/categories';
 import { getStages } from '../../api/stages';
 import { useDebounce } from '../../hooks/useDebounce';
 import { useAuth } from '../../contexts/AuthContext';
 import EmptyState from '../../components/EmptyState';
 import FeatureDetailModal from '../../components/FeatureDetailModal';
-import PriorityMatrix from '../../components/PriorityMatrix';
 import styles from './RoadmapPage.module.css';
 
 const RoadmapPage = () => {
@@ -18,11 +18,10 @@ const RoadmapPage = () => {
   const featureId = searchParams.get('feature');
 
   const [features, setFeatures] = useState([]);
-  const [sections, setSections] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState({ status: '', section: '', search: '' });
-  const [viewMode, setViewMode] = useState('grid');
+  const [filter, setFilter] = useState({ status: '', category: '', search: '' });
   
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -35,8 +34,8 @@ const RoadmapPage = () => {
   useEffect(() => {
     const fetchMetadata = async () => {
       try {
-        const [sData, stData] = await Promise.all([getSections(), getStages()]);
-        setSections(sData);
+        const [cData, stData] = await Promise.all([getCategories(), getStages()]);
+        setCategories(cData);
         setStages(stData);
       } catch (err) {
         console.error('Failed to fetch metadata:', err);
@@ -52,7 +51,7 @@ const RoadmapPage = () => {
 
       const fRes = await getFeatures({ 
         status: filter.status, 
-        section: filter.section, 
+        category: filter.category, 
         search: debouncedSearch,
         page: pageNum,
         limit: 12
@@ -72,7 +71,7 @@ const RoadmapPage = () => {
       setLoading(false);
       setIsFetchingMore(false);
     }
-  }, [filter.status, filter.section, debouncedSearch]);
+  }, [filter.status, filter.category, debouncedSearch]);
 
   // Triggered on filter changes
   useEffect(() => {
@@ -97,7 +96,7 @@ const RoadmapPage = () => {
   }, [loading, isFetchingMore, hasMore, page, fetchFeatures]);
 
   const statuses = [
-    { id: '', label: 'All Projects' },
+    { id: '', label: 'All Stages' },
     ...stages.filter(s => s.is_visible === 1).map(s => ({ id: s.slug, label: s.name }))
   ];
 
@@ -142,7 +141,7 @@ const RoadmapPage = () => {
           </div>
         ) : (
           <>
-            {/* Search & Section hybrid */}
+            {/* Search & Category hybrid */}
             <div className={styles.filterSection}>
               <div className={styles.inputGroup}>
                 <input 
@@ -153,75 +152,33 @@ const RoadmapPage = () => {
                   className={styles.searchInput}
                 />
                 
-                <div className={styles.dropdownWrapper}>
-                  <select 
-                    value={filter.section}
-                    onChange={(e) => setFilter(prev => ({ ...prev, section: e.target.value }))}
-                    className={styles.sectionSelect}
-                  >
-                    <option value="">All Categories</option>
-                    {sections.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                  <div className={styles.dropdownArrow}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M6 9l6 6 6-6"/>
-                    </svg>
-                  </div>
-                </div>
-
-                <div className={styles.viewSwitcher}>
-                  <button 
-                    onClick={() => setViewMode('grid')}
-                    className={`${styles.viewBtn} ${viewMode === 'grid' ? styles.viewBtnActive : ''}`}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                    Grid
-                  </button>
-                  <button 
-                    onClick={() => setViewMode('matrix')}
-                    className={`${styles.viewBtn} ${viewMode === 'matrix' ? styles.viewBtnActive : ''}`}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"></path><path d="M7 12h10"></path><path d="M12 7v10"></path></svg>
-                    Priority Matrix
-                  </button>
-                </div>
+                <CategoryDropdown 
+                  categories={categories} 
+                  selectedId={filter.category} 
+                  onSelect={(id) => setFilter(prev => ({ ...prev, category: id }))} 
+                />
               </div>
             </div>
 
-            {/* Feature Grid or Matrix */}
             {loading && features.length === 0 ? (
               <div className={styles.infoMessage}>Loading modern roadmap...</div>
             ) : features.length > 0 ? (
-              viewMode === 'grid' ? (
-                <div className={`${styles.grid} ${loading ? styles.gridLoading : ''}`}>
-                  {features.map((f, index) => {
-                    const isLast = index === features.length - 1;
-                    return (
-                      <div ref={isLast ? lastFeatureElementRef : null} key={f.id}>
-                        <FeatureCard 
-                          feature={f} 
-                          onClick={() => {
-                            searchParams.set('feature', f.id);
-                            setSearchParams(searchParams);
-                          }}
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <PriorityMatrix 
-                  features={features.filter(f => f.impact && f.effort)} 
-                  onFeatureClick={(f) => {
-                    searchParams.set('feature', f.id);
-                    setSearchParams(searchParams);
-                  }}
-                />
-              )
+              <div className={`${styles.grid} ${loading ? styles.gridLoading : ''}`}>
+                {features.map((f, index) => {
+                  const isLast = index === features.length - 1;
+                  return (
+                    <div ref={isLast ? lastFeatureElementRef : null} key={f.id}>
+                      <FeatureCard 
+                        feature={f} 
+                        onClick={() => {
+                          searchParams.set('feature', f.id);
+                          setSearchParams(searchParams);
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
               <EmptyState 
                 title="No roadmap items found" 

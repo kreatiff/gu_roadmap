@@ -104,7 +104,7 @@
   max-width: 240px;
 }
 
-.sectionSelect {
+.categorySelect {
   appearance: none;
   padding: 12px 40px 12px 16px;
   border-radius: var(--radius-md);

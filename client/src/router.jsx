@@ -4,8 +4,9 @@ import { useAuth } from './contexts/AuthContext';
 import RoadmapPage from './pages/RoadmapPage/RoadmapPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage/AdminDashboardPage';
 import AdminFeatureFormPage from './pages/admin/AdminFeatureFormPage/AdminFeatureFormPage';
-import AdminSectionsPage from './pages/admin/AdminSectionsPage/AdminSectionsPage';
+import AdminCategoriesPage from './pages/admin/AdminCategoriesPage/AdminCategoriesPage';
 import AdminStagesPage from './pages/admin/AdminStagesPage/AdminStagesPage';
+import AdminMatrixPage from './pages/admin/AdminMatrixPage/AdminMatrixPage';
 import LoginSplashPage from './pages/LoginSplashPage/LoginSplashPage';
 import styles from './AppRouter.module.css';
 
@@ -56,6 +57,12 @@ const AppRouter = () => {
             <AdminDashboardPage />
           </ProtectedRoute>
         } />
+
+        <Route path="/admin/matrix" element={
+          <ProtectedRoute adminOnly>
+            <AdminMatrixPage />
+          </ProtectedRoute>
+        } />
         
         <Route path="/admin/features/new" element={
           <ProtectedRoute adminOnly>
@@ -69,9 +76,9 @@ const AppRouter = () => {
           </ProtectedRoute>
         } />
 
-        <Route path="/admin/sections" element={
+        <Route path="/admin/categories" element={
           <ProtectedRoute adminOnly>
-            <AdminSectionsPage />
+            <AdminCategoriesPage />
           </ProtectedRoute>
         } />
 

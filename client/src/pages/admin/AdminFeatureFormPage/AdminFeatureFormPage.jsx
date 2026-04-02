@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import AdminLayout from '../../../components/AdminLayout';
 import { getFeatures, createFeature, updateFeature } from '../../../api/features';
-import { getSections } from '../../../api/sections';
+import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { useToast } from '../../../contexts/ToastContext';
 import styles from './AdminFeatureFormPage.module.css';
@@ -13,13 +13,13 @@ const AdminFeatureFormPage = () => {
   const isEdit = !!id;
   const { addToast } = useToast();
 
-  const [sections, setSections] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(isEdit);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    section_id: '',
+    category_id: '',
     status: 'under_review',
     stage_id: '',
     pinned: 0,
@@ -33,11 +33,11 @@ const AdminFeatureFormPage = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [sData, stData] = await Promise.all([
-        getSections(),
+      const [cData, stData] = await Promise.all([
+        getCategories(),
         getStages()
       ]);
-      setSections(sData);
+      setCategories(cData);
       setStages(stData);
 
       if (isEdit) {
@@ -49,7 +49,7 @@ const AdminFeatureFormPage = () => {
             setFormData({
               title: feature.title,
               description: feature.description,
-              section_id: feature.section_id || '',
+              category_id: feature.category_id || '',
               status: feature.status,
               stage_id: feature.stage_id || '',
               pinned: feature.pinned,
@@ -147,15 +147,15 @@ const AdminFeatureFormPage = () => {
             </div>
 
             <div className={styles.field}>
-              <label className={styles.label}>Application Section</label>
+              <label className={styles.label}>Application Category</label>
               <select 
-                value={formData.section_id} 
-                onChange={(e) => setFormData(prev => ({ ...prev, section_id: e.target.value }))}
+                value={formData.category_id} 
+                onChange={(e) => setFormData(prev => ({ ...prev, category_id: e.target.value }))}
                 className={styles.select}
               >
-                <option value="">(No Section Assigned)</option>
-                {sections.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
+                <option value="">(No Category Assigned)</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
             </div>
@@ -199,7 +199,7 @@ const AdminFeatureFormPage = () => {
             </div>
           </div>
 
-          <div className={styles.sectionDivider}>Strategic Internal Data (Admin Only)</div>
+          <div className={styles.categoryDivider}>Strategic Internal Data (Admin Only)</div>
 
           <div className={styles.row}>
             <div className={styles.field}>

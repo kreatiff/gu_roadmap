@@ -103,15 +103,15 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField }) => {
     const groups = {};
     
     features.forEach(feat => {
-      const sectionName = feat.section_name || 'Uncategorized';
-      if (!groups[sectionName]) {
-        groups[sectionName] = {
-          name: sectionName,
-          color: feat.section_color || '#94a3b8',
+      const categoryName = feat.category_name || 'Uncategorized';
+      if (!groups[categoryName]) {
+        groups[categoryName] = {
+          name: categoryName,
+          color: feat.category_color || '#94a3b8',
           items: []
         };
       }
-      groups[sectionName].items.push(feat);
+      groups[categoryName].items.push(feat);
     });
     
     Object.values(groups).forEach(group => {
