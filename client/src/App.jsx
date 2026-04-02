@@ -1,4 +1,5 @@
 import AppRouter from './router';
+import PasswordGate from './components/PasswordGate';
 import './App.css';
 
 /**
@@ -8,7 +9,9 @@ import './App.css';
  */
 function App() {
   return (
-    <AppRouter />
+    <PasswordGate>
+      <AppRouter />
+    </PasswordGate>
   );
 }
 
