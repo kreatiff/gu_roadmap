@@ -1,0 +1,28 @@
+# Dependencies — rebuilt inside Docker
+node_modules
+server/node_modules
+client/node_modules
+
+# Secrets — never bake into image
+.env
+.env.*
+!.env.example
+
+# Version control
+.git
+.gitignore
+
+# Frontend build artifacts — rebuilt in Dockerfile Stage 1
+client/dist
+
+# Database files — persisted via Docker named volume, not baked in
+server/data/*.sqlite
+server/data/*.sqlite-shm
+server/data/*.sqlite-wal
+
+# Documentation
+docs
+*.md
+
+# CI/CD config (not needed inside container)
+.github
