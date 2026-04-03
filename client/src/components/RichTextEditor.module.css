@@ -1,0 +1,130 @@
+.editorWrapper {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.editorWrapper:focus-within {
+  border-color: var(--gu-red);
+  box-shadow: 0 0 0 4px rgba(232, 52, 28, 0.1);
+}
+
+.menubar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 8px;
+  background: var(--bg-hover);
+  border-bottom: 1px solid var(--border-color);
+  gap: 4px;
+}
+
+.menuBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.menuBtn:hover:not(:disabled) {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.menuBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.isActive {
+  background: var(--gu-red);
+  color: white;
+}
+
+.isActive:hover {
+  background: var(--gu-red-hover);
+  color: white;
+}
+
+.divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 4px;
+}
+
+.editorContent {
+  padding: 12px 16px;
+  min-height: 180px;
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+.editorContent :global(.ProseMirror) {
+  outline: none;
+  min-height: 180px;
+}
+
+.editorContent :global(.ProseMirror p.is-editor-empty:first-child::before) {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--text-muted);
+  pointer-events: none;
+  height: 0;
+}
+
+.editorContent :global(.ProseMirror ul),
+.editorContent :global(.ProseMirror ol) {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.editorContent :global(.ProseMirror blockquote) {
+  border-left: 3px solid var(--border-color);
+  padding-left: 1rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin: 0.5rem 0;
+}
+
+.editorContent :global(.ProseMirror code) {
+  background: var(--bg-hover);
+  color: var(--gu-red);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.9em;
+}
+
+.editorContent :global(.ProseMirror pre) {
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 1rem 0;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+.editorContent :global(.ProseMirror pre code) {
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: block;
+  font-family: inherit;
+}
+
+.editorLink {
+  color: var(--gu-red);
+  text-decoration: underline;
+  cursor: pointer;
+}

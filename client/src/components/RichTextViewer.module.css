@@ -1,0 +1,85 @@
+.viewer {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.viewer :global(h3) {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  color: var(--text-primary);
+}
+
+.viewer :global(h4) {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+.viewer :global(p) {
+  margin-bottom: 0.75rem;
+}
+
+.viewer :global(ul), .viewer :global(ol) {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.viewer :global(li) {
+  margin-bottom: 0.25rem;
+}
+
+.viewer :global(blockquote) {
+  border-left: 4px solid var(--border-color);
+  padding-left: 1rem;
+  margin-left: 0;
+  margin-right: 0;
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.viewer :global(code) {
+  background: var(--bg-hover);
+  color: var(--gu-red);
+  padding: 0.2em 0.4em;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.85em;
+  border: 1px solid var(--border-color);
+}
+
+.viewer :global(pre) {
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.viewer :global(pre code) {
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: block;
+}
+
+.viewer :global(a) {
+  color: var(--gu-red);
+  text-decoration: underline;
+  transition: color 0.2s ease;
+}
+
+.viewer :global(a:hover) {
+  color: var(--gu-red-hover);
+}
+
+.plainText {
+  white-space: pre-wrap;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
