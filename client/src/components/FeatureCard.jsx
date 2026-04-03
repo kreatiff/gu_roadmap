@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import VoteButton from './VoteButton';
 import StatusBadge from './StatusBadge';
 import CategoryIcon from './CategoryIcon';
+import { getPlainTextFromRichText } from './RichTextViewer';
 import styles from './FeatureCard.module.css';
 
 const FeatureCard = ({ feature, onClick }) => {
@@ -40,7 +41,7 @@ const FeatureCard = ({ feature, onClick }) => {
       <div className={styles.body}>
         <h2 className={styles.title}>{feature.title}</h2>
         <p className={styles.description}>
-          {feature.description || 'No description provided for this roadmap feature.'}
+          {getPlainTextFromRichText(feature.description) || 'No description provided for this roadmap feature.'}
         </p>
       </div>
 

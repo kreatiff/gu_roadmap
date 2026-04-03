@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import AdminLayout from '../../../components/AdminLayout';
+import RichTextEditor from '../../../components/RichTextEditor';
 import { getFeatures, createFeature, updateFeature } from '../../../api/features';
 import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
@@ -138,13 +139,10 @@ const AdminFeatureFormPage = () => {
 
           <div className={styles.field}>
             <label className={styles.label}>Description</label>
-            <textarea 
+            <RichTextEditor 
               value={formData.description} 
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              className={styles.input}
-              style={{ height: '180px', resize: 'vertical' }}
+              onChange={(val) => setFormData(prev => ({ ...prev, description: val }))}
               placeholder="Describe the problem this feature solves and who it is for..."
-              required
             />
           </div>
 

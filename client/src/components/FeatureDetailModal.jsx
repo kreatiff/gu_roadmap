@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getFeatureById } from '../api/features';
 import VoteButton from './VoteButton';
 import StatusBadge from './StatusBadge';
+import RichTextViewer from './RichTextViewer';
 import { useAuth } from '../contexts/AuthContext';
 import styles from './FeatureDetailModal.module.css';
 
@@ -63,9 +64,10 @@ const FeatureDetailModal = ({ featureId, onClose, onUpdate }) => {
 
             <div className={styles.content}>
                <div className={styles.mainInfo}>
-                  <p className={styles.description}>
-                    {feature.description || 'No detailed description available for this request.'}
-                  </p>
+                  <RichTextViewer 
+                    content={feature.description || 'No detailed description available for this request.'} 
+                    className={styles.description}
+                  />
                   
                   {feature.tags && feature.tags.length > 0 && (
                     <div className={styles.tags}>
