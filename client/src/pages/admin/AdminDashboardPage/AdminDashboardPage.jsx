@@ -474,25 +474,27 @@ const AdminDashboardPage = () => {
                                       </div>
                                       <h4 className={styles.cardTitle}>{feat.title}</h4>
                                       {feat.owner && <div className={styles.cardOwner}>Owner: {feat.owner}</div>}
-                                      <div className={styles.cardFooter}>
-                                        <div className={styles.voteBadge}>
-                                          <svg className={styles.voteIcon} viewBox="0 0 24 24" fill="currentColor">
-                                            <path d="M12 5l-8 8h16l-8-8z" />
-                                          </svg>
-                                          {feat.vote_count} votes
+                                        <div className={styles.cardFooter}>
+                                           <div className={styles.cardUpdatedDate}>
+                                             Updated {new Date(feat.updated_at).toLocaleDateString('en-AU', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                           </div>
+                                           <div className={styles.cardMetrics}>
+                                             <div className={styles.voteBadge}>
+                                                <svg className={styles.voteIcon} viewBox="0 0 24 24" fill="currentColor">
+                                                   <path d="M12 5l-8 8h16l-8-8z" />
+                                                </svg>
+                                                {feat.vote_count} votes
+                                             </div>
+                                             <div className={`${styles.gravityBadge} ${
+                                               (feat.gravity_score || 0) >= 60 ? styles.gravityHigh : 
+                                               (feat.gravity_score || 0) >= 30 ? styles.gravityMid : 
+                                               styles.gravityLow
+                                             }`}>
+                                               <span className={styles.gravityIcon}>⚡</span>
+                                               {feat.gravity_score || 0}
+                                             </div>
+                                           </div>
                                         </div>
-                                        <div className={`${styles.gravityBadge} ${
-                                          (feat.gravity_score || 0) >= 60 ? styles.gravityHigh :
-                                          (feat.gravity_score || 0) >= 30 ? styles.gravityMid :
-                                          styles.gravityLow
-                                        }`}>
-                                          <span className={styles.gravityIcon}>⚡</span>
-                                          {feat.gravity_score || 0}
-                                        </div>
-                                      </div>
-                                      <div className={styles.cardUpdatedDate}>
-                                        Updated {new Date(feat.updated_at).toLocaleDateString('en-AU', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                      </div>
                                     </div>
                                   </div>
                                 )}
