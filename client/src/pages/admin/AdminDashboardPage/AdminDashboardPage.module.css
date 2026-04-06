@@ -432,3 +432,85 @@
   color: var(--gu-gold);
   font-size: 0.875rem;
 }
+
+/* ── Filter bar additions ─────────────────────────────────────────── */
+
+/* Thin vertical divider between view toggles and filter dropdowns */
+.filterDivider {
+  width: 1px;
+  height: 24px;
+  background-color: var(--border-color);
+  flex-shrink: 0;
+  margin: 0 2px;
+}
+
+/* Result count label */
+.resultCount {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+  margin-left: var(--space-2);
+}
+
+/* ── Active filter chips row ──────────────────────────────────────── */
+
+.activeFiltersRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: calc(-1 * var(--space-6));
+  margin-bottom: var(--space-6);
+}
+
+.filterChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px 4px 12px;
+  background-color: #eef2ff;
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.filterChipRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: #6366f1;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 2px;
+  opacity: 0.65;
+  transition: opacity 0.15s;
+  margin-left: 2px;
+}
+
+.filterChipRemove:hover {
+  opacity: 1;
+}
+
+.clearAllBtn {
+  background: none;
+  border: none;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s;
+  white-space: nowrap;
+}
+
+.clearAllBtn:hover {
+  color: var(--gu-red);
+}
