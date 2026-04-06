@@ -2,6 +2,8 @@ import { useEffect, useState, useMemo } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import AdminLayout from '../../../components/AdminLayout';
 import RichTextEditor from '../../../components/RichTextEditor';
+import FeatureDetailView from '../../../components/FeatureDetailView';
+import FeatureDetailModal from '../../../components/FeatureDetailModal';
 import { getFeatures, createFeature, updateFeature } from '../../../api/features';
 import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
@@ -18,6 +20,7 @@ const AdminFeatureFormPage = () => {
   const [stages, setStages] = useState([]);
   const [maxVotes, setMaxVotes] = useState(0);
   const [loading, setLoading] = useState(isEdit);
+  const [showPreview, setShowPreview] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -107,6 +110,25 @@ const AdminFeatureFormPage = () => {
     return Math.min(score, 100);
   }, [formData.impact, formData.effort, formData.priority, formData.vote_count, maxVotes]);
 
+  const previewFeature = useMemo(() => {
+    const category = categories.find(c => c.id === formData.category_id);
+    const stage = stages.find(s => s.id === formData.stage_id);
+    
+    return {
+      title: formData.title || 'Feature Title Preview',
+      description: formData.description,
+      category_name: category ? category.name : 'Uncategorized',
+      category_icon: category ? category.icon : 'package',
+      category_color: category ? category.color : '#64748b',
+      stage_id: formData.stage_id,
+      stage_name: stage ? stage.name : 'Unknown Status',
+      stage_color: stage ? stage.color : '#94a3b8',
+      vote_count: formData.vote_count || 0,
+      user_voted: false,
+      tags: formData.tags
+    };
+  }, [formData, categories, stages]);
+
   if (loading) return (
     <AdminLayout>
       <div className={styles.message}>Loading editor...</div>
@@ -115,13 +137,34 @@ const AdminFeatureFormPage = () => {
 
   return (
     <AdminLayout>
+      {showPreview && (
+        <FeatureDetailModal 
+          feature={previewFeature} 
+          onClose={() => setShowPreview(false)} 
+        />
+      )}
+
       <div className={styles.content}>
         <header className={styles.header}>
           <div>
             <div className={styles.breadcrumb}>ADMIN › {isEdit ? 'EDIT FEATURE' : 'NEW FEATURE'}</div>
             <h1 className={styles.h1}>{formData.title || (isEdit ? 'Editing Feature' : 'Create New Feature')}</h1>
           </div>
-          <Link to="/admin" className={styles.backBtn}>Cancel & Exit</Link>
+          
+          <div className={styles.headerActions}>
+            <button 
+              type="button" 
+              className={styles.previewBtn}
+              onClick={() => setShowPreview(true)}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={styles.icon}>
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+              Live Preview
+            </button>
+            <Link to="/admin" className={styles.backBtn}>Cancel & Exit</Link>
+          </div>
         </header>
 
         <form onSubmit={handleSubmit} className={styles.form}>
