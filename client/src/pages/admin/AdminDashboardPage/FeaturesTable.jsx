@@ -99,17 +99,13 @@ const SortHeader = ({ label, sortKey, width, textAlign = 'left', sortConfig, onS
   );
 };
 
-const FeaturesTable = ({ features, stages, onUpdateFeatureField, groupBy = 'category' }) => {
+const FeaturesTable = ({ features, stages, onUpdateFeatureField, groupBy = 'category', sortBy = 'default', sortDir = 'desc', onSort }) => {
 
   const [expandedGroups, setExpandedGroups] = useState({});
-  const [sortConfig, setSortConfig] = useState({ key: 'gravity_score', direction: 'desc' });
+  const sortConfig = { key: sortBy, direction: sortDir };
 
   const handleSort = (key) => {
-    let direction = 'asc';
-    if (sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
+    if (onSort) onSort(key);
   };
 
   // Group and sort features
@@ -151,29 +147,10 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, groupBy = 'cate
       return String(a.order).localeCompare(String(b.order));
     });
     
-    sortedGroups.forEach(group => {
-
-      group.items.sort((a, b) => {
-        let valA = a[sortConfig.key];
-        let valB = b[sortConfig.key];
-        
-        if (sortConfig.key === 'vote_count' || sortConfig.key === 'gravity_score' || sortConfig.key === 'impact' || sortConfig.key === 'effort') {
-          valA = Number(valA);
-          valB = Number(valB);
-        } else if (sortConfig.key === 'updated_at') {
-          valA = new Date(valA || 0).getTime();
-          valB = new Date(valB || 0).getTime();
-        }
-
-        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
-
-        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0;
-      });
-    });
+    // Global sort takes care of item ordering; we just rely on parent array stability
     
     return sortedGroups;
-  }, [features, sortConfig, groupBy, stages]);
+  }, [features, sortBy, sortDir, groupBy, stages]);
 
 
   const toggleGroup = (groupName) => {

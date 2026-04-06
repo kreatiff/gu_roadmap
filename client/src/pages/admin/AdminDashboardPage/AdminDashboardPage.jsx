@@ -6,6 +6,7 @@ import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useToast } from '../../../contexts/ToastContext';
+import { useRoadmapFilters } from '../../../hooks/useRoadmapFilters';
 import FeaturesTable from './FeaturesTable';
 import styles from './AdminDashboardPage.module.css';
 
@@ -14,23 +15,22 @@ const AdminDashboardPage = () => {
   const [features, setFeatures] = useState([]);
   const [categories, setCategories] = useState([]);
   const [stages, setStages] = useState([]);
-  const [viewMode, setViewMode] = useState(() => {
-    return localStorage.getItem('adminViewMode') || 'board';
-  });
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategoryId, setSelectedCategoryId] = useState('');
-  const [selectedStatusId, setSelectedStatusId] = useState('');
-  const [showAllStages, setShowAllStages] = useState(false);
-  const [sortBy, setSortBy] = useState('default');
-  const [groupBy, setGroupBy] = useState('category');
-
-
-
-  // Save view selection
-  useEffect(() => {
-    localStorage.setItem('adminViewMode', viewMode);
-  }, [viewMode]);
+  
+  const {
+    viewMode,
+    searchTerm,
+    debouncedSearchTerm,
+    sortBy,
+    sortDir,
+    showAllStages,
+    groupBy,
+    selectedCategoryIds,
+    selectedStatusIds,
+    updateFilters,
+    clearAllFilters,
+    toggleSort
+  } = useRoadmapFilters();
 
   const fetchFeatures = async () => {
     try {
@@ -49,48 +49,55 @@ const AdminDashboardPage = () => {
 
   const filteredFeatures = useMemo(() => {
     let result = features.filter(f => {
+      const searchLower = debouncedSearchTerm.toLowerCase();
       const matchesSearch = 
-        !searchTerm || 
-        (f.title && f.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (f.owner && f.owner.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (f.category_name && f.category_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (Array.isArray(f.tags) && f.tags.join(' ').toLowerCase().includes(searchTerm.toLowerCase()));
+        !searchLower || 
+        (f.title && f.title.toLowerCase().includes(searchLower)) ||
+        (f.owner && f.owner.toLowerCase().includes(searchLower)) ||
+        (f.category_name && f.category_name.toLowerCase().includes(searchLower)) ||
+        (Array.isArray(f.tags) && f.tags.join(' ').toLowerCase().includes(searchLower));
       
-      const matchesCategory = !selectedCategoryId || f.category_id === selectedCategoryId;
+      const matchesCategory = selectedCategoryIds.length === 0 || selectedCategoryIds.includes(f.category_id?.toString());
       
-      let matchesStatus = true;
-      if (selectedStatusId === 'draft') {
-        matchesStatus = f.is_published === 0;
-      } else if (selectedStatusId) {
-        matchesStatus = f.stage_id === selectedStatusId;
-      }
+      const matchesStatus = selectedStatusIds.length === 0 || 
+        (selectedStatusIds.includes('draft') && f.is_published === 0) || 
+        selectedStatusIds.includes(f.stage_id?.toString());
 
       return matchesSearch && matchesCategory && matchesStatus;
     });
 
 
-    // Apply sorting
+    // Apply global sorting (Kanban & Default Table Fallback)
     result.sort((a, b) => {
+      
       if (sortBy === 'newest') {
         return new Date(b.created_at) - new Date(a.created_at);
       }
-      if (sortBy === 'updated') {
+      if (sortBy === 'updated' || sortBy === 'updated_at') {
         return new Date(b.updated_at) - new Date(a.updated_at);
       }
-      if (sortBy === 'votes') {
+      if (sortBy === 'votes' || sortBy === 'vote_count') {
         return b.vote_count - a.vote_count;
       }
-      if (sortBy === 'gravity') {
+      if (sortBy === 'gravity' || sortBy === 'gravity_score') {
         return b.gravity_score - a.gravity_score;
       }
-      // Default: Pinned first, then vote count, then creation date
-      if (a.pinned !== b.pinned) return b.pinned - a.pinned;
-      if (a.vote_count !== b.vote_count) return b.vote_count - a.vote_count;
-      return new Date(b.created_at) - new Date(a.created_at);
+      if (sortBy === 'title' || sortBy === 'owner' || sortBy === 'status' || sortBy === 'priority') {
+          const vA = String(a[sortBy] || '').toLowerCase();
+          const vB = String(b[sortBy] || '').toLowerCase();
+          return sortDir === 'asc' ? vA.localeCompare(vB) : vB.localeCompare(vA);
+      }
+      // Default: Pinned first, then gravity
+      let r = 0;
+      if (a.pinned !== b.pinned) r = b.pinned - a.pinned;
+      else if (a.gravity_score !== b.gravity_score) r = (b.gravity_score || 0) - (a.gravity_score || 0);
+      else r = new Date(b.created_at) - new Date(a.created_at);
+      
+      return sortDir === 'asc' ? r : -r;
     });
 
     return result;
-  }, [features, searchTerm, selectedCategoryId, selectedStatusId, sortBy]);
+  }, [features, debouncedSearchTerm, selectedCategoryIds, selectedStatusIds, sortBy, sortDir]);
 
 
 
@@ -200,20 +207,79 @@ const AdminDashboardPage = () => {
                  placeholder="Search by title, owner, or #tags..." 
                  className={styles.searchInput} 
                  value={searchTerm}
-                 onChange={(e) => setSearchTerm(e.target.value)}
+                 onChange={(e) => updateFilters({ q: e.target.value })}
                />
            </div>
+           
+           <div className={styles.chipGroup}>
+              {selectedCategoryIds.map(id => {
+                const cat = categories.find(c => c.id.toString() === id);
+                return (
+                  <div key={`cat-${id}`} className={styles.chip}>
+                    <span className={styles.chipLabel}>Category:</span>
+                    <span className={styles.chipValue}>{cat?.name || id}</span>
+                    <button className={styles.chipClose} onClick={() => updateFilters({ categories: selectedCategoryIds.filter(x => x !== id) })}>✕</button>
+                  </div>
+                );
+              })}
+              {selectedStatusIds.map(id => {
+                const st = id === 'draft' ? { name: 'Drafts Only' } : stages.find(s => s.id.toString() === id);
+                return (
+                  <div key={`st-${id}`} className={styles.chip}>
+                    <span className={styles.chipLabel}>Status:</span>
+                    <span className={styles.chipValue}>{st?.name || id}</span>
+                    <button className={styles.chipClose} onClick={() => updateFilters({ statuses: selectedStatusIds.filter(x => x !== id) })}>✕</button>
+                  </div>
+                );
+              })}
+              
+              <select 
+                className={styles.addFilterBtn} 
+                value=""
+                onChange={(e) => {
+                  const parts = e.target.value.split(':');
+                  if (parts[0] === 'cat' && !selectedCategoryIds.includes(parts[1])) {
+                    updateFilters({ categories: [...selectedCategoryIds, parts[1]] });
+                  } else if (parts[0] === 'st' && !selectedStatusIds.includes(parts[1])) {
+                    updateFilters({ statuses: [...selectedStatusIds, parts[1]] });
+                  } else if (parts[0] === 'sort') {
+                    updateFilters({ sort: parts[1], sortDir: 'desc' });
+                  }
+                }}
+              >
+                <option value="" disabled>+ Add Filter</option>
+                <optgroup label="Sort By">
+                  <option value="sort:default">Default Sort</option>
+                  <option value="sort:updated_at">Recently Modified</option>
+                  <option value="sort:created_at">Newest First</option>
+                  <option value="sort:vote_count">Most Votes</option>
+                  <option value="sort:gravity_score">Highest Gravity</option>
+                </optgroup>
+                <optgroup label="Category">
+                  {categories.map(c => <option key={`opt-cat-${c.id}`} value={`cat:${c.id}`}>{c.name}</option>)}
+                </optgroup>
+                <optgroup label="Status">
+                  <option value="st:draft">Drafts Only</option>
+                  {stages.map(s => <option key={`opt-st-${s.id}`} value={`st:${s.id}`}>{s.name}</option>)}
+                </optgroup>
+              </select>
+
+              {(selectedCategoryIds.length > 0 || selectedStatusIds.length > 0 || debouncedSearchTerm || sortBy !== 'default') && (
+                <button className={styles.chipClose} style={{width: 'auto', padding: '0 8px'}} onClick={clearAllFilters}>Clear All</button>
+              )}
+           </div>
+
            <div className={styles.filterActions}>
               <div className={styles.viewToggleGroup}>
                 <button 
                   className={viewMode === 'board' ? styles.viewToggleBtnActive : styles.viewToggleBtn}
-                  onClick={() => setViewMode('board')}
+                  onClick={() => updateFilters({ view: 'board' })}
                 >
                   Board
                 </button>
                 <button 
                   className={viewMode === 'list' ? styles.viewToggleBtnActive : styles.viewToggleBtn}
-                  onClick={() => setViewMode('list')}
+                  onClick={() => updateFilters({ view: 'list' })}
                 >
                   List
                 </button>
@@ -222,56 +288,19 @@ const AdminDashboardPage = () => {
               <div className={styles.viewToggleGroup}>
                 <button 
                   className={!showAllStages ? styles.viewToggleBtnActive : styles.viewToggleBtn}
-                  onClick={() => setShowAllStages(false)}
+                  onClick={() => updateFilters({ allStages: 'false' })}
                   title="Show only visible stages"
                 >
                   Visible
                 </button>
                 <button 
                   className={showAllStages ? styles.viewToggleBtnActive : styles.viewToggleBtn}
-                  onClick={() => setShowAllStages(true)}
+                  onClick={() => updateFilters({ allStages: 'true' })}
                   title="Show all stages including hidden"
                 >
                   All
                 </button>
               </div>
-              <span className={styles.filterLabel}>Filter:</span>
-               <select 
-                 className={styles.select} 
-                 value={selectedCategoryId}
-                 onChange={(e) => setSelectedCategoryId(e.target.value)}
-               >
-                 <option value="">All Categories</option>
-                 {categories.map(c => (
-                   <option key={c.id} value={c.id}>{c.name}</option>
-                 ))}
-               </select>
-
-               <span className={styles.filterLabel}>Sort:</span>
-               <select 
-                 className={styles.select} 
-                 value={sortBy}
-                 onChange={(e) => setSortBy(e.target.value)}
-               >
-                 <option value="default">Default</option>
-                 <option value="updated">Recently Modified</option>
-                 <option value="newest">Newest First</option>
-                 <option value="votes">Most Votes</option>
-                 <option value="gravity">Highest Gravity</option>
-               </select>
-
-               <span className={styles.filterLabel}>Status:</span>
-               <select 
-                 className={styles.select} 
-                 value={selectedStatusId}
-                 onChange={(e) => setSelectedStatusId(e.target.value)}
-               >
-                 <option value="">All Statuses</option>
-                 <option value="draft">Drafts Only</option>
-                 {stages.map(s => (
-                   <option key={s.id} value={s.id}>{s.name}</option>
-                 ))}
-               </select>
 
                {viewMode === 'list' && (
                  <>
@@ -279,13 +308,13 @@ const AdminDashboardPage = () => {
                    <div className={styles.viewToggleGroup}>
                      <button 
                        className={groupBy === 'category' ? styles.viewToggleBtnActive : styles.viewToggleBtn}
-                       onClick={() => setGroupBy('category')}
+                       onClick={() => updateFilters({ groupBy: 'category' })}
                      >
                        Category
                      </button>
                      <button 
                        className={groupBy === 'status' ? styles.viewToggleBtnActive : styles.viewToggleBtn}
-                       onClick={() => setGroupBy('status')}
+                       onClick={() => updateFilters({ groupBy: 'status' })}
                      >
                        Status
                      </button>
@@ -306,14 +335,14 @@ const AdminDashboardPage = () => {
          <div className={styles.kanbanContainer}>
            {loading ? (
              <div className={styles.message}>Loading roadmap board...</div>
-           ) : filteredFeatures.length === 0 && (searchTerm || selectedCategoryId) ? (
+           ) : filteredFeatures.length === 0 && (searchTerm || selectedCategoryIds.length > 0 || selectedStatusIds.length > 0) ? (
              <div className={styles.emptyContainer}>
                 <div className={styles.emptyIcon}>🔍</div>
                 <h3 className={styles.emptyTitle}>No matching features found</h3>
                 <p className={styles.emptyText}>Adjust your filters or search terms to find what you're looking for.</p>
                 <button 
                   className={styles.clearFiltersBtn}
-                  onClick={() => { setSearchTerm(''); setSelectedCategoryId(''); setSelectedStatusId(''); }}
+                  onClick={clearAllFilters}
                 >
                   Clear all filters
                 </button>
@@ -324,6 +353,9 @@ const AdminDashboardPage = () => {
               stages={stages}
               onUpdateFeatureField={onUpdateFeatureField} 
               groupBy={groupBy}
+              sortBy={sortBy}
+              sortDir={sortDir}
+              onSort={toggleSort}
             />
            ) : (
             <DragDropContext onDragEnd={onDragEnd}>

@@ -1,0 +1,71 @@
+
+> client@0.0.0 lint
+> eslint .
+
+
+H:\dev\gu_roadmap\client\src\components\LinkModal.jsx
+  12:7  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  10 |   useEffect(() => {
+  11 |     if (isOpen) {
+> 12 |       setUrl(initialUrl);
+     |       ^^^^^^ Avoid calling setState() directly within an effect
+  13 |       setTimeout(() => {
+  14 |         if (inputRef.current) {
+  15 |           inputRef.current.focus();  react-hooks/set-state-in-effect
+
+H:\dev\gu_roadmap\client\src\components\PasswordGate.jsx
+  14:24  error  'setShowPassword' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       no-unused-vars
+  20:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+  18 |     const authStatus = localStorage.getItem('roadmap_authorized');
+  19 |     if (authStatus === 'true') {
+> 20 |       setIsAuthorized(true);
+     |       ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  21 |     }
+  22 |     setLoading(false);
+  23 |   }, []);  react-hooks/set-state-in-effect
+
+H:\dev\gu_roadmap\client\src\components\RichTextEditor.jsx
+  98:14  error  'e' is defined but never used  no-unused-vars
+
+H:\dev\gu_roadmap\client\src\components\RichTextViewer.jsx
+  31:14  error  'e' is defined but never used                                                                                                   no-unused-vars
+  56:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  71:12  error  'e' is defined but never used                                                                                                   no-unused-vars
+
+H:\dev\gu_roadmap\client\src\hooks\useRoadmapFilters.js
+  3:10  error  'useMemo' is defined but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+H:\dev\gu_roadmap\client\src\pages\admin\AdminDashboardPage\AdminDashboardPage.jsx
+   71:13  error  'aVal' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+   72:13  error  'bVal' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+  339:64  error  'selectedCategoryId' is not defined                                                   no-undef
+  346:36  error  'setSearchTerm' is not defined                                                        no-undef
+  346:55  error  'setSelectedCategoryId' is not defined                                                no-undef
+  346:82  error  'setSelectedStatusId' is not defined                                                  no-undef
+  359:23  error  'toggleSort' is not defined                                                           no-undef
+
+H:\dev\gu_roadmap\client\src\pages\admin\AdminDashboardPage\FeaturesTable.jsx
+  153:6  warning  React Hook useMemo has an unnecessary dependency: 'sortConfig'. Either exclude it or remove the dependency array  react-hooks/exhaustive-deps
+
+H:\dev\gu_roadmap\client\src\pages\admin\AdminFeatureFormPage\AdminFeatureFormPage.jsx
+  148:14  error  'err' is defined but never used  no-unused-vars
+
+H:\dev\gu_roadmap\client\src\pages\admin\AdminMatrixPage\AdminMatrixPage.jsx
+  15:10  error  'stages' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u  no-unused-vars
+
+Γ£û 18 problems (17 errors, 1 warning)
+
