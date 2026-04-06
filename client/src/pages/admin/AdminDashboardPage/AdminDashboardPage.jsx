@@ -243,7 +243,8 @@ const AdminDashboardPage = () => {
           </div>
         </header>
 
-        {/* Global Filter Bar */}
+        {/* Filter section: bar + chips */}
+        <div className={styles.filterSection}>
         <div className={styles.filterBar}>
           <div className={styles.searchWrapper}>
             <svg className={styles.searchIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -377,7 +378,7 @@ const AdminDashboardPage = () => {
             {activeFilters.map(chip => (
               <span key={chip.key} className={styles.filterChip}>
                 {chip.label}
-                <button className={styles.filterChipRemove} onClick={chip.onRemove} aria-label={`Remove ${chip.key} filter`}>×</button>
+                <button className={styles.filterChipRemove} onClick={chip.onRemove} aria-label={`Remove ${chip.key} filter`}>✕</button>
               </span>
             ))}
             <button className={styles.clearAllBtn} onClick={clearAllFilters}>
@@ -385,6 +386,7 @@ const AdminDashboardPage = () => {
             </button>
           </div>
         )}
+        </div>{/* end filterSection */}
 
         {/* Kanban Board / Table */}
         <div className={styles.kanbanContainer}>
@@ -457,7 +459,7 @@ const AdminDashboardPage = () => {
                                       cursor: 'grab'
                                     }}
                                   >
-                                    <div onClick={() => {
+                                    <div className={styles.cardBody} onClick={() => {
                                       if (!snapshot.isDragging) {
                                         window.location.href = `/admin/features/${feat.id}/edit`;
                                       }
