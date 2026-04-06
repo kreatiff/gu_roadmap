@@ -137,6 +137,18 @@
   font-size: 0.875rem;
 }
 
+.draftBadgeBadge {
+  font-size: 0.625rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-secondary, #f8fafc);
+  color: var(--text-muted, #94a3b8);
+  border: 1px solid var(--border-color, #e2e8f0);
+}
+
 .voteWrapper {
   display: inline-flex;
   align-items: center;
@@ -228,3 +240,10 @@
   color: #64748b;
   border-color: #cbd5e130;
 }
+
+.dateText {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+

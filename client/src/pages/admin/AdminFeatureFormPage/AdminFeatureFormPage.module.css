@@ -1,5 +1,6 @@
 .content {
   padding: var(--space-8);
+  padding-bottom: 120px; /* Space for the fixed footer at the bottom */
   max-width: 1000px;
   margin: 0 auto;
 }
@@ -59,18 +60,6 @@
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: -0.04em;
-}
-
-.backBtn {
-  color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 0.875rem;
-  text-decoration: none;
-  transition: color 0.2s;
-}
-
-.backBtn:hover {
-  color: var(--gu-red);
 }
 
 .form {
@@ -159,6 +148,82 @@
   font-weight: 600;
   color: var(--text-primary);
   cursor: pointer;
+}
+
+.publishedBadgeBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-left: 12px;
+  vertical-align: middle;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.stickyFooterArea {
+  position: fixed;
+  bottom: 0;
+  left: 260px; /* Default sidebar width */
+  right: 0;
+  background-color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  padding: 1.25rem var(--space-8);
+  border-top: 1px solid var(--border-color);
+  z-index: 500;
+  box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.stickyFooterInner {
+  max-width: 1000px; /* Aligns with form width */
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@media (max-width: 1024px) {
+  .stickyFooterArea {
+    left: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .stickyFooterArea {
+    left: 0;
+  }
+}
+
+.leftActions {
+  display: flex;
+}
+
+.formFooterActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.deleteBtn {
+  background-color: transparent;
+  color: #ef4444;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  border: 1px solid #fee2e2;
+  transition: all 0.2s;
+}
+
+.deleteBtn:hover {
+  background-color: #fee2e2;
+  color: #dc2626;
 }
 
 .formFooter {

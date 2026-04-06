@@ -20,7 +20,12 @@ const AdminDashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [selectedStatusId, setSelectedStatusId] = useState('');
   const [showAllStages, setShowAllStages] = useState(false);
+  const [sortBy, setSortBy] = useState('default');
+  const [groupBy, setGroupBy] = useState('category');
+
+
 
   // Save view selection
   useEffect(() => {
@@ -43,7 +48,7 @@ const AdminDashboardPage = () => {
   };
 
   const filteredFeatures = useMemo(() => {
-    return features.filter(f => {
+    let result = features.filter(f => {
       const matchesSearch = 
         !searchTerm || 
         (f.title && f.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -52,10 +57,42 @@ const AdminDashboardPage = () => {
         (Array.isArray(f.tags) && f.tags.join(' ').toLowerCase().includes(searchTerm.toLowerCase()));
       
       const matchesCategory = !selectedCategoryId || f.category_id === selectedCategoryId;
+      
+      let matchesStatus = true;
+      if (selectedStatusId === 'draft') {
+        matchesStatus = f.is_published === 0;
+      } else if (selectedStatusId) {
+        matchesStatus = f.stage_id === selectedStatusId;
+      }
 
-      return matchesSearch && matchesCategory;
+      return matchesSearch && matchesCategory && matchesStatus;
     });
-  }, [features, searchTerm, selectedCategoryId]);
+
+
+    // Apply sorting
+    result.sort((a, b) => {
+      if (sortBy === 'newest') {
+        return new Date(b.created_at) - new Date(a.created_at);
+      }
+      if (sortBy === 'updated') {
+        return new Date(b.updated_at) - new Date(a.updated_at);
+      }
+      if (sortBy === 'votes') {
+        return b.vote_count - a.vote_count;
+      }
+      if (sortBy === 'gravity') {
+        return b.gravity_score - a.gravity_score;
+      }
+      // Default: Pinned first, then vote count, then creation date
+      if (a.pinned !== b.pinned) return b.pinned - a.pinned;
+      if (a.vote_count !== b.vote_count) return b.vote_count - a.vote_count;
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+
+    return result;
+  }, [features, searchTerm, selectedCategoryId, selectedStatusId, sortBy]);
+
+
 
   const columnsData = useMemo(() => {
     const map = {};
@@ -209,6 +246,54 @@ const AdminDashboardPage = () => {
                    <option key={c.id} value={c.id}>{c.name}</option>
                  ))}
                </select>
+
+               <span className={styles.filterLabel}>Sort:</span>
+               <select 
+                 className={styles.select} 
+                 value={sortBy}
+                 onChange={(e) => setSortBy(e.target.value)}
+               >
+                 <option value="default">Default</option>
+                 <option value="updated">Recently Modified</option>
+                 <option value="newest">Newest First</option>
+                 <option value="votes">Most Votes</option>
+                 <option value="gravity">Highest Gravity</option>
+               </select>
+
+               <span className={styles.filterLabel}>Status:</span>
+               <select 
+                 className={styles.select} 
+                 value={selectedStatusId}
+                 onChange={(e) => setSelectedStatusId(e.target.value)}
+               >
+                 <option value="">All Statuses</option>
+                 <option value="draft">Drafts Only</option>
+                 {stages.map(s => (
+                   <option key={s.id} value={s.id}>{s.name}</option>
+                 ))}
+               </select>
+
+               {viewMode === 'list' && (
+                 <>
+                   <span className={styles.filterLabel}>Group by:</span>
+                   <div className={styles.viewToggleGroup}>
+                     <button 
+                       className={groupBy === 'category' ? styles.viewToggleBtnActive : styles.viewToggleBtn}
+                       onClick={() => setGroupBy('category')}
+                     >
+                       Category
+                     </button>
+                     <button 
+                       className={groupBy === 'status' ? styles.viewToggleBtnActive : styles.viewToggleBtn}
+                       onClick={() => setGroupBy('status')}
+                     >
+                       Status
+                     </button>
+                   </div>
+                 </>
+               )}
+
+
               <button className={styles.iconBtn}>
                  <svg className={styles.btnIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 4h18M6 8h12M9 12h6M12 16h0" />
@@ -228,7 +313,7 @@ const AdminDashboardPage = () => {
                 <p className={styles.emptyText}>Adjust your filters or search terms to find what you're looking for.</p>
                 <button 
                   className={styles.clearFiltersBtn}
-                  onClick={() => { setSearchTerm(''); setSelectedCategoryId(''); }}
+                  onClick={() => { setSearchTerm(''); setSelectedCategoryId(''); setSelectedStatusId(''); }}
                 >
                   Clear all filters
                 </button>
@@ -238,6 +323,7 @@ const AdminDashboardPage = () => {
               features={filteredFeatures} 
               stages={stages}
               onUpdateFeatureField={onUpdateFeatureField} 
+              groupBy={groupBy}
             />
            ) : (
             <DragDropContext onDragEnd={onDragEnd}>
@@ -297,6 +383,7 @@ const AdminDashboardPage = () => {
                                       <div className={styles.cardHeader}>
                                          <span className={styles.cardTag}>{feat.category_name || 'GENERAL'}</span>
                                          <div className={styles.cardHeaderRight}>
+                                           {feat.is_published === 0 && <span className={styles.draftBadgeBadge}>DRAFT</span>}
                                            <span className={`${styles.priorityBadge} ${priorityClasses[feat.priority] || ''}`}>
                                              {feat.priority}
                                            </span>
@@ -321,7 +408,11 @@ const AdminDashboardPage = () => {
                                              {feat.gravity_score || 0}
                                            </div>
                                         </div>
+                                        <div className={styles.cardUpdatedDate}>
+                                          Updated {new Date(feat.updated_at).toLocaleDateString('en-AU', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                        </div>
                                     </div>
+
                                   </div>
                                 )}
                               </Draggable>

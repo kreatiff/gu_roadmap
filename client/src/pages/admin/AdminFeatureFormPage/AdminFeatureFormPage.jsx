@@ -4,7 +4,9 @@ import AdminLayout from '../../../components/AdminLayout';
 import RichTextEditor from '../../../components/RichTextEditor';
 import FeatureDetailView from '../../../components/FeatureDetailView';
 import FeatureDetailModal from '../../../components/FeatureDetailModal';
-import { getFeatures, createFeature, updateFeature } from '../../../api/features';
+import ConfirmDialog from '../../../components/ConfirmDialog';
+import RevisionHistory from '../../../components/RevisionHistory';
+import { getFeatures, createFeature, updateFeature, deleteFeature, getFeatureRevisions } from '../../../api/features';
 import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { useToast } from '../../../contexts/ToastContext';
@@ -18,9 +20,12 @@ const AdminFeatureFormPage = () => {
 
   const [categories, setCategories] = useState([]);
   const [stages, setStages] = useState([]);
+  const [revisions, setRevisions] = useState([]);
   const [maxVotes, setMaxVotes] = useState(0);
   const [loading, setLoading] = useState(isEdit);
   const [showPreview, setShowPreview] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, payload: null });
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -33,7 +38,8 @@ const AdminFeatureFormPage = () => {
     effort: 1,
     owner: '',
     key_stakeholder: '',
-    priority: 'Medium'
+    priority: 'Medium',
+    is_published: 1
   });
 
   useEffect(() => {
@@ -47,7 +53,12 @@ const AdminFeatureFormPage = () => {
 
       if (isEdit) {
         try {
-          const res = await getFeatures({ limit: 1000 });
+          const [res, revRes] = await Promise.all([
+            getFeatures({ limit: 1000 }),
+            getFeatureRevisions(id).catch(() => [])
+          ]);
+          setRevisions(Array.isArray(revRes) ? revRes : []);
+          
           const fData = res.data || [];
           const currentMaxVotes = Math.max(...fData.map(f => f.vote_count || 0), 0);
           setMaxVotes(currentMaxVotes);
@@ -67,7 +78,8 @@ const AdminFeatureFormPage = () => {
               owner: feature.owner || '',
               key_stakeholder: feature.key_stakeholder || '',
               priority: feature.priority || 'Medium',
-              vote_count: feature.vote_count || 0
+              vote_count: feature.vote_count || 0,
+              is_published: feature.is_published ?? 1
             });
           }
         } finally {
@@ -78,20 +90,72 @@ const AdminFeatureFormPage = () => {
     fetchData();
   }, [id, isEdit]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleActionClick = (action) => {
+    const form = document.getElementById('feature-form');
+    if (form && form.reportValidity()) {
+      requestSubmit(action);
+    }
+  };
+
+  const requestSubmit = (isPublishAction) => {
+    if (isEdit && formData.is_published === 1 && !isPublishAction) {
+      setConfirmDialog({ 
+        isOpen: true, 
+        type: 'unpublish', 
+        payload: isPublishAction 
+      });
+      return;
+    }
+    executeSubmit(isPublishAction);
+  };
+
+  const executeSubmit = async (isPublishAction) => {
+    setConfirmDialog({ isOpen: false, type: null, payload: null });
     try {
+      const payload = { ...formData, is_published: isPublishAction ? 1 : 0 };
       if (isEdit) {
-        await updateFeature(id, formData);
-        addToast('Feature updated', 'success');
+        await updateFeature(id, payload);
+        addToast(isPublishAction ? 'Feature published' : 'Draft saved', 'success');
+        // Refresh revisions since a save happened
+        const revRes = await getFeatureRevisions(id).catch(() => []);
+        setRevisions(Array.isArray(revRes) ? revRes : []);
+        // Update local state to reflect current published status
+        setFormData(prev => ({ ...prev, is_published: payload.is_published }));
       } else {
-        await createFeature(formData);
-        addToast('Feature created', 'success');
+        const result = await createFeature(payload);
+        addToast(isPublishAction ? 'Feature published' : 'Draft created', 'success');
+        // Redirect to edit page of the newly created feature
+        if (result && result.id) {
+          navigate(`/admin/features/${result.id}/edit`);
+        } else {
+          navigate('/admin');
+        }
       }
-      navigate('/admin');
     } catch (err) {
       addToast(err.error || 'Failed to save feature', 'error');
     }
+  };
+
+  const requestDelete = () => {
+    setConfirmDialog({ isOpen: true, type: 'delete' });
+  };
+
+  const executeDelete = async () => {
+    try {
+      await deleteFeature(id);
+      addToast('Feature deleted', 'success');
+      navigate('/admin');
+    } catch (err) {
+      addToast('Failed to delete feature', 'error');
+    }
+  };
+
+  const requestDiscard = () => {
+    setConfirmDialog({ isOpen: true, type: 'discard' });
+  };
+
+  const executeDiscard = () => {
+    navigate('/admin');
   };
 
   const handleTagsChange = (e) => {
@@ -144,11 +208,44 @@ const AdminFeatureFormPage = () => {
         />
       )}
 
+      {confirmDialog.isOpen && confirmDialog.type === 'unpublish' && (
+        <ConfirmDialog 
+          title="Unpublish Feature?" 
+          message="This will remove the feature from the public roadmap immediately. Are you sure you want to revert to a draft?"
+          confirmText="Yes, Unpublish"
+          onConfirm={() => executeSubmit(confirmDialog.payload)}
+          onCancel={() => setConfirmDialog({ isOpen: false, type: null })}
+        />
+      )}
+      {confirmDialog.isOpen && confirmDialog.type === 'delete' && (
+        <ConfirmDialog 
+          title="Delete Feature?" 
+          message="This action cannot be undone. All votes and data will be permanently deleted."
+          confirmText="Delete Feature"
+          onConfirm={executeDelete}
+          onCancel={() => setConfirmDialog({ isOpen: false, type: null })}
+        />
+      )}
+      {confirmDialog.isOpen && confirmDialog.type === 'discard' && (
+        <ConfirmDialog 
+          title="Discard Changes?" 
+          message="You have unsaved changes. Are you sure you want to discard them and return to the dashboard?"
+          confirmText="Discard Changes"
+          onConfirm={executeDiscard}
+          onCancel={() => setConfirmDialog({ isOpen: false, type: null })}
+        />
+      )}
+
       <div className={styles.content}>
         <header className={styles.header}>
           <div>
             <div className={styles.breadcrumb}>ADMIN › {isEdit ? 'EDIT FEATURE' : 'NEW FEATURE'}</div>
-            <h1 className={styles.h1}>{formData.title || (isEdit ? 'Editing Feature' : 'Create New Feature')}</h1>
+            <h1 className={styles.h1}>
+              {formData.title || (isEdit ? 'Editing Feature' : 'Create New Feature')}
+              {isEdit && formData.is_published === 1 && (
+                <span className={styles.publishedBadgeBadge}>Published</span>
+              )}
+            </h1>
           </div>
           
           <div className={styles.headerActions}>
@@ -163,11 +260,22 @@ const AdminFeatureFormPage = () => {
               </svg>
               Live Preview
             </button>
-            <Link to="/admin" className={styles.backBtn}>Cancel & Exit</Link>
+            {isEdit && (
+              <button 
+                type="button" 
+                className={styles.previewBtn}
+                onClick={() => setShowHistory(true)}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={styles.icon}>
+                  <path d="M12 8v4l3 3M3 12a9 9 0 1018 0 9 9 0 00-18 0z" />
+                </svg>
+                History
+              </button>
+            )}
           </div>
         </header>
 
-        <form onSubmit={handleSubmit} className={styles.form}>
+        <form id="feature-form" onSubmit={(e) => e.preventDefault()} className={styles.form}>
           <div className={styles.field}>
             <label className={styles.label}>Feature Title</label>
             <input 
@@ -336,13 +444,34 @@ const AdminFeatureFormPage = () => {
             <label htmlFor="pinned" className={styles.checkboxLabel}>Pin feature to top of public roadmap</label>
           </div>
 
-          <div className={styles.formFooter}>
-            <button type="submit" className={styles.submitBtn}>
-              {isEdit ? 'Save Changes' : 'Publish Feature'}
-            </button>
-            <Link to="/admin" className={styles.secondaryBtn}>Discard Changes</Link>
-          </div>
+          <RevisionHistory 
+            isOpen={showHistory}
+            onClose={() => setShowHistory(false)}
+            revisions={revisions} 
+            categories={categories} 
+            stages={stages} 
+          />
+
         </form>
+      </div>
+
+      <div className={styles.stickyFooterArea}>
+        <div className={styles.stickyFooterInner}>
+          <div className={styles.leftActions}>
+            {isEdit && (
+              <button type="button" onClick={requestDelete} className={styles.deleteBtn}>Delete Feature</button>
+            )}
+          </div>
+          <div className={styles.formFooterActions}>
+            <button type="button" onClick={requestDiscard} className={styles.secondaryBtn}>Discard Changes</button>
+            <button type="button" onClick={() => handleActionClick(false)} className={styles.secondaryBtn}>
+              {isEdit && formData.is_published === 0 ? 'Save Draft Updates' : 'Save as Draft'}
+            </button>
+            <button type="button" onClick={() => handleActionClick(true)} className={styles.submitBtn}>
+              {isEdit && formData.is_published === 1 ? 'Save Published Changes' : 'Publish Feature'}
+            </button>
+          </div>
+        </div>
       </div>
     </AdminLayout>
   );

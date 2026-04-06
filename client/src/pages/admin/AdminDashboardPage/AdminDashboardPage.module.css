@@ -6,7 +6,7 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  marginBottom: var(--space-10);
+  margin-bottom: var(--space-10);
 }
 
 .breadcrumb {
@@ -58,7 +58,9 @@
   align-items: center;
   margin-bottom: var(--space-10);
   gap: var(--space-4);
+  flex-wrap: wrap;
 }
+
 
 .searchWrapper {
   position: relative;
@@ -127,7 +129,9 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  flex-wrap: wrap;
 }
+
 
 .filterLabel {
   font-size: 0.8125rem;
@@ -250,6 +254,18 @@
   gap: var(--space-2);
 }
 
+.draftBadgeBadge {
+  font-size: 0.625rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-secondary);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
 .priorityBadge {
   font-size: 0.625rem;
   font-weight: 800;
@@ -327,6 +343,16 @@
 .gravityLow {
   background-color: #f8fafc;
   color: #64748b;
+}
+.cardUpdatedDate {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #eff1f3;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .gravityIcon {

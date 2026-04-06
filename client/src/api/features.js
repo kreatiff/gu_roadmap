@@ -28,3 +28,7 @@ export const deleteFeature = (id) => {
     method: 'DELETE'
   });
 };
+
+export const getFeatureRevisions = (id) => {
+  return api(`/api/features/${id}/revisions`);
+};

@@ -26,6 +26,11 @@ export default async function featureRoutes(fastify, options) {
     `;
     const params = [userId];
 
+    const isAdmin = request.user && request.user.isAdmin;
+    if (!isAdmin) {
+      query += ' AND f.is_published = 1';
+    }
+
     if (status) {
       query += ' AND (f.status = ? OR st.slug = ?)';
       params.push(status, status);
@@ -82,6 +87,11 @@ export default async function featureRoutes(fastify, options) {
       WHERE f.id = ?
     `;
     
+    const isAdmin = request.user && request.user.isAdmin;
+    if (!isAdmin) {
+      query += ' AND f.is_published = 1';
+    }
+    
     const feature = db.prepare(query).get(userId, id);
     if (!feature) return reply.code(404).send({ error: 'Feature not found' });
 
@@ -104,7 +114,8 @@ export default async function featureRoutes(fastify, options) {
       effort,
       owner,
       key_stakeholder,
-      priority
+      priority,
+      is_published
     } = request.body;
     
     if (!title) return reply.code(400).send({ error: 'Title is required' });
@@ -116,10 +127,10 @@ export default async function featureRoutes(fastify, options) {
     const stmt = db.prepare(`
       INSERT INTO features (
         id, title, slug, description, category_id, status, stage_id,
-        impact, effort, owner, key_stakeholder, priority,
+        impact, effort, owner, key_stakeholder, priority, is_published,
         created_at, updated_at
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     // If stage_id is missing, try to find a default from stages table
@@ -142,9 +153,18 @@ export default async function featureRoutes(fastify, options) {
       owner || '',
       key_stakeholder || '',
       priority || 'Medium',
+      is_published === 0 ? 0 : 1,
       now, 
       now
     );
+    
+    db.prepare(`
+      INSERT INTO feature_revisions (id, feature_id, changed_by, changed_at, changes)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(uuidv4(), id, request.user ? request.user.email : 'System', now, JSON.stringify({
+      action: 'created',
+      title: title
+    }));
     
     // Recalculate scores since maxVotes or inputs might have changed
     recalculateAllGravityScores(db);
@@ -167,22 +187,37 @@ export default async function featureRoutes(fastify, options) {
       priority,
       pinned,
       tags,
-      stage_id
+      stage_id,
+      is_published
     } = request.body;
     const now = new Date().toISOString();
 
+    const oldFeature = db.prepare('SELECT * FROM features WHERE id = ?').get(id);
+    if (!oldFeature) return reply.code(404).send({ error: 'Feature not found' });
+
     const updates = [];
     const params = [];
+    const changesObj = {};
 
-    if (title !== undefined) {
+    if (title !== undefined && title !== oldFeature.title) {
+      changesObj.title = { old: oldFeature.title, new: title };
       updates.push('title = ?, slug = ?');
       params.push(title, slugify(title, { lower: true, strict: true }));
     }
-    if (description !== undefined) { updates.push('description = ?'); params.push(description); }
-    if (category_id !== undefined) { updates.push('category_id = ?'); params.push(category_id || null); }
+    if (description !== undefined && description !== oldFeature.description) {
+      changesObj.description = { updated: true };
+      updates.push('description = ?'); params.push(description);
+    }
+    const currentCategoryId = oldFeature.category_id || null;
+    const newCategoryId = category_id || null;
+    if (category_id !== undefined && currentCategoryId !== newCategoryId) {
+      changesObj.category_id = { old: currentCategoryId, new: newCategoryId };
+      updates.push('category_id = ?'); params.push(newCategoryId);
+    }
     
     // Status and Stage synchronization
-    if (stage_id !== undefined) {
+    if (stage_id !== undefined && stage_id !== oldFeature.stage_id) {
+      changesObj.stage_id = { old: oldFeature.stage_id, new: stage_id };
       updates.push('stage_id = ?');
       params.push(stage_id);
       // Sync status string based on stage slug
@@ -191,7 +226,8 @@ export default async function featureRoutes(fastify, options) {
         updates.push('status = ?');
         params.push(stage.slug);
       }
-    } else if (status !== undefined) {
+    } else if (status !== undefined && status !== oldFeature.status) {
+      changesObj.status = { old: oldFeature.status, new: status };
       updates.push('status = ?');
       params.push(status);
       const stage = db.prepare('SELECT id FROM stages WHERE slug = ?').get(status);
@@ -201,15 +237,46 @@ export default async function featureRoutes(fastify, options) {
       }
     }
 
-    if (pinned !== undefined) { updates.push('pinned = ?'); params.push(pinned ? 1 : 0); }
-    if (tags !== undefined) { updates.push('tags = ?'); params.push(JSON.stringify(tags)); }
-    if (impact !== undefined) { updates.push('impact = ?'); params.push(parseInt(impact) || 1); }
-    if (effort !== undefined) { updates.push('effort = ?'); params.push(parseInt(effort) || 1); }
-    if (owner !== undefined) { updates.push('owner = ?'); params.push(owner); }
-    if (key_stakeholder !== undefined) { updates.push('key_stakeholder = ?'); params.push(key_stakeholder); }
-    if (priority !== undefined) { updates.push('priority = ?'); params.push(priority); }
+    const currentPinned = oldFeature.pinned === 1;
+    const newPinned = pinned ? 1 : 0;
+    if (pinned !== undefined && currentPinned !== !!newPinned) {
+      changesObj.pinned = { old: currentPinned, new: !!newPinned };
+      updates.push('pinned = ?'); params.push(newPinned);
+    }
+    
+    if (tags !== undefined) {
+      const newTagsStr = JSON.stringify(tags);
+      if (newTagsStr !== oldFeature.tags) {
+        changesObj.tags = { updated: true };
+        updates.push('tags = ?'); params.push(newTagsStr);
+      }
+    }
+    if (impact !== undefined && parseInt(impact) !== oldFeature.impact) {
+      changesObj.impact = { old: oldFeature.impact, new: parseInt(impact) || 1 };
+      updates.push('impact = ?'); params.push(parseInt(impact) || 1);
+    }
+    if (effort !== undefined && parseInt(effort) !== oldFeature.effort) {
+      changesObj.effort = { old: oldFeature.effort, new: parseInt(effort) || 1 };
+      updates.push('effort = ?'); params.push(parseInt(effort) || 1);
+    }
+    if (owner !== undefined && owner !== oldFeature.owner) {
+      changesObj.owner = { old: oldFeature.owner, new: owner };
+      updates.push('owner = ?'); params.push(owner);
+    }
+    if (key_stakeholder !== undefined && key_stakeholder !== oldFeature.key_stakeholder) {
+      changesObj.key_stakeholder = { old: oldFeature.key_stakeholder, new: key_stakeholder };
+      updates.push('key_stakeholder = ?'); params.push(key_stakeholder);
+    }
+    if (priority !== undefined && priority !== oldFeature.priority) {
+      changesObj.priority = { old: oldFeature.priority, new: priority };
+      updates.push('priority = ?'); params.push(priority);
+    }
+    if (is_published !== undefined && (is_published ? 1 : 0) !== oldFeature.is_published) {
+      changesObj.is_published = { old: oldFeature.is_published, new: is_published ? 1 : 0 };
+      updates.push('is_published = ?'); params.push(is_published ? 1 : 0);
+    }
 
-    if (updates.length === 0) return reply.code(400).send({ error: 'No updates provided' });
+    if (updates.length === 0) return reply.code(400).send({ error: 'No updates provided or no changes detected' });
 
     updates.push('updated_at = ?');
     params.push(now);
@@ -226,6 +293,17 @@ export default async function featureRoutes(fastify, options) {
       const hasScoringChange = updates.some(u => scoringFields.some(f => u.includes(f)));
       if (hasScoringChange) {
         recalculateAllGravityScores(db);
+      }
+
+      // Record revision if there are actual changes
+      if (Object.keys(changesObj).length > 0) {
+        db.prepare(`
+          INSERT INTO feature_revisions (id, feature_id, changed_by, changed_at, changes)
+          VALUES (?, ?, ?, ?, ?)
+        `).run(uuidv4(), id, request.user ? request.user.email : 'System', now, JSON.stringify({
+          action: 'updated',
+          fields: changesObj
+        }));
       }
 
       return { ok: true };
@@ -246,6 +324,26 @@ export default async function featureRoutes(fastify, options) {
     // Recalculate scores as max_votes might have changed
     recalculateAllGravityScores(db);
     return { ok: true };
+  });
+
+  // 5. Admin: Get feature revisions
+  fastify.get('/:id/revisions', { preHandler: [requireAdmin] }, async (request, reply) => {
+    const { id } = request.params;
+    
+    // Check if feature exists
+    const feature = db.prepare('SELECT id FROM features WHERE id = ?').get(id);
+    if (!feature) return reply.code(404).send({ error: 'Feature not found' });
+    
+    const revisions = db.prepare(`
+      SELECT * FROM feature_revisions 
+      WHERE feature_id = ? 
+      ORDER BY changed_at DESC
+    `).all(id);
+    
+    return revisions.map(rev => ({
+      ...rev,
+      changes: JSON.parse(rev.changes)
+    }));
   });
 
 }
