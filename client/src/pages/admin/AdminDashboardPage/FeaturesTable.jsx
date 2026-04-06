@@ -99,7 +99,8 @@ const SortHeader = ({ label, sortKey, width, textAlign = 'left', sortConfig, onS
   );
 };
 
-const FeaturesTable = ({ features, stages, onUpdateFeatureField }) => {
+const FeaturesTable = ({ features, stages, onUpdateFeatureField, groupBy = 'category' }) => {
+
   const [expandedGroups, setExpandedGroups] = useState({});
   const [sortConfig, setSortConfig] = useState({ key: 'gravity_score', direction: 'desc' });
 
@@ -116,18 +117,42 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField }) => {
     const groups = {};
     
     features.forEach(feat => {
-      const categoryName = feat.category_name || 'Uncategorized';
-      if (!groups[categoryName]) {
-        groups[categoryName] = {
-          name: categoryName,
-          color: feat.category_color || '#94a3b8',
+      let groupKey, groupName, groupColor, groupOrder;
+
+      if (groupBy === 'status') {
+        groupKey = feat.stage_id || feat.status || 'unknown';
+        const stage = stages.find(s => s.id === groupKey || s.slug === groupKey);
+        groupName = stage?.name || 'Unknown Status';
+        groupColor = stage?.color || '#94a3b8';
+        groupOrder = stage?.order_idx ?? 999;
+      } else {
+        // Group by Category
+        groupKey = feat.category_name || 'Uncategorized';
+        groupName = groupKey;
+        groupColor = feat.category_color || '#94a3b8';
+        groupOrder = groupName; // alphabetical
+      }
+
+      if (!groups[groupKey]) {
+        groups[groupKey] = {
+          name: groupName,
+          color: groupColor,
+          order: groupOrder,
           items: []
         };
       }
-      groups[categoryName].items.push(feat);
+      groups[groupKey].items.push(feat);
+    });
+
+    const sortedGroups = Object.values(groups).sort((a, b) => {
+      if (typeof a.order === 'number' && typeof b.order === 'number') {
+        return a.order - b.order;
+      }
+      return String(a.order).localeCompare(String(b.order));
     });
     
-    Object.values(groups).forEach(group => {
+    sortedGroups.forEach(group => {
+
       group.items.sort((a, b) => {
         let valA = a[sortConfig.key];
         let valB = b[sortConfig.key];
@@ -135,16 +160,21 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField }) => {
         if (sortConfig.key === 'vote_count' || sortConfig.key === 'gravity_score' || sortConfig.key === 'impact' || sortConfig.key === 'effort') {
           valA = Number(valA);
           valB = Number(valB);
+        } else if (sortConfig.key === 'updated_at') {
+          valA = new Date(valA || 0).getTime();
+          valB = new Date(valB || 0).getTime();
         }
 
         if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+
         if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
       });
     });
     
-    return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
-  }, [features, sortConfig]);
+    return sortedGroups;
+  }, [features, sortConfig, groupBy, stages]);
+
 
   const toggleGroup = (groupName) => {
     setExpandedGroups(prev => ({
@@ -171,6 +201,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField }) => {
             <SortHeader label="Votes" sortKey="vote_count" width="8%" textAlign="center" sortConfig={sortConfig} onSort={handleSort} />
             <SortHeader label="Impact" sortKey="impact" width="8%" sortConfig={sortConfig} onSort={handleSort} />
             <SortHeader label="Effort" sortKey="effort" width="8%" sortConfig={sortConfig} onSort={handleSort} />
+            <SortHeader label="Updated" sortKey="updated_at" width="10%" sortConfig={sortConfig} onSort={handleSort} />
             <SortHeader label="Gravity" sortKey="gravity_score" width="10%" textAlign="center" sortConfig={sortConfig} onSort={handleSort} />
           </tr>
         </thead>
@@ -179,7 +210,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField }) => {
             <React.Fragment key={group.name}>
               {/* Group Header Row */}
               <tr className={styles.groupRow} onClick={() => toggleGroup(group.name)}>
-                <td colSpan="9" className={styles.groupTd}>
+                <td colSpan="10" className={styles.groupTd}>
                   <div className={styles.groupDiv}>
                     <svg 
                       className={styles.chevron} 
@@ -210,6 +241,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField }) => {
                       <Link to={`/admin/features/${feat.id}/edit`} className={styles.titleLink}>
                         {feat.title}
                       </Link>
+                      {feat.is_published === 0 && <span className={styles.draftBadgeBadge}>DRAFT</span>}
                       {feat.pinned === 1 && <span className={styles.pinIcon}>★</span>}
                     </div>
                   </td>
@@ -244,6 +276,11 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField }) => {
                   <td className={styles.td}>
                     <DotScale value={feat.effort || 1} color="#f59e0b" />
                   </td>
+                  <td className={styles.td}>
+                    <div className={styles.dateText}>
+                      {new Date(feat.updated_at).toLocaleDateString('en-AU', { month: 'short', day: 'numeric' })}
+                    </div>
+                  </td>
                   <td className={styles.td} style={{ textAlign: 'center' }}>
                     <GravityBadge score={feat.gravity_score || 0} />
                   </td>
@@ -253,7 +290,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField }) => {
           ))}
           {groupedFeatures.length === 0 && (
             <tr>
-              <td colSpan="9" className={styles.emptyCell}>
+              <td colSpan="10" className={styles.emptyCell}>
                 No features found. Provide a wider search or add new features.
               </td>
             </tr>

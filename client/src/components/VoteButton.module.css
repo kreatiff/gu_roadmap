@@ -53,8 +53,8 @@
 }
 
 .voted {
-  background-color: var(--gu-red);
-  border-color: var(--gu-red);
+  background-color: var(--vote-accent, var(--gu-red));
+  border-color: var(--vote-accent, var(--gu-red));
   color: #ffffff;
 }
 
@@ -64,6 +64,74 @@
 
 .voted .count, .voted .countLarge {
   color: #ffffff;
+}
+
+/* Combined Mode */
+.combinedWrapper {
+  display: flex;
+  align-items: stretch;
+  background-color: #ffffff;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  height: 38px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.combinedWrapper.voted {
+  background-color: #ffffff;
+  border-color: var(--vote-accent, #e8341c);
+  box-shadow: 0 0 0 1px var(--vote-accent, #e8341c);
+}
+
+.combinedBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  background-color: color-mix(in srgb, var(--vote-accent, #e8341c) 6%, #f8fafc);
+  border: none;
+  cursor: pointer;
+  color: var(--vote-accent, #cf1322);
+  transition: all 0.15s ease;
+  font-weight: 750;
+  border-right: 1px solid #e2e8f0;
+}
+
+.btnText {
+  font-size: 0.8125rem;
+  letter-spacing: 0.01em;
+  text-transform: capitalize;
+}
+
+.combinedWrapper.voted .combinedBtn {
+  background-color: var(--vote-accent, #e8341c);
+  color: #ffffff;
+  border-right-color: rgba(255, 255, 255, 0.2);
+}
+
+.combinedBtn:hover {
+  filter: brightness(0.96);
+}
+
+.iconCombined {
+  width: 14px;
+  height: 14px;
+}
+
+.combinedCount {
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  font-size: 0.875rem;
+  font-weight: 800;
+  color: #1e293b;
+  background-color: #ffffff;
+}
+
+.combinedWrapper.voted .combinedCount {
+  color: var(--vote-accent, #e8341c);
 }
 
 .animating {

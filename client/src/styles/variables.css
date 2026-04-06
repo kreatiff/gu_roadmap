@@ -10,11 +10,14 @@
   /* SaaS Palette */
   --bg-base: #f8f9fa;        /* Light gray page background */
   --bg-surface: #ffffff;    /* Card white */
+  --bg-primary: #f1f5f9;    /* Hover / subtle fill */
+  --bg-secondary: #f8fafc;  /* Badge backgrounds, empty states */
   --border-color: #e5e7eb;  /* 1px borders */
-  
+
   --text-primary: #111827;
   --text-secondary: #6b7280;
   --text-muted: #9ca3af;
+  --text-tertiary: #c4cada;  /* Timestamps, de-emphasised metadata */
   
   /* Status Colors (Subtle backgrounds, strong labels) */
   --status-under-review: #64748b;

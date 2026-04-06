@@ -152,6 +152,14 @@ db.exec(`
     feature_id TEXT NOT NULL REFERENCES features(id) ON DELETE CASCADE,
     PRIMARY KEY (user_id, feature_id)
   );
+
+  CREATE TABLE IF NOT EXISTS feature_revisions (
+    id TEXT PRIMARY KEY,
+    feature_id TEXT NOT NULL REFERENCES features(id) ON DELETE CASCADE,
+    changed_by TEXT,
+    changed_at TEXT NOT NULL,
+    changes TEXT NOT NULL
+  );
 `);
 
 // ── Lightweight Migrations ───────────────────────────────────────────────────
@@ -170,6 +178,7 @@ addColumn('key_stakeholder', 'TEXT', '""');
 addColumn('priority', 'TEXT', '"Medium"');
 addColumn('stage_id', 'TEXT', 'NULL');
 addColumn('gravity_score', 'REAL', 0);
+addColumn('is_published', 'INTEGER', 1);
 
 // Migration for stages table
 const addColumnToStages = (col, type, def) => {
