@@ -1,49 +1,82 @@
-import db from '../db.js';
+import { votesContainer, featuresContainer } from '../db.js';
 import { authenticate } from '../auth.js';
 import { recalculateAllGravityScores } from '../lib/gravityUtils.js';
 
 export default async function voteRoutes(fastify, options) {
 
-  // 1. Transactional vote logic (Atomic)
-  const castVoteTx = db.transaction((userId, featureId) => {
-    // Insert into votes (Unique constraint prevents double voting)
-    db.prepare('INSERT INTO votes (user_id, feature_id) VALUES (?, ?)').run(userId, featureId);
-    // Increment feature vote count
-    db.prepare('UPDATE features SET vote_count = vote_count + 1 WHERE id = ?').run(featureId);
-  });
+  // ── Helpers ──────────────────────────────────────────────────────────────────
 
-  const removeVoteTx = db.transaction((userId, featureId) => {
-    // Delete from votes
-    const result = db.prepare('DELETE FROM votes WHERE user_id = ? AND feature_id = ?').run(userId, featureId);
-    // Only decrement if a vote was actually deleted
-    if (result.changes > 0) {
-      db.prepare('UPDATE features SET vote_count = vote_count - 1 WHERE id = ?').run(featureId);
-      return true;
-    }
-    return false;
-  });
+  /**
+   * Builds the synthetic composite vote id that enforces one-vote-per-user.
+   * The votes container partitions by /featureId so the partition key is featureId.
+   */
+  const voteId = (userId, featureId) => `${userId}::${featureId}`;
 
-  // 2. POST /:id/vote — Cast a vote
+  /**
+   * Atomically increment (delta = +1) or decrement (delta = -1) vote_count on a
+   * feature using the Cosmos Patch API.  This avoids a read-modify-replace cycle
+   * and eliminates the race condition that existed with the SQLite approach.
+   */
+  async function patchVoteCount(featureId, delta) {
+    await featuresContainer.item(featureId, featureId).patch([
+      { op: 'incr', path: '/vote_count', value: delta },
+    ]);
+  }
+
+  // ── POST /:id/vote — Cast a vote ─────────────────────────────────────────────
   fastify.post('/:id/vote', { preHandler: [authenticate] }, async (request, reply) => {
-    const { id: featureId } = request.params;
-    const { sub: userId } = request.user;
+    const featureId = request.params.id;
+    const userId = request.user.sub;
 
-    castVoteTx(userId, featureId);
-    recalculateAllGravityScores(db);
+    // Create the vote document.  The synthetic id guarantees uniqueness —
+    // Cosmos returns 409 Conflict if the same id already exists in the partition.
+    try {
+      await votesContainer.items.create({
+        id: voteId(userId, featureId),
+        featureId,
+        userId,
+      });
+    } catch (err) {
+      if (err.code === 409) {
+        return reply.code(409).send({ error: 'Already voted for this feature' });
+      }
+      throw err;
+    }
+
+    // Atomically increment vote_count on the feature document.
+    try {
+      await patchVoteCount(featureId, 1);
+    } catch (err) {
+      // The vote row exists but the count patch failed — attempt a rollback so
+      // the state stays consistent.  This edge case should be extremely rare.
+      console.error('Vote count increment failed, rolling back vote document:', err);
+      await votesContainer.item(voteId(userId, featureId), featureId).delete().catch(() => {});
+      throw err;
+    }
+
+    await recalculateAllGravityScores();
     return { ok: true };
   });
 
-  // 3. DELETE /:id/vote — Remove a vote
+  // ── DELETE /:id/vote — Remove a vote ─────────────────────────────────────────
   fastify.delete('/:id/vote', { preHandler: [authenticate] }, async (request, reply) => {
-    const { id: featureId } = request.params;
-    const { sub: userId } = request.user;
+    const featureId = request.params.id;
+    const userId = request.user.sub;
 
-    const removed = removeVoteTx(userId, featureId);
-    if (!removed) {
-      return reply.code(404).send({ error: 'Vote not found or already removed' });
+    // Delete the vote document; 404 means the user never voted.
+    try {
+      await votesContainer.item(voteId(userId, featureId), featureId).delete();
+    } catch (err) {
+      if (err.code === 404) {
+        return reply.code(404).send({ error: 'Vote not found or already removed' });
+      }
+      throw err;
     }
 
-    recalculateAllGravityScores(db);
+    // Atomically decrement vote_count.
+    await patchVoteCount(featureId, -1);
+
+    await recalculateAllGravityScores();
     return { ok: true };
   });
 

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: join(__dirname, '../../.env') });
 
-const required = ['JWT_SECRET', 'COOKIE_SECRET'];
+const required = ['JWT_SECRET', 'COOKIE_SECRET', 'COSMOS_ENDPOINT', 'COSMOS_KEY', 'COSMOS_DATABASE_ID'];
 
 for (const key of required) {
   if (!process.env[key]) {
@@ -27,6 +27,12 @@ export const config = {
     .split(',')
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean),
+
+  cosmos: {
+    endpoint: process.env.COSMOS_ENDPOINT,
+    key: process.env.COSMOS_KEY,
+    databaseId: process.env.COSMOS_DATABASE_ID,
+  },
 
   oidc: {
     issuer: process.env.OIDC_ISSUER ?? '',

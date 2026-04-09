@@ -8,6 +8,7 @@ import { dirname } from 'path';
 import fastifyStatic from '@fastify/static';
 import { config } from './config.js';
 
+import { initDb } from './db.js';
 import authRoutes from './routes/auth.js';
 import featureRoutes from './routes/features.js';
 import categoryRoutes from './routes/categories.js';
@@ -73,6 +74,9 @@ server.setNotFoundHandler((request, reply) => {
 // 5. Start Server
 const start = async () => {
   try {
+    // Ensure Cosmos DB database and containers exist before accepting requests
+    await initDb();
+
     await server.listen({ port: config.port, host: '0.0.0.0' });
     console.log(`🚀 Server listening on http://localhost:${config.port}`);
   } catch (err) {

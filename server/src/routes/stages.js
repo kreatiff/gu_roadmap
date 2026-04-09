@@ -1,112 +1,202 @@
-import db from '../db.js';
+import { stagesContainer, featuresContainer } from '../db.js';
 import { v4 as uuidv4 } from 'uuid';
 import slugify from 'slugify';
 import { requireAdmin } from '../auth.js';
 
 export default async function stageRoutes(fastify, options) {
 
-  // 1. Public: Get all stages with feature count
+  // ── 1. GET / — All stages with feature count ──────────────────────────────────
   fastify.get('/', async (request, reply) => {
-    const query = `
-      SELECT *, (SELECT COUNT(*) FROM features WHERE stage_id = stages.id) as feature_count 
-      FROM stages 
-      ORDER BY order_idx ASC
-    `;
-    return db.prepare(query).all();
+    const { resources: stages } = await stagesContainer.items
+      .query('SELECT * FROM c ORDER BY c.order_idx ASC', { enableCrossPartitionQuery: true })
+      .fetchAll();
+
+    const withCounts = await Promise.all(
+      stages.map(async (stage) => {
+        const { resources: [count] } = await featuresContainer.items
+          .query(
+            {
+              query: 'SELECT VALUE COUNT(1) FROM c WHERE c.stage_id = @id',
+              parameters: [{ name: '@id', value: stage.id }],
+            },
+            { enableCrossPartitionQuery: true }
+          )
+          .fetchAll();
+        return { ...stage, feature_count: count ?? 0 };
+      })
+    );
+
+    return withCounts;
   });
 
-  // 2. Admin: Create stage
+  // ── 2. POST / — Admin: Create stage ───────────────────────────────────────────
   fastify.post('/', { preHandler: [requireAdmin] }, async (request, reply) => {
     const { name, color, order_idx, is_visible } = request.body;
     if (!name) return reply.code(400).send({ error: 'Name is required' });
 
     const id = uuidv4();
     const slug = slugify(name, { lower: true, strict: true });
-    
+
     // Auto-calculate order_idx if not provided
     let finalOrder = order_idx;
     if (finalOrder === undefined) {
-      const maxOrder = db.prepare('SELECT MAX(order_idx) as max_idx FROM stages').get();
-      finalOrder = (maxOrder.max_idx || 0) + 1;
+      const { resources: [maxIdx] } = await stagesContainer.items
+        .query('SELECT VALUE MAX(c.order_idx) FROM c', { enableCrossPartitionQuery: true })
+        .fetchAll();
+      finalOrder = (maxIdx ?? 0) + 1;
     }
 
-    db.prepare(`
-      INSERT INTO stages (id, name, color, slug, order_idx, is_visible)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(id, name, color || '#64748b', slug, finalOrder, is_visible !== undefined ? is_visible : 1);
+    const doc = {
+      id,
+      name,
+      color: color ?? '#64748b',
+      slug,
+      order_idx: finalOrder,
+      is_visible: is_visible !== undefined ? Boolean(is_visible) : true,
+    };
+
+    try {
+      await stagesContainer.items.create(doc);
+    } catch (err) {
+      if (err.code === 409) return reply.code(409).send({ error: 'A stage with this slug already exists' });
+      throw err;
+    }
 
     return { id, name, slug };
   });
 
-  // 3. Admin: Update stage
+  // ── 3. PUT /:id — Admin: Update stage ─────────────────────────────────────────
   fastify.put('/:id', { preHandler: [requireAdmin] }, async (request, reply) => {
     const { id } = request.params;
     const { name, color, order_idx, is_visible } = request.body;
 
-    const updates = [];
-    const params = [];
-
-    if (name !== undefined) { 
-      updates.push('name = ?'); params.push(name); 
+    let existing;
+    try {
+      const { resource } = await stagesContainer.item(id, id).read();
+      existing = resource;
+    } catch (err) {
+      if (err.code === 404) return reply.code(404).send({ error: 'Stage not found' });
+      throw err;
     }
-    if (color !== undefined) { updates.push('color = ?'); params.push(color); }
-    if (order_idx !== undefined) { updates.push('order_idx = ?'); params.push(order_idx); }
-    if (is_visible !== undefined) { updates.push('is_visible = ?'); params.push(is_visible); }
 
-    if (updates.length === 0) return reply.code(400).send({ error: 'No updates provided' });
+    const updated = { ...existing };
+    const displayFieldsChanged = [];
 
-    const query = `UPDATE stages SET ${updates.join(', ')} WHERE id = ?`;
-    params.push(id);
+    if (name !== undefined)       { updated.name = name;               if (name !== existing.name)   displayFieldsChanged.push('name'); }
+    if (color !== undefined)      { updated.color = color;             if (color !== existing.color) displayFieldsChanged.push('color'); }
+    if (order_idx !== undefined)  { updated.order_idx = order_idx; }
+    if (is_visible !== undefined) { updated.is_visible = Boolean(is_visible); }
 
-    const result = db.prepare(query).run(...params);
-    if (result.changes === 0) return reply.code(404).send({ error: 'Stage not found' });
+    await stagesContainer.item(id, id).replace(updated);
+
+    // Fan-out: update denormalized stage fields on all features referencing this stage
+    if (displayFieldsChanged.length > 0) {
+      const { resources: affectedFeatures } = await featuresContainer.items
+        .query(
+          {
+            query: 'SELECT c.id FROM c WHERE c.stage_id = @stageId',
+            parameters: [{ name: '@stageId', value: id }],
+          },
+          { enableCrossPartitionQuery: true }
+        )
+        .fetchAll();
+
+      await Promise.all(
+        affectedFeatures.map((f) =>
+          featuresContainer.item(f.id, f.id).patch([
+            { op: 'set', path: '/stage_name',  value: updated.name },
+            { op: 'set', path: '/stage_color', value: updated.color },
+            { op: 'set', path: '/stage_slug',  value: updated.slug },
+          ])
+        )
+      );
+    }
 
     return { ok: true };
   });
 
-  // 4. Admin: Delete stage (Safety check for features)
+  // ── 4. DELETE /:id — Admin: Delete stage ──────────────────────────────────────
   fastify.delete('/:id', { preHandler: [requireAdmin] }, async (request, reply) => {
     const { id } = request.params;
     const { reassignTo } = request.body || {};
 
-    // Check if any features use this stage
-    const countResult = db.prepare('SELECT COUNT(*) as count FROM features WHERE stage_id = ?').get(id);
-    const featureCount = countResult.count;
+    // Count features using this stage
+    const { resources: [count] } = await featuresContainer.items
+      .query(
+        {
+          query: 'SELECT VALUE COUNT(1) FROM c WHERE c.stage_id = @id',
+          parameters: [{ name: '@id', value: id }],
+        },
+        { enableCrossPartitionQuery: true }
+      )
+      .fetchAll();
+
+    const featureCount = count ?? 0;
 
     if (featureCount > 0 && !reassignTo) {
-      return reply.code(409).send({ 
-        error: 'CONFLICT_REASSIGN_REQUIRED', 
-        message: `This stage has ${featureCount} features. Please choose a target stage to move them to.`,
-        count: featureCount
+      return reply.code(409).send({
+        error: 'CONFLICT_REASSIGN_REQUIRED',
+        message: `This stage has ${featureCount} feature(s). Please choose a target stage to move them to.`,
+        count: featureCount,
       });
     }
 
-    // Perform migration if reassignTo is provided
     if (featureCount > 0 && reassignTo) {
-      db.prepare('UPDATE features SET stage_id = ? WHERE stage_id = ?').run(reassignTo, id);
+      // Fetch target stage display fields for denormalization
+      let targetStage = null;
+      try {
+        const { resource } = await stagesContainer.item(reassignTo, reassignTo).read();
+        targetStage = resource;
+      } catch (err) {
+        if (err.code === 404) return reply.code(400).send({ error: 'Target stage not found' });
+        throw err;
+      }
+
+      const { resources: affectedFeatures } = await featuresContainer.items
+        .query(
+          {
+            query: 'SELECT c.id FROM c WHERE c.stage_id = @id',
+            parameters: [{ name: '@id', value: id }],
+          },
+          { enableCrossPartitionQuery: true }
+        )
+        .fetchAll();
+
+      await Promise.all(
+        affectedFeatures.map((f) =>
+          featuresContainer.item(f.id, f.id).patch([
+            { op: 'set', path: '/stage_id',    value: reassignTo },
+            { op: 'set', path: '/stage_name',  value: targetStage.name },
+            { op: 'set', path: '/stage_color', value: targetStage.color },
+            { op: 'set', path: '/stage_slug',  value: targetStage.slug },
+          ])
+        )
+      );
     }
 
-    const result = db.prepare('DELETE FROM stages WHERE id = ?').run(id);
-    if (result.changes === 0) return reply.code(404).send({ error: 'Stage not found' });
-    
+    try {
+      await stagesContainer.item(id, id).delete();
+    } catch (err) {
+      if (err.code === 404) return reply.code(404).send({ error: 'Stage not found' });
+      throw err;
+    }
+
     return { ok: true };
   });
 
-  // 5. Admin: Reorder stages (Batch update)
+  // ── 5. POST /reorder — Admin: Batch reorder stages ────────────────────────────
   fastify.post('/reorder', { preHandler: [requireAdmin] }, async (request, reply) => {
-    const { stageIds } = request.body; // Array of IDs in the desired order
+    const { stageIds } = request.body;
     if (!Array.isArray(stageIds)) return reply.code(400).send({ error: 'Array of stageIds required' });
 
-    const update = db.prepare('UPDATE stages SET order_idx = ? WHERE id = ?');
-    
-    // Use a transaction for batch update
-    const transaction = db.transaction((ids) => {
-      ids.forEach((id, index) => {
-        update.run(index, id);
-      });
-    });
+    await Promise.all(
+      stageIds.map((stageId, index) =>
+        stagesContainer.item(stageId, stageId).patch([
+          { op: 'set', path: '/order_idx', value: index },
+        ])
+      )
+    );
 
-    transaction(stageIds);
     return { ok: true };
   });
 
