@@ -1,0 +1,49 @@
+services:
+
+  # ── Azure Cosmos DB Emulator (vnext) ──────────────────────────────────────────
+  cosmos:
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:vnext-preview
+    container_name: cosmos_emulator
+    restart: unless-stopped
+    ports:
+      - "8081:8081"     # Data plane / SDK endpoint
+      - "1234:1234"     # Explorer UI  →  https://localhost:1234/_explorer/index.html
+    environment:
+      # Number of partitions provisioned in the emulator (default: 25)
+      AZURE_COSMOS_EMULATOR_PARTITION_COUNT: 10
+    healthcheck:
+      test: ["CMD", "curl", "-fk", "https://localhost:8081/_explorer/emulator.pem"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  # ── App (built from local source) ─────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gu_roadmap_dev
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    depends_on:
+      cosmos:
+        condition: service_healthy
+    environment:
+      - PORT=3001
+      - NODE_ENV=development
+      - JWT_SECRET=${JWT_SECRET:-dev-jwt-secret-must-be-at-least-32-chars}
+      - COOKIE_SECRET=${COOKIE_SECRET:-dev-cookie-secret-32-chars-minimum}
+      - CLIENT_ORIGIN=${CLIENT_ORIGIN:-http://localhost:5173}
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-}
+      - OIDC_ISSUER=${OIDC_ISSUER:-}
+      - OIDC_CLIENT_ID=${OIDC_CLIENT_ID:-gu-roadmap}
+      - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET:-}
+      - OIDC_REDIRECT_URI=${OIDC_REDIRECT_URI:-http://localhost:3001/api/auth/callback}
+      # Point at the emulator using Docker's internal service name
+      - COSMOS_ENDPOINT=https://cosmos:8081
+      - COSMOS_KEY=C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b7u8kTMKxPh8ISbMpLrMjERHOy8vEAQ==
+      - COSMOS_DATABASE_ID=gu_roadmap
+      # Required: emulator uses a self-signed cert
+      - NODE_TLS_REJECT_UNAUTHORIZED=0
