@@ -6,6 +6,13 @@ import { config } from './config.js';
 const client = new CosmosClient({
   endpoint: config.cosmos.endpoint,
   key: config.cosmos.key,
+  connectionPolicy: {
+    // Disable endpoint discovery so the SDK always uses the configured endpoint
+    // directly. Without this, the emulator advertises its internal 127.0.0.1
+    // address during the handshake, causing ECONNREFUSED when connecting from
+    // a remote host (e.g. a homelab server).
+    enableEndpointDiscovery: false,
+  },
 });
 
 const database = client.database(config.cosmos.databaseId);
