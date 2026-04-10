@@ -11,6 +11,7 @@
     "concurrently": "^9.1.2"
   },
   "dependencies": {
+    "@azure/cosmos": "^4.9.2",
     "dotenv": "^17.3.1"
   }
 }
