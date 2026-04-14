@@ -241,8 +241,8 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, groupBy = 'cate
                       <Link to={`/admin/features/${feat.id}/edit`} className={styles.titleLink}>
                         {feat.title}
                       </Link>
-                      {feat.is_published === 0 && <span className={styles.draftBadgeBadge}>DRAFT</span>}
-                      {feat.pinned === 1 && <span className={styles.pinIcon}>★</span>}
+                      {!feat.is_published && <span className={styles.draftBadgeBadge}>DRAFT</span>}
+                      {feat.pinned && <span className={styles.pinIcon}>★</span>}
                     </div>
                   </td>
                   <td className={styles.td}>

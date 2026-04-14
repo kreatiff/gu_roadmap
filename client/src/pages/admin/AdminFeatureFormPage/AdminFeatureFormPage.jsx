@@ -32,14 +32,14 @@ const AdminFeatureFormPage = () => {
     category_id: '',
     status: 'under_review',
     stage_id: '',
-    pinned: 0,
+    pinned: false,
     tags: [],
     impact: 1,
     effort: 1,
     owner: '',
     key_stakeholder: '',
     priority: 'Medium',
-    is_published: 1
+    is_published: true
   });
 
   useEffect(() => {
@@ -79,7 +79,7 @@ const AdminFeatureFormPage = () => {
               key_stakeholder: feature.key_stakeholder || '',
               priority: feature.priority || 'Medium',
               vote_count: feature.vote_count || 0,
-              is_published: feature.is_published ?? 1
+              is_published: feature.is_published ?? true
             });
           }
         } finally {
@@ -98,7 +98,7 @@ const AdminFeatureFormPage = () => {
   };
 
   const requestSubmit = (isPublishAction) => {
-    if (isEdit && formData.is_published === 1 && !isPublishAction) {
+    if (isEdit && formData.is_published && !isPublishAction) {
       setConfirmDialog({ 
         isOpen: true, 
         type: 'unpublish', 
@@ -112,7 +112,7 @@ const AdminFeatureFormPage = () => {
   const executeSubmit = async (isPublishAction) => {
     setConfirmDialog({ isOpen: false, type: null, payload: null });
     try {
-      const payload = { ...formData, is_published: isPublishAction ? 1 : 0 };
+      const payload = { ...formData, is_published: !!isPublishAction };
       if (isEdit) {
         await updateFeature(id, payload);
         addToast(isPublishAction ? 'Feature published' : 'Draft saved', 'success');
@@ -242,7 +242,7 @@ const AdminFeatureFormPage = () => {
             <div className={styles.breadcrumb}>ADMIN › {isEdit ? 'EDIT FEATURE' : 'NEW FEATURE'}</div>
             <h1 className={styles.h1}>
               {formData.title || (isEdit ? 'Editing Feature' : 'Create New Feature')}
-              {isEdit && formData.is_published === 1 && (
+              {isEdit && formData.is_published && (
                 <span className={styles.publishedBadgeBadge}>Published</span>
               )}
             </h1>
@@ -437,8 +437,8 @@ const AdminFeatureFormPage = () => {
             <input 
               type="checkbox" 
               id="pinned"
-              checked={formData.pinned === 1} 
-              onChange={(e) => setFormData(prev => ({ ...prev, pinned: e.target.checked ? 1 : 0 }))}
+              checked={!!formData.pinned} 
+              onChange={(e) => setFormData(prev => ({ ...prev, pinned: e.target.checked }))}
               className={styles.checkbox}
             />
             <label htmlFor="pinned" className={styles.checkboxLabel}>Pin feature to top of public roadmap</label>
@@ -465,10 +465,10 @@ const AdminFeatureFormPage = () => {
           <div className={styles.formFooterActions}>
             <button type="button" onClick={requestDiscard} className={styles.secondaryBtn}>Discard Changes</button>
             <button type="button" onClick={() => handleActionClick(false)} className={styles.secondaryBtn}>
-              {isEdit && formData.is_published === 0 ? 'Save Draft Updates' : 'Save as Draft'}
+              {isEdit && !formData.is_published ? 'Save Draft Updates' : 'Save as Draft'}
             </button>
             <button type="button" onClick={() => handleActionClick(true)} className={styles.submitBtn}>
-              {isEdit && formData.is_published === 1 ? 'Save Published Changes' : 'Publish Feature'}
+              {isEdit && formData.is_published ? 'Save Published Changes' : 'Publish Feature'}
             </button>
           </div>
         </div>
