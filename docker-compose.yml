@@ -5,8 +5,7 @@ services:
     restart: unless-stopped
     ports:
       - "3001:3001"
-    volumes:
-      - gu_roadmap_data:/app/server/data
+    # No volume mount needed — data lives in Azure Cosmos DB
     environment:
       - PORT=${PORT:-3001}
       - NODE_ENV=${NODE_ENV:-production}
@@ -18,6 +17,6 @@ services:
       - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET}
       - OIDC_REDIRECT_URI=${OIDC_REDIRECT_URI}
       - ADMIN_EMAILS=${ADMIN_EMAILS}
-
-volumes:
-  gu_roadmap_data:
+      - COSMOS_ENDPOINT=${COSMOS_ENDPOINT}
+      - COSMOS_KEY=${COSMOS_KEY}
+      - COSMOS_DATABASE_ID=${COSMOS_DATABASE_ID:-gu_roadmap}

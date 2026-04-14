@@ -1,4 +1,4 @@
-import db from '../db.js';
+import { featuresContainer, categoriesContainer, stagesContainer, revisionsContainer, votesContainer } from '../db.js';
 import { v4 as uuidv4 } from 'uuid';
 import slugify from 'slugify';
 import { requireAdmin, optionalAuthenticate } from '../auth.js';
@@ -6,344 +6,413 @@ import { recalculateAllGravityScores } from '../lib/gravityUtils.js';
 
 export default async function featureRoutes(fastify, options) {
 
-  // 1. Unified endpoint for listing and filtering features
+  // ── 1. GET / — List & filter features ────────────────────────────────────────
   fastify.get('/', { preHandler: [optionalAuthenticate] }, async (request, reply) => {
     const { status, category, search, page = 1, limit = 12 } = request.query;
-    const userId = request.user ? request.user.sub : null;
-    
-    const pageNum = parseInt(page, 10) || 1;
-    const limitNum = parseInt(limit, 10) || 12;
+    const userId = request.user?.sub ?? null;
+    const isAdmin = request.user?.isAdmin ?? false;
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, parseInt(limit, 10) || 12);
     const offsetNum = (pageNum - 1) * limitNum;
 
-    let query = `
-      SELECT f.*, c.name as category_name, c.color as category_color, c.icon as category_icon,
-      st.name as stage_name, st.color as stage_color, st.slug as stage_slug,
-      (SELECT 1 FROM votes v WHERE v.feature_id = f.id AND v.user_id = ?) as user_voted
-      FROM features f
-      LEFT JOIN categories c ON f.category_id = c.id
-      LEFT JOIN stages st ON f.stage_id = st.id
-      WHERE 1=1
-    `;
-    const params = [userId];
+    // Build parameterized Cosmos SQL query.
+    // Category and stage display fields are denormalized onto the feature document
+    // so no JOINs are required.
+    const conditions = [];
+    const parameters = [];
 
-    const isAdmin = request.user && request.user.isAdmin;
     if (!isAdmin) {
-      query += ' AND f.is_published = 1';
+      conditions.push('c.is_published = true');
     }
 
     if (status) {
-      query += ' AND (f.status = ? OR st.slug = ?)';
-      params.push(status, status);
+      conditions.push('(c.status = @status OR c.stage_slug = @status)');
+      parameters.push({ name: '@status', value: status });
     }
 
     if (category) {
-      query += ' AND f.category_id = ?';
-      params.push(category);
+      conditions.push('c.category_id = @category');
+      parameters.push({ name: '@category', value: category });
     }
 
     if (search) {
-      query += ' AND (f.title LIKE ? OR f.description LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`);
+      conditions.push('(CONTAINS(c.title, @search, true) OR CONTAINS(c.description, @search, true))');
+      parameters.push({ name: '@search', value: search });
     }
 
-    // Always sort by pinned first, then popular, then newest
-    query += ' ORDER BY f.pinned DESC, f.vote_count DESC, f.created_at DESC';
-    
-    // Add pagination limit/offset
-    query += ' LIMIT ? OFFSET ?';
-    params.push(limitNum, offsetNum);
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    const features = db.prepare(query).all(...params);
-    
-    // Parse tags JSON string back to array if needed
-    const data = features.map(f => ({
+    const querySpec = {
+      query: `
+        SELECT *
+        FROM c
+        ${whereClause}
+        ORDER BY c.pinned DESC, c.vote_count DESC, c.created_at DESC
+        OFFSET ${offsetNum} LIMIT ${limitNum}
+      `,
+      parameters,
+    };
+
+    const { resources: features } = await featuresContainer.items
+      .query(querySpec, { enableCrossPartitionQuery: true })
+      .fetchAll();
+
+    // Resolve user_voted for each feature in a single batch query.
+    let votedFeatureIds = new Set();
+    if (userId && features.length > 0) {
+      const featureIds = features.map((f) => f.id);
+      // Query votes partitioned by featureId — needs cross-partition since we
+      // span many featureId partitions.  For this dataset size it is acceptable.
+      const voteQuerySpec = {
+        query: `SELECT c.featureId FROM c WHERE c.userId = @userId AND c.featureId IN (${featureIds.map((_, i) => `@fid${i}`).join(',')})`,
+        parameters: [
+          { name: '@userId', value: userId },
+          ...featureIds.map((id, i) => ({ name: `@fid${i}`, value: id })),
+        ],
+      };
+      const { resources: voted } = await votesContainer.items
+        .query(voteQuerySpec, { enableCrossPartitionQuery: true })
+        .fetchAll();
+      votedFeatureIds = new Set(voted.map((v) => v.featureId));
+    }
+
+    const data = features.map((f) => ({
       ...f,
-      user_voted: Boolean(f.user_voted),
-      tags: JSON.parse(f.tags || '[]')
+      user_voted: votedFeatureIds.has(f.id),
     }));
 
     return {
       data,
-      meta: {
-        page: pageNum,
-        limit: limitNum,
-        hasMore: data.length === limitNum
-      }
+      meta: { page: pageNum, limit: limitNum, hasMore: data.length === limitNum },
     };
   });
 
-  // 1.1 Single Feature detail (for deep-linking modals)
+  // ── 1.1 GET /:id — Single feature detail ─────────────────────────────────────
   fastify.get('/:id', { preHandler: [optionalAuthenticate] }, async (request, reply) => {
     const { id } = request.params;
-    const userId = request.user ? request.user.sub : null;
+    const userId = request.user?.sub ?? null;
+    const isAdmin = request.user?.isAdmin ?? false;
 
-    const query = `
-      SELECT f.*, c.name as category_name, c.color as category_color, c.icon as category_icon,
-      st.name as stage_name, st.color as stage_color, st.slug as stage_slug,
-      (SELECT 1 FROM votes v WHERE v.feature_id = f.id AND v.user_id = ?) as user_voted
-      FROM features f
-      LEFT JOIN categories c ON f.category_id = c.id
-      LEFT JOIN stages st ON f.stage_id = st.id
-      WHERE f.id = ?
-    `;
-    
-    const isAdmin = request.user && request.user.isAdmin;
-    if (!isAdmin) {
-      query += ' AND f.is_published = 1';
+    let feature;
+    try {
+      const { resource } = await featuresContainer.item(id, id).read();
+      feature = resource;
+    } catch (err) {
+      if (err.code === 404) return reply.code(404).send({ error: 'Feature not found' });
+      throw err;
     }
-    
-    const feature = db.prepare(query).get(userId, id);
-    if (!feature) return reply.code(404).send({ error: 'Feature not found' });
 
-    return {
-      ...feature,
-      user_voted: Boolean(feature.user_voted),
-      tags: JSON.parse(feature.tags || '[]')
-    };
+    // Enforce is_published for non-admins
+    if (!isAdmin && !feature.is_published) {
+      return reply.code(404).send({ error: 'Feature not found' });
+    }
+
+    // Check if current user has voted
+    let user_voted = false;
+    if (userId) {
+      try {
+        await votesContainer.item(`${userId}::${id}`, id).read();
+        user_voted = true;
+      } catch (err) {
+        if (err.code !== 404) throw err;
+      }
+    }
+
+    return { ...feature, user_voted };
   });
 
-  // 2. Admin: Create new feature
+  // ── 2. POST / — Admin: Create feature ────────────────────────────────────────
   fastify.post('/', { preHandler: [requireAdmin] }, async (request, reply) => {
-    const { 
-      title, 
-      description, 
-      category_id, 
-      status, 
-      stage_id,
-      impact, 
-      effort,
-      owner,
-      key_stakeholder,
-      priority,
-      is_published
+    const {
+      title, description, category_id, status, stage_id,
+      impact, effort, owner, key_stakeholder, priority, is_published,
     } = request.body;
-    
+
     if (!title) return reply.code(400).send({ error: 'Title is required' });
 
+    const id = uuidv4();
     const slug = slugify(title, { lower: true, strict: true });
     const now = new Date().toISOString();
-    const id = uuidv4();
 
-    const stmt = db.prepare(`
-      INSERT INTO features (
-        id, title, slug, description, category_id, status, stage_id,
-        impact, effort, owner, key_stakeholder, priority, is_published,
-        created_at, updated_at
-      )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    // Resolve default stage if not provided
+    let finalStageId = stage_id ?? null;
+    let stageName = null, stageColor = null, stageSlug = null;
 
-    // If stage_id is missing, try to find a default from stages table
-    let finalStageId = stage_id;
-    if (!finalStageId) {
-      const defaultStage = db.prepare('SELECT id FROM stages ORDER BY order_idx ASC LIMIT 1').get();
-      finalStageId = defaultStage ? defaultStage.id : null;
+    if (finalStageId) {
+      try {
+        const { resource: stage } = await stagesContainer.item(finalStageId, finalStageId).read();
+        stageName = stage.name; stageColor = stage.color; stageSlug = stage.slug;
+      } catch { /* stage not found — leave nulls */ }
+    } else {
+      const { resources: [defaultStage] } = await stagesContainer.items
+        .query('SELECT TOP 1 * FROM c ORDER BY c.order_idx ASC', { enableCrossPartitionQuery: true })
+        .fetchAll();
+      if (defaultStage) {
+        finalStageId = defaultStage.id;
+        stageName = defaultStage.name; stageColor = defaultStage.color; stageSlug = defaultStage.slug;
+      }
     }
 
-    stmt.run(
-      id, 
-      title, 
-      slug, 
-      description || '', 
-      category_id || null, 
-      status || 'under_review',
-      finalStageId,
-      impact || 1,
-      effort || 1,
-      owner || '',
-      key_stakeholder || '',
-      priority || 'Medium',
-      is_published === 0 ? 0 : 1,
-      now, 
-      now
-    );
-    
-    db.prepare(`
-      INSERT INTO feature_revisions (id, feature_id, changed_by, changed_at, changes)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(uuidv4(), id, request.user ? request.user.email : 'System', now, JSON.stringify({
-      action: 'created',
-      title: title
-    }));
-    
-    // Recalculate scores since maxVotes or inputs might have changed
-    recalculateAllGravityScores(db);
+    // Resolve category display fields
+    let categoryName = null, categoryColor = null, categoryIcon = null;
+    const finalCategoryId = category_id ?? null;
+    if (finalCategoryId) {
+      try {
+        const { resource: cat } = await categoriesContainer.item(finalCategoryId, finalCategoryId).read();
+        categoryName = cat.name; categoryColor = cat.color; categoryIcon = cat.icon;
+      } catch { /* category not found — leave nulls */ }
+    }
 
+    const doc = {
+      id,
+      title,
+      slug,
+      description: description ?? '',
+      status: status ?? stageSlug ?? 'under_review',
+      category_id: finalCategoryId,
+      category_name: categoryName,
+      category_color: categoryColor,
+      category_icon: categoryIcon,
+      stage_id: finalStageId,
+      stage_name: stageName,
+      stage_color: stageColor,
+      stage_slug: stageSlug,
+      vote_count: 0,
+      impact: impact ?? 1,
+      effort: effort ?? 1,
+      tags: [],
+      pinned: false,
+      is_published: is_published === 0 ? false : true,
+      owner: owner ?? '',
+      key_stakeholder: key_stakeholder ?? '',
+      priority: priority ?? 'Medium',
+      gravity_score: 0,
+      created_at: now,
+      updated_at: now,
+    };
+
+    try {
+      await featuresContainer.items.create(doc);
+    } catch (err) {
+      if (err.code === 409) return reply.code(409).send({ error: 'A feature with this slug already exists' });
+      throw err;
+    }
+
+    await revisionsContainer.items.create({
+      id: uuidv4(),
+      featureId: id,
+      changed_by: request.user?.email ?? 'System',
+      changed_at: now,
+      changes: { action: 'created', title },
+    });
+
+    await recalculateAllGravityScores();
     return { id, title, slug };
   });
 
-  // 3. Admin: Update feature
+  // ── 3. PUT /:id — Admin: Update feature ───────────────────────────────────────
   fastify.put('/:id', { preHandler: [requireAdmin] }, async (request, reply) => {
     const { id } = request.params;
-    const { 
-      title, 
-      description, 
-      category_id, 
-      status, 
-      impact, 
-      effort,
-      owner,
-      key_stakeholder,
-      priority,
-      pinned,
-      tags,
-      stage_id,
-      is_published
+    const {
+      title, description, category_id, status, impact, effort,
+      owner, key_stakeholder, priority, pinned, tags, stage_id, is_published,
     } = request.body;
+
+    // Fetch existing document
+    let oldFeature;
+    try {
+      const { resource } = await featuresContainer.item(id, id).read();
+      oldFeature = resource;
+    } catch (err) {
+      if (err.code === 404) return reply.code(404).send({ error: 'Feature not found' });
+      throw err;
+    }
+
     const now = new Date().toISOString();
-
-    const oldFeature = db.prepare('SELECT * FROM features WHERE id = ?').get(id);
-    if (!oldFeature) return reply.code(404).send({ error: 'Feature not found' });
-
-    const updates = [];
-    const params = [];
+    const updated = { ...oldFeature, updated_at: now };
     const changesObj = {};
 
     if (title !== undefined && title !== oldFeature.title) {
       changesObj.title = { old: oldFeature.title, new: title };
-      updates.push('title = ?, slug = ?');
-      params.push(title, slugify(title, { lower: true, strict: true }));
+      updated.title = title;
+      updated.slug = slugify(title, { lower: true, strict: true });
     }
     if (description !== undefined && description !== oldFeature.description) {
       changesObj.description = { updated: true };
-      updates.push('description = ?'); params.push(description);
+      updated.description = description;
     }
-    const currentCategoryId = oldFeature.category_id || null;
-    const newCategoryId = category_id || null;
-    if (category_id !== undefined && currentCategoryId !== newCategoryId) {
-      changesObj.category_id = { old: currentCategoryId, new: newCategoryId };
-      updates.push('category_id = ?'); params.push(newCategoryId);
+
+    // Category change — re-embed display fields
+    const newCategoryId = category_id !== undefined ? (category_id || null) : oldFeature.category_id;
+    if (newCategoryId !== oldFeature.category_id) {
+      changesObj.category_id = { old: oldFeature.category_id, new: newCategoryId };
+      updated.category_id = newCategoryId;
+      if (newCategoryId) {
+        try {
+          const { resource: cat } = await categoriesContainer.item(newCategoryId, newCategoryId).read();
+          updated.category_name = cat.name;
+          updated.category_color = cat.color;
+          updated.category_icon = cat.icon;
+        } catch { updated.category_name = null; updated.category_color = null; updated.category_icon = null; }
+      } else {
+        updated.category_name = null; updated.category_color = null; updated.category_icon = null;
+      }
     }
-    
-    // Status and Stage synchronization
+
+    // Stage + status synchronization — re-embed stage display fields
     if (stage_id !== undefined && stage_id !== oldFeature.stage_id) {
       changesObj.stage_id = { old: oldFeature.stage_id, new: stage_id };
-      updates.push('stage_id = ?');
-      params.push(stage_id);
-      // Sync status string based on stage slug
-      const stage = db.prepare('SELECT slug FROM stages WHERE id = ?').get(stage_id);
-      if (stage) {
-        updates.push('status = ?');
-        params.push(stage.slug);
+      updated.stage_id = stage_id;
+      if (stage_id) {
+        try {
+          const { resource: stage } = await stagesContainer.item(stage_id, stage_id).read();
+          updated.stage_name = stage.name;
+          updated.stage_color = stage.color;
+          updated.stage_slug = stage.slug;
+          updated.status = stage.slug;
+        } catch { /* stage not found — keep existing status */ }
+      } else {
+        updated.stage_name = null; updated.stage_color = null; updated.stage_slug = null;
       }
     } else if (status !== undefined && status !== oldFeature.status) {
       changesObj.status = { old: oldFeature.status, new: status };
-      updates.push('status = ?');
-      params.push(status);
-      const stage = db.prepare('SELECT id FROM stages WHERE slug = ?').get(status);
-      if (stage) {
-        updates.push('stage_id = ?');
-        params.push(stage.id);
+      updated.status = status;
+      // Also sync stage to the matching slug
+      const { resources: [matchedStage] } = await stagesContainer.items
+        .query(
+          { query: 'SELECT * FROM c WHERE c.slug = @slug', parameters: [{ name: '@slug', value: status }] },
+          { enableCrossPartitionQuery: true }
+        )
+        .fetchAll();
+      if (matchedStage) {
+        updated.stage_id = matchedStage.id;
+        updated.stage_name = matchedStage.name;
+        updated.stage_color = matchedStage.color;
+        updated.stage_slug = matchedStage.slug;
       }
     }
 
-    const currentPinned = oldFeature.pinned === 1;
-    const newPinned = pinned ? 1 : 0;
-    if (pinned !== undefined && currentPinned !== !!newPinned) {
-      changesObj.pinned = { old: currentPinned, new: !!newPinned };
-      updates.push('pinned = ?'); params.push(newPinned);
+    if (pinned !== undefined && Boolean(pinned) !== oldFeature.pinned) {
+      changesObj.pinned = { old: oldFeature.pinned, new: Boolean(pinned) };
+      updated.pinned = Boolean(pinned);
     }
-    
     if (tags !== undefined) {
-      const newTagsStr = JSON.stringify(tags);
-      if (newTagsStr !== oldFeature.tags) {
-        changesObj.tags = { updated: true };
-        updates.push('tags = ?'); params.push(newTagsStr);
-      }
+      changesObj.tags = { updated: true };
+      updated.tags = Array.isArray(tags) ? tags : [];
     }
     if (impact !== undefined && parseInt(impact) !== oldFeature.impact) {
       changesObj.impact = { old: oldFeature.impact, new: parseInt(impact) || 1 };
-      updates.push('impact = ?'); params.push(parseInt(impact) || 1);
+      updated.impact = parseInt(impact) || 1;
     }
     if (effort !== undefined && parseInt(effort) !== oldFeature.effort) {
       changesObj.effort = { old: oldFeature.effort, new: parseInt(effort) || 1 };
-      updates.push('effort = ?'); params.push(parseInt(effort) || 1);
+      updated.effort = parseInt(effort) || 1;
     }
     if (owner !== undefined && owner !== oldFeature.owner) {
       changesObj.owner = { old: oldFeature.owner, new: owner };
-      updates.push('owner = ?'); params.push(owner);
+      updated.owner = owner;
     }
     if (key_stakeholder !== undefined && key_stakeholder !== oldFeature.key_stakeholder) {
       changesObj.key_stakeholder = { old: oldFeature.key_stakeholder, new: key_stakeholder };
-      updates.push('key_stakeholder = ?'); params.push(key_stakeholder);
+      updated.key_stakeholder = key_stakeholder;
     }
     if (priority !== undefined && priority !== oldFeature.priority) {
       changesObj.priority = { old: oldFeature.priority, new: priority };
-      updates.push('priority = ?'); params.push(priority);
+      updated.priority = priority;
     }
-    if (is_published !== undefined && (is_published ? 1 : 0) !== oldFeature.is_published) {
-      changesObj.is_published = { old: oldFeature.is_published, new: is_published ? 1 : 0 };
-      updates.push('is_published = ?'); params.push(is_published ? 1 : 0);
+    if (is_published !== undefined) {
+      const newVal = is_published === 0 ? false : Boolean(is_published);
+      if (newVal !== oldFeature.is_published) {
+        changesObj.is_published = { old: oldFeature.is_published, new: newVal };
+        updated.is_published = newVal;
+      }
     }
 
-    if (updates.length === 0) return reply.code(400).send({ error: 'No updates provided or no changes detected' });
-
-    updates.push('updated_at = ?');
-    params.push(now);
-
-    const query = `UPDATE features SET ${updates.join(', ')} WHERE id = ?`;
-    params.push(id);
+    if (Object.keys(changesObj).length === 0) {
+      return reply.code(400).send({ error: 'No updates provided or no changes detected' });
+    }
 
     try {
-      const result = db.prepare(query).run(...params);
-      if (result.changes === 0) return reply.code(404).send({ error: 'Feature not found' });
-
-      // Recalculate scores if formula inputs changed
-      const scoringFields = ['impact', 'effort', 'priority', 'vote_count'];
-      const hasScoringChange = updates.some(u => scoringFields.some(f => u.includes(f)));
-      if (hasScoringChange) {
-        recalculateAllGravityScores(db);
-      }
-
-      // Record revision if there are actual changes
-      if (Object.keys(changesObj).length > 0) {
-        db.prepare(`
-          INSERT INTO feature_revisions (id, feature_id, changed_by, changed_at, changes)
-          VALUES (?, ?, ?, ?, ?)
-        `).run(uuidv4(), id, request.user ? request.user.email : 'System', now, JSON.stringify({
-          action: 'updated',
-          fields: changesObj
-        }));
-      }
-
-      return { ok: true };
-    } catch (error) {
-      console.error('SQLITE_ERROR in Feature Update:', error);
-      console.error('Query:', query);
-      console.error('Params:', params);
-      return reply.code(500).send({ error: 'Internal Server Error', message: error.message });
+      await featuresContainer.item(id, id).replace(updated);
+    } catch (err) {
+      console.error('Cosmos error in Feature Update:', err);
+      return reply.code(500).send({ error: 'Internal Server Error', message: err.message });
     }
-  });
 
-  // 4. Admin: Delete feature (cascades to votes)
-  fastify.delete('/:id', { preHandler: [requireAdmin] }, async (request, reply) => {
-    const { id } = request.params;
-    const result = db.prepare('DELETE FROM features WHERE id = ?').run(id);
-    if (result.changes === 0) return reply.code(404).send({ error: 'Feature not found' });
-    
-    // Recalculate scores as max_votes might have changed
-    recalculateAllGravityScores(db);
+    // Recalculate gravity scores if scoring inputs changed
+    const scoringFields = ['impact', 'effort', 'priority'];
+    if (scoringFields.some((f) => changesObj[f])) {
+      await recalculateAllGravityScores();
+    }
+
+    await revisionsContainer.items.create({
+      id: uuidv4(),
+      featureId: id,
+      changed_by: request.user?.email ?? 'System',
+      changed_at: now,
+      changes: { action: 'updated', fields: changesObj },
+    });
+
     return { ok: true };
   });
 
-  // 5. Admin: Get feature revisions
+  // ── 4. DELETE /:id — Admin: Delete feature ────────────────────────────────────
+  fastify.delete('/:id', { preHandler: [requireAdmin] }, async (request, reply) => {
+    const { id } = request.params;
+
+    try {
+      await featuresContainer.item(id, id).delete();
+    } catch (err) {
+      if (err.code === 404) return reply.code(404).send({ error: 'Feature not found' });
+      throw err;
+    }
+
+    // Cascade-delete votes (Cosmos has no ON DELETE CASCADE)
+    const { resources: votes } = await votesContainer.items
+      .query(
+        { query: 'SELECT c.id FROM c WHERE c.featureId = @fid', parameters: [{ name: '@fid', value: id }] },
+        { enableCrossPartitionQuery: true }
+      )
+      .fetchAll();
+    await Promise.all(votes.map((v) => votesContainer.item(v.id, id).delete().catch(() => {})));
+
+    // Cascade-delete revisions
+    const { resources: revisions } = await revisionsContainer.items
+      .query(
+        { query: 'SELECT c.id FROM c WHERE c.featureId = @fid', parameters: [{ name: '@fid', value: id }] },
+        { enableCrossPartitionQuery: true }
+      )
+      .fetchAll();
+    await Promise.all(revisions.map((r) => revisionsContainer.item(r.id, id).delete().catch(() => {})));
+
+    await recalculateAllGravityScores();
+    return { ok: true };
+  });
+
+  // ── 5. GET /:id/revisions — Admin: Get revision history ───────────────────────
   fastify.get('/:id/revisions', { preHandler: [requireAdmin] }, async (request, reply) => {
     const { id } = request.params;
-    
-    // Check if feature exists
-    const feature = db.prepare('SELECT id FROM features WHERE id = ?').get(id);
-    if (!feature) return reply.code(404).send({ error: 'Feature not found' });
-    
-    const revisions = db.prepare(`
-      SELECT * FROM feature_revisions 
-      WHERE feature_id = ? 
-      ORDER BY changed_at DESC
-    `).all(id);
-    
-    return revisions.map(rev => ({
-      ...rev,
-      changes: JSON.parse(rev.changes)
-    }));
+
+    // Verify feature exists
+    try {
+      await featuresContainer.item(id, id).read();
+    } catch (err) {
+      if (err.code === 404) return reply.code(404).send({ error: 'Feature not found' });
+      throw err;
+    }
+
+    const { resources: revisions } = await revisionsContainer.items
+      .query(
+        {
+          query: 'SELECT * FROM c WHERE c.featureId = @fid ORDER BY c.changed_at DESC',
+          parameters: [{ name: '@fid', value: id }],
+        },
+        { enableCrossPartitionQuery: true }
+      )
+      .fetchAll();
+
+    return revisions;
   });
 
 }
