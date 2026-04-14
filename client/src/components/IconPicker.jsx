@@ -1,8 +1,11 @@
 import { useState, useMemo } from 'react';
 import * as Icons from 'lucide-react';
+import { CUSTOM_ICONS } from './CustomIcons';
 import styles from './IconPicker.module.css';
 
 const ICON_LIST = [
+  // Ducks (Custom)
+  'Duck', 'RubberDuck', 'BabyDuck', 'SwimDuck', 'PaperDuck',
   // Web Dev
   'Laptop', 'Code', 'Database', 'Cpu', 'Globe', 'Server', 'Smartphone', 'Tablet', 'Monitor', 'Cloud', 
   'Layers', 'Zap', 'Component', 'GitBranch', 'Terminal', 'Brackets', 'Binary', 'FileCode', 'Layout', 'Webhook',
@@ -26,7 +29,7 @@ const IconPicker = ({ selectedIcon, onSelect, color = '#64748b' }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   const VALID_ICONS = useMemo(() => {
-    return ICON_LIST.filter(name => !!Icons[name]);
+    return ICON_LIST.filter(name => !!Icons[name] || !!CUSTOM_ICONS[name]);
   }, []);
 
   const filteredIcons = useMemo(() => {
@@ -35,7 +38,7 @@ const IconPicker = ({ selectedIcon, onSelect, color = '#64748b' }) => {
     );
   }, [search, VALID_ICONS]);
 
-  const SelectedIconComponent = Icons[selectedIcon] || Icons.Briefcase || Icons.HelpCircle;
+  const SelectedIconComponent = Icons[selectedIcon] || CUSTOM_ICONS[selectedIcon] || Icons.Briefcase || Icons.HelpCircle;
 
   return (
     <div className={styles.container}>
@@ -69,7 +72,7 @@ const IconPicker = ({ selectedIcon, onSelect, color = '#64748b' }) => {
           </div>
           <div className={styles.grid}>
             {filteredIcons.map(name => {
-              const Icon = Icons[name];
+              const Icon = Icons[name] || CUSTOM_ICONS[name];
               if (!Icon) return null;
               return (
                 <button

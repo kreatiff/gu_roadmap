@@ -1,7 +1,8 @@
 import * as Icons from 'lucide-react';
+import { CUSTOM_ICONS } from './CustomIcons';
 
 const CategoryIcon = ({ name, color, size = 16, className = "" }) => {
-  const IconComponent = Icons[name] || Icons.Briefcase || Icons.HelpCircle;
+  const IconComponent = Icons[name] || CUSTOM_ICONS[name] || Icons.Briefcase || Icons.HelpCircle;
   
   if (!IconComponent) {
     return <div style={{ width: size, height: size, backgroundColor: color, borderRadius: '50%' }} className={className} />;
