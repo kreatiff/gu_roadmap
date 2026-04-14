@@ -1,7 +1,7 @@
 import { featuresContainer, categoriesContainer, stagesContainer, revisionsContainer, votesContainer } from '../db.js';
 import { v4 as uuidv4 } from 'uuid';
 import slugify from 'slugify';
-import { requireAdmin, optionalAuthenticate } from '../auth.js';
+import { requireAdmin, optionalAuthenticate, authenticate } from '../auth.js';
 import { recalculateAllGravityScores } from '../lib/gravityUtils.js';
 
 export default async function featureRoutes(fastify, options) {
@@ -413,6 +413,64 @@ export default async function featureRoutes(fastify, options) {
       .fetchAll();
 
     return revisions;
+  });
+
+  // ── 6. POST /:id/vote — Cast a vote ─────────────────────────────────────────
+  const voteId = (userId, featureId) => `${userId}::${featureId}`;
+
+  async function patchVoteCount(featureId, delta) {
+    await featuresContainer.item(featureId, featureId).patch([
+      { op: 'incr', path: '/vote_count', value: delta },
+    ]);
+  }
+
+  fastify.post('/:id/vote', { preHandler: [authenticate] }, async (request, reply) => {
+    const featureId = request.params.id;
+    const userId = request.user.sub;
+
+    try {
+      await votesContainer.items.create({
+        id: voteId(userId, featureId),
+        featureId,
+        userId,
+      });
+    } catch (err) {
+      if (err.code === 409) {
+        return reply.code(409).send({ error: 'Already voted for this feature' });
+      }
+      throw err;
+    }
+
+    try {
+      await patchVoteCount(featureId, 1);
+    } catch (err) {
+      console.error('Vote count increment failed, rolling back vote document:', err);
+      await votesContainer.item(voteId(userId, featureId), featureId).delete().catch(() => {});
+      throw err;
+    }
+
+    await recalculateAllGravityScores();
+    return { ok: true };
+  });
+
+  // ── 7. DELETE /:id/vote — Remove a vote ─────────────────────────────────────
+  fastify.delete('/:id/vote', { preHandler: [authenticate] }, async (request, reply) => {
+    const featureId = request.params.id;
+    const userId = request.user.sub;
+
+    try {
+      await votesContainer.item(voteId(userId, featureId), featureId).delete();
+    } catch (err) {
+      if (err.code === 404) {
+        return reply.code(404).send({ error: 'Vote not found or already removed' });
+      }
+      throw err;
+    }
+
+    await patchVoteCount(featureId, -1);
+
+    await recalculateAllGravityScores();
+    return { ok: true };
   });
 
 }
