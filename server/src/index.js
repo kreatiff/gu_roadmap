@@ -13,7 +13,6 @@ import authRoutes from './routes/auth.js';
 import featureRoutes from './routes/features.js';
 import categoryRoutes from './routes/categories.js';
 import stageRoutes from './routes/stages.js';
-import voteRoutes from './routes/votes.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { errorHandler } from './errorHandler.js';
@@ -59,7 +58,6 @@ server.register(authRoutes, { prefix: '/api/auth' });
 server.register(featureRoutes, { prefix: '/api/features' });
 server.register(categoryRoutes, { prefix: '/api/categories' });
 server.register(stageRoutes, { prefix: '/api/stages' });
-server.register(voteRoutes, { prefix: '/api/features' }); // Voting nested under features
 
 // 4. Fallback for React Router (SPA)
 server.setNotFoundHandler((request, reply) => {
