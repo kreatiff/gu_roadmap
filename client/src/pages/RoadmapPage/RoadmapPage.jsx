@@ -97,7 +97,7 @@ const RoadmapPage = () => {
 
   const statuses = [
     { id: '', label: 'All Stages' },
-    ...stages.filter(s => s.is_visible === 1).map(s => ({ id: s.slug, label: s.name }))
+    ...stages.filter(s => s.is_visible).map(s => ({ id: s.slug, label: s.name }))
   ];
 
   return (

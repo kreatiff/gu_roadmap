@@ -78,7 +78,7 @@ const AdminDashboardPage = () => {
 
       let matchesStatus = true;
       if (selectedStatusId === 'draft') {
-        matchesStatus = f.is_published === 0;
+        matchesStatus = !f.is_published;
       } else if (selectedStatusId) {
         matchesStatus = f.stage_id === selectedStatusId;
       }
@@ -153,7 +153,7 @@ const AdminDashboardPage = () => {
   }, [filteredFeatures, stages]);
 
   const columns = useMemo(() => {
-    return showAllStages ? stages : stages.filter(s => s.is_visible === 1);
+    return showAllStages ? stages : stages.filter(s => s.is_visible);
   }, [stages, showAllStages]);
 
   useEffect(() => {
@@ -467,11 +467,11 @@ const AdminDashboardPage = () => {
                                       <div className={styles.cardHeader}>
                                         <span className={styles.cardTag}>{feat.category_name || 'GENERAL'}</span>
                                         <div className={styles.cardHeaderRight}>
-                                          {feat.is_published === 0 && <span className={styles.draftBadgeBadge}>DRAFT</span>}
+                                          {!feat.is_published && <span className={styles.draftBadgeBadge}>DRAFT</span>}
                                           <span className={`${styles.priorityBadge} ${priorityClasses[feat.priority] || ''}`}>
                                             {feat.priority}
                                           </span>
-                                          {feat.pinned === 1 && <span className={styles.pinIcon}>★</span>}
+                                          {feat.pinned && <span className={styles.pinIcon}>★</span>}
                                         </div>
                                       </div>
                                       <h4 className={styles.cardTitle}>{feat.title}</h4>

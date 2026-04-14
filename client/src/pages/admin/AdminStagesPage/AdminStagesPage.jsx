@@ -10,7 +10,7 @@ const AdminStagesPage = () => {
   const { addToast } = useToast();
   const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newStage, setNewStage] = useState({ name: '', color: '#64748b', order_idx: 0, is_visible: 1 });
+  const [newStage, setNewStage] = useState({ name: '', color: '#64748b', order_idx: 0, is_visible: true });
   
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [stageToDelete, setStageToDelete] = useState(null);
@@ -35,7 +35,7 @@ const AdminStagesPage = () => {
     if (!newStage.name) return;
     try {
       await createStage({ ...newStage, order_idx: stages.length });
-      setNewStage({ name: '', color: '#64748b', order_idx: stages.length + 1, is_visible: 1 });
+      setNewStage({ name: '', color: '#64748b', order_idx: stages.length + 1, is_visible: true });
       addToast('Stage created successfully', 'success');
       fetchStages();
     } catch {
@@ -228,14 +228,14 @@ const AdminStagesPage = () => {
                                   {/* Visibility Cell */}
                                   <td className={styles.td}>
                                     <button 
-                                      onClick={() => handleUpdate(s.id, { is_visible: s.is_visible === 1 ? 0 : 1 })} 
+                                      onClick={() => handleUpdate(s.id, { is_visible: !s.is_visible })} 
                                       className={styles.visibilityToggle}
                                       style={{ 
-                                        backgroundColor: s.is_visible === 1 ? 'var(--bg-secondary)' : 'var(--error-bg)',
-                                        color: s.is_visible === 1 ? 'var(--text-secondary)' : 'var(--error-color)'
+                                        backgroundColor: s.is_visible ? 'var(--bg-secondary)' : 'var(--error-bg)',
+                                        color: s.is_visible ? 'var(--text-secondary)' : 'var(--error-color)'
                                       }}
                                     >
-                                      {s.is_visible === 1 ? (
+                                      {s.is_visible ? (
                                         <>
                                           <svg className={styles.iconSmall} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
