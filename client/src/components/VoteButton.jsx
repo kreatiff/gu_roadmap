@@ -38,7 +38,18 @@ const VoteButton = ({ featureId, initialCount, initialVoted, onUpdate, large = f
       }
       if (onUpdate) onUpdate();
     } catch (err) {
-      console.error('Voting failed:', err);
+      // Self-heal state when it's out of sync with the server
+      if (err?.error === 'Already voted for this feature') {
+        // POST returned 409 — we thought we hadn't voted, but we have
+        setVoted(true);
+        setCount(prev => prev + 1);
+      } else if (err?.error === 'Vote not found or already removed') {
+        // DELETE returned 404 — we thought we voted, but we haven't
+        setVoted(false);
+        setCount(prev => Math.max(0, prev - 1));
+      } else {
+        console.error('Voting failed:', err);
+      }
     } finally {
       setLoading(false);
     }
@@ -62,7 +73,7 @@ const VoteButton = ({ featureId, initialCount, initialVoted, onUpdate, large = f
           title={voted ? 'Remove Vote' : 'Upvote'}
         >
           <svg className={styles.iconCombined} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <path d={voted ? "M6 9l6 6 6-6" : "M18 15l-6-6-6 6"}/>
+            <path d={voted ? "M12 5v14M19 12l-7 7-7-7" : "M12 19V5M5 12l7-7 7 7"}/>
           </svg>
           <span className={styles.btnText}>{voted ? 'Undo' : 'Upvote'}</span>
         </button>
@@ -80,7 +91,7 @@ const VoteButton = ({ featureId, initialCount, initialVoted, onUpdate, large = f
       style={styleObj}
     >
       <svg className={large ? styles.iconLarge : styles.icon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M18 15l-6-6-6 6"/>
+        <path d="M12 19V5M5 12l7-7 7 7"/>
       </svg>
       <span className={large ? styles.countLarge : styles.count}>{count}</span>
     </button>
