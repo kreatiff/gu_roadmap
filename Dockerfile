@@ -15,12 +15,9 @@ FROM node:22-alpine AS production
 
 WORKDIR /app
 
-# Install native build tools, compile better-sqlite3 addon, then remove tools
-# (all in one layer to minimise image size)
+# Install production dependencies
 COPY server/package.json server/package-lock.json ./server/
-RUN apk add --no-cache python3 make g++ && \
-    npm ci --prefix server --omit=dev && \
-    apk del python3 make g++
+RUN npm ci --prefix server --omit=dev
 
 # Copy server source
 COPY server/src/ ./server/src/
