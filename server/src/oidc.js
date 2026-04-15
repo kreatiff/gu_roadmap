@@ -1,34 +1,75 @@
+import * as client from 'openid-client';
 import { config } from './config.js';
 import crypto from 'crypto';
 
-/**
- * Since the user requested to "leave OIDC for now", 
- * we use this module to provide a dev-only login flow.
- * In a real scenario, this would use openid-client.
- */
+// Cached after first successful discovery
+let oidcConfig = null;
 
-export const getOidcAuthUrl = () => {
-  // In dev, we just redirect directly to our internal callback with a dummy code
-  const state = crypto.randomBytes(16).toString('hex');
-  const nonce = crypto.randomBytes(16).toString('hex');
-  
-  // Normally this would be the university's SSO URL
-  // For now, we simulate it by returning our own callback URL
-  return {
-    url: `${config.clientOrigin}/api/auth/callback?code=dev_code&state=${state}`,
-    state,
-    nonce
-  };
-};
+async function getConfig() {
+  if (!oidcConfig) {
+    oidcConfig = await client.discovery(
+      new URL(config.oidc.issuer),
+      config.oidc.clientId,
+      config.oidc.clientSecret
+    );
+  }
+  return oidcConfig;
+}
 
-export const exchangeCodeForUser = async (code) => {
-  // Mock user for development
-  if (code === 'dev_code') {
+export const getOidcAuthUrl = async () => {
+  // Dev fallback: no OIDC provider configured
+  if (!config.oidc.enabled) {
+    const state = crypto.randomBytes(16).toString('hex');
+    const nonce = crypto.randomBytes(16).toString('hex');
     return {
-      sub: 'dev_user_123', // This will be hashed in the callback route
-      email: 'o.estrin@griffith.edu.au', // The requested admin email
-      name: 'Oleg Estrin (Dev)'
+      url: `/api/auth/callback?code=dev_code&state=${state}`,
+      state,
+      nonce,
     };
   }
-  throw new Error('Invalid dev code');
+
+  const cfg = await getConfig();
+  const state = crypto.randomBytes(16).toString('hex');
+  const nonce = crypto.randomBytes(16).toString('hex');
+
+  const params = new URLSearchParams({
+    redirect_uri: config.oidc.redirectUri,
+    scope: 'openid email profile',
+    state,
+    nonce,
+  });
+
+  const authUrl = client.buildAuthorizationUrl(cfg, params);
+  return { url: authUrl.href, state, nonce };
+};
+
+export const exchangeCodeForUser = async ({ callbackUrl, storedState, storedNonce }) => {
+  // Dev fallback
+  if (!config.oidc.enabled) {
+    const url = new URL(callbackUrl);
+    if (url.searchParams.get('code') !== 'dev_code') {
+      throw new Error('Invalid dev code');
+    }
+    return {
+      sub: 'dev_user_123',
+      email: config.adminEmails[0] ?? 'dev@griffith.edu.au',
+      name: 'Dev User',
+    };
+  }
+
+  const cfg = await getConfig();
+
+  const tokens = await client.authorizationCodeGrant(cfg, new URL(callbackUrl), {
+    expectedState: storedState,
+    expectedNonce: storedNonce,
+  });
+
+  const claims = tokens.claims();
+
+  return {
+    sub: claims.sub,
+    // Microsoft may return email in `email` or `preferred_username`
+    email: claims.email ?? claims.preferred_username,
+    name: claims.name,
+  };
 };
