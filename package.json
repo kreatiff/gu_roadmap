@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
-    "build": "npm run build --prefix client",
+    "build": "npm install --prefix client --include=dev && npm run build --prefix client",
     "start": "node server/src/index.js",
     "seed": "node server/src/seed.js"
   },
