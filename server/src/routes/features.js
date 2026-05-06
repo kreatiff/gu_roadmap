@@ -8,7 +8,7 @@ export default async function featureRoutes(fastify, options) {
 
   // ── 1. GET / — List & filter features ────────────────────────────────────────
   fastify.get('/', { preHandler: [optionalAuthenticate] }, async (request, reply) => {
-    const { status, category, search, page = 1, limit = 12 } = request.query;
+    const { status, category, search, tags, page = 1, limit = 12 } = request.query;
     const userId = request.user?.sub ?? null;
     const isAdmin = request.user?.isAdmin ?? false;
 
@@ -27,18 +27,66 @@ export default async function featureRoutes(fastify, options) {
     }
 
     if (status) {
-      conditions.push('(c.status = @status OR c.stage_slug = @status)');
-      parameters.push({ name: '@status', value: status });
+      const statusList = String(status).split(',').filter(Boolean);
+      if (statusList.length > 1) {
+        const statusConditions = [];
+        statusList.forEach((s, i) => {
+          statusConditions.push(`c.status = @status${i} OR c.stage_slug = @status${i}`);
+          parameters.push({ name: `@status${i}`, value: s });
+        });
+        conditions.push(`(${statusConditions.join(' OR ')})`);
+      } else if (statusList.length === 1) {
+        conditions.push('(c.status = @status OR c.stage_slug = @status)');
+        parameters.push({ name: '@status', value: statusList[0] });
+      }
     }
 
     if (category) {
-      conditions.push('c.category_id = @category');
-      parameters.push({ name: '@category', value: category });
+      const categoryList = String(category).split(',').filter(Boolean);
+      if (categoryList.length > 1) {
+        const categoryConditions = [];
+        categoryList.forEach((c, i) => {
+          categoryConditions.push(`c.category_id = @category${i}`);
+          parameters.push({ name: `@category${i}`, value: c });
+        });
+        conditions.push(`(${categoryConditions.join(' OR ')})`);
+      } else if (categoryList.length === 1) {
+        conditions.push('c.category_id = @category');
+        parameters.push({ name: '@category', value: categoryList[0] });
+      }
     }
 
     if (search) {
       conditions.push('(CONTAINS(c.title, @search, true) OR CONTAINS(c.description, @search, true))');
       parameters.push({ name: '@search', value: search });
+    }
+
+    if (tags) {
+      // Comma-separated: "vle,canvas" → ARRAY_CONTAINS for each
+      const tagList = tags.split(',').map(t => t.trim()).filter(Boolean);
+      if (tagList.length > 0) {
+        const tagConditions = [];
+        tagList.forEach((tag, i) => {
+          tagConditions.push(`ARRAY_CONTAINS(c.tags, @tag${i})`);
+          parameters.push({ name: `@tag${i}`, value: tag });
+        });
+        conditions.push(`(${tagConditions.join(' OR ')})`);
+      }
+    }
+
+    // requiredTags are applied with AND logic — used by dashboards to enforce
+    // mandatory tag scope so user sub-filters cannot expand the result set.
+    const { requiredTags } = request.query;
+    if (requiredTags) {
+      const reqTagList = requiredTags.split(',').map(t => t.trim()).filter(Boolean);
+      if (reqTagList.length > 0) {
+        const reqTagConditions = [];
+        reqTagList.forEach((tag, i) => {
+          reqTagConditions.push(`ARRAY_CONTAINS(c.tags, @reqTag${i})`);
+          parameters.push({ name: `@reqTag${i}`, value: tag });
+        });
+        conditions.push(`(${reqTagConditions.join(' OR ')})`);
+      }
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -413,6 +461,22 @@ export default async function featureRoutes(fastify, options) {
       .fetchAll();
 
     return revisions;
+  });
+
+  // ── 5.1 GET /tags — Public: all unique tags currently on features ─────────────
+  fastify.get('/tags', { preHandler: [optionalAuthenticate] }, async (request, reply) => {
+    const isAdmin = request.user?.isAdmin ?? false;
+    const whereClause = isAdmin ? '' : 'WHERE c.is_published = true';
+    const { resources } = await featuresContainer.items
+      .query(
+        `SELECT c.tags FROM c ${whereClause}`,
+        { enableCrossPartitionQuery: true }
+      )
+      .fetchAll();
+
+    // Flatten and deduplicate
+    const allTags = [...new Set(resources.flatMap(r => r.tags ?? []))].sort();
+    return allTags;
   });
 
   // ── 6. POST /:id/vote — Cast a vote ─────────────────────────────────────────

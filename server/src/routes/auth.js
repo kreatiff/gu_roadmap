@@ -55,13 +55,12 @@ export default async function authRoutes(fastify, options) {
         isAdmin,
       });
 
-      // Set HttpOnly session cookie
+      // Set HttpOnly session cookie (raw JWT — already cryptographically signed)
       reply.setCookie('roadmap_session', token, {
         path: '/',
         httpOnly: true,
         secure: config.isProd,
         sameSite: 'lax',
-        signed: true,
       });
 
       return reply.redirect(config.clientOrigin);

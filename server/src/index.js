@@ -13,6 +13,7 @@ import authRoutes from './routes/auth.js';
 import featureRoutes from './routes/features.js';
 import categoryRoutes from './routes/categories.js';
 import stageRoutes from './routes/stages.js';
+import dashboardRoutes from './routes/dashboards.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { errorHandler } from './errorHandler.js';
@@ -43,7 +44,7 @@ server.register(jwt, {
   secret: config.jwtSecret,
   cookie: {
     cookieName: 'roadmap_session',
-    signed: true
+    signed: false  // JWT is already cryptographically signed; double-signing breaks jwtVerify()
   }
 });
 
@@ -58,6 +59,7 @@ server.register(authRoutes, { prefix: '/api/auth' });
 server.register(featureRoutes, { prefix: '/api/features' });
 server.register(categoryRoutes, { prefix: '/api/categories' });
 server.register(stageRoutes, { prefix: '/api/stages' });
+server.register(dashboardRoutes, { prefix: '/api/dashboards' });
 
 // 4. Fallback for React Router (SPA)
 server.setNotFoundHandler((request, reply) => {

@@ -1,7 +1,17 @@
 /**
  * Base fetch wrapper for interaction with the Fastify backend.
  * Automatically includes credentials (cookies) for session management.
+ * Also attaches the dashboard unlock token when viewing a public dashboard.
  */
+
+function getDashboardToken() {
+  const match = window.location.pathname.match(/^\/d\/([^/]+)/);
+  if (match) {
+    return sessionStorage.getItem(`dashboard_token_${match[1]}`);
+  }
+  return null;
+}
+
 const api = async (path, options = {}) => {
   const { headers, method = 'GET', ...rest } = options;
   const upperMethod = method.toUpperCase();
@@ -10,11 +20,14 @@ const api = async (path, options = {}) => {
   const hasBodyContent = rest.body !== undefined;
   const needsBody = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(upperMethod);
   
+  const dashboardToken = getDashboardToken();
+  
   const finalOptions = {
     method: upperMethod,
     ...rest,
     headers: {
       'Content-Type': 'application/json',
+      ...(dashboardToken ? { 'X-Dashboard-Token': dashboardToken } : {}),
       ...headers,
     },
     credentials: 'include',

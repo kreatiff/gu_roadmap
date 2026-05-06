@@ -1,9 +1,16 @@
 import api from './client';
 
 export const getFeatures = (params = {}) => {
-  const query = new URLSearchParams(params).toString();
+  const cleanParams = Object.fromEntries(
+    Object.entries(params)
+      .filter(([_, v]) => v != null && v !== '' && (Array.isArray(v) ? v.length > 0 : true))
+      .map(([k, v]) => [k, Array.isArray(v) ? v.join(',') : v])
+  );
+  const query = new URLSearchParams(cleanParams).toString();
   return api(`/api/features?${query}`);
 };
+
+export const getFeatureTags = () => api('/api/features/tags');
 
 export const getFeatureById = (id) => {
   return api(`/api/features/${id}`);

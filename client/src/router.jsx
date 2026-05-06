@@ -7,6 +7,8 @@ import AdminFeatureFormPage from './pages/admin/AdminFeatureFormPage/AdminFeatur
 import AdminCategoriesPage from './pages/admin/AdminCategoriesPage/AdminCategoriesPage';
 import AdminStagesPage from './pages/admin/AdminStagesPage/AdminStagesPage';
 import AdminMatrixPage from './pages/admin/AdminMatrixPage/AdminMatrixPage';
+import AdminDashboardsPage from './pages/admin/AdminDashboardsPage/AdminDashboardsPage';
+import PublicDashboardPage from './pages/PublicDashboardPage/PublicDashboardPage';
 import LoginSplashPage from './pages/LoginSplashPage/LoginSplashPage';
 import styles from './AppRouter.module.css';
 
@@ -41,55 +43,67 @@ const AppRouter = () => {
     );
   }
 
-  if (!isAuthenticated) {
-    return <LoginSplashPage />;
-  }
-
   return (
     <BrowserRouter>
       <Routes>
-        {/* Core Application */}
-        <Route path="/" element={<RoadmapPage />} />
-        
-        {/* Admin Routes */}
-        <Route path="/admin" element={
-          <ProtectedRoute adminOnly>
-            <AdminDashboardPage />
-          </ProtectedRoute>
-        } />
+        {/* ── Public dashboard routes — NO login required ── */}
+        <Route path="/d/:slug" element={<PublicDashboardPage />} />
 
-        <Route path="/admin/matrix" element={
-          <ProtectedRoute adminOnly>
-            <AdminMatrixPage />
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/admin/features/new" element={
-          <ProtectedRoute adminOnly>
-            <AdminFeatureFormPage />
-          </ProtectedRoute>
-        } />
+        {/* ── Authenticated routes ── */}
+        {!isAuthenticated ? (
+          // Redirect everything else to the login splash
+          <Route path="*" element={<LoginSplashPage />} />
+        ) : (
+          <>
+            <Route path="/" element={<RoadmapPage />} />
+            
+            {/* Admin Routes */}
+            <Route path="/admin" element={
+              <ProtectedRoute adminOnly>
+                <AdminDashboardPage />
+              </ProtectedRoute>
+            } />
 
-        <Route path="/admin/features/:id/edit" element={
-          <ProtectedRoute adminOnly>
-            <AdminFeatureFormPage />
-          </ProtectedRoute>
-        } />
+            <Route path="/admin/matrix" element={
+              <ProtectedRoute adminOnly>
+                <AdminMatrixPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/admin/features/new" element={
+              <ProtectedRoute adminOnly>
+                <AdminFeatureFormPage />
+              </ProtectedRoute>
+            } />
 
-        <Route path="/admin/categories" element={
-          <ProtectedRoute adminOnly>
-            <AdminCategoriesPage />
-          </ProtectedRoute>
-        } />
+            <Route path="/admin/features/:id/edit" element={
+              <ProtectedRoute adminOnly>
+                <AdminFeatureFormPage />
+              </ProtectedRoute>
+            } />
 
-        <Route path="/admin/stages" element={
-          <ProtectedRoute adminOnly>
-            <AdminStagesPage />
-          </ProtectedRoute>
-        } />
+            <Route path="/admin/categories" element={
+              <ProtectedRoute adminOnly>
+                <AdminCategoriesPage />
+              </ProtectedRoute>
+            } />
 
-        {/* 404 */}
-        <Route path="*" element={<NotFound />} />
+            <Route path="/admin/stages" element={
+              <ProtectedRoute adminOnly>
+                <AdminStagesPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin/dashboards" element={
+              <ProtectedRoute adminOnly>
+                <AdminDashboardsPage />
+              </ProtectedRoute>
+            } />
+
+            {/* 404 */}
+            <Route path="*" element={<NotFound />} />
+          </>
+        )}
       </Routes>
     </BrowserRouter>
   );

@@ -25,6 +25,7 @@ export const stagesContainer = database.container("stages");
 export const featuresContainer = database.container("features");
 export const votesContainer = database.container("votes");
 export const revisionsContainer = database.container("feature_revisions");
+export const dashboardsContainer = database.container("dashboards");
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 // Creates the database and all containers if they don't already exist.
@@ -68,6 +69,13 @@ export async function initDb() {
     db.containers.createIfNotExists({
       id: "feature_revisions",
       partitionKey: { paths: ["/featureId"] },
+    }),
+
+    // Dashboards: partition by id, unique slug for public URLs
+    db.containers.createIfNotExists({
+      id: "dashboards",
+      partitionKey: { paths: ["/id"] },
+      uniqueKeyPolicy: { uniqueKeys: [{ paths: ["/slug"] }] },
     }),
   ]);
 
