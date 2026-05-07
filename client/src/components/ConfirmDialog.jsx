@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import styles from './ConfirmDialog.module.css';
 
-const ConfirmDialog = ({ title, message, confirmText = 'Confirm', cancelText = 'Cancel', onConfirm, onCancel, variant = 'danger' }) => {
+const ConfirmDialog = ({ title, message, confirmText = 'Confirm', cancelText = 'Cancel', onConfirm, onCancel, variant = 'danger', isLoading = false }) => {
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = 'unset'; };
@@ -13,10 +13,11 @@ const ConfirmDialog = ({ title, message, confirmText = 'Confirm', cancelText = '
         <h3 className={styles.title}>{title}</h3>
         <p className={styles.message}>{message}</p>
         <div className={styles.actions}>
-          <button className={styles.cancelBtn} onClick={onCancel}>{cancelText}</button>
-          <button 
-            className={`${styles.confirmBtn} ${variant === 'danger' ? styles.danger : styles.primary}`} 
+          <button className={styles.cancelBtn} onClick={onCancel} disabled={isLoading}>{cancelText}</button>
+          <button
+            className={`${styles.confirmBtn} ${variant === 'danger' ? styles.danger : styles.primary}`}
             onClick={onConfirm}
+            disabled={isLoading}
           >
             {confirmText}
           </button>

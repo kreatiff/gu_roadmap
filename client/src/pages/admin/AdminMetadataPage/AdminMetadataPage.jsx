@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
+import ConfirmDialog from '../../../components/ConfirmDialog';
 import { getMetadata, renameMetadata, deleteMetadata } from '../../../api/metadata';
 import { useToast } from '../../../contexts/ToastContext';
 import styles from './AdminMetadataPage.module.css';
@@ -210,32 +211,14 @@ const AdminMetadataPage = () => {
           </div>
         )}
 
-        {/* Delete Confirm Modal */}
         {deleteModal.isOpen && (
-          <div className={styles.modalOverlay} onClick={() => setDeleteModal({ isOpen: false, item: null })}>
-            <div className={styles.modal} onClick={e => e.stopPropagation()}>
-              <div className={styles.modalHeader}>
-                <h3 className={styles.modalTitle}>Delete {TABS.find(t => t.key === activeTab)?.singular}</h3>
-              </div>
-              <div className={styles.modalBody}>
-                <p className={styles.warningText}>
-                  Are you sure you want to delete <strong>"{deleteModal.item?.value}"</strong>?
-                </p>
-                <p className={styles.warningText} style={{ marginTop: 8 }}>
-                  This value is used by <span className={styles.warningHighlight}>{deleteModal.item?.usageCount} feature(s)</span>.
-                  Deleting it will remove it from all features. This action cannot be undone.
-                </p>
-              </div>
-              <div className={styles.modalFooter}>
-                <button className={styles.btnSecondary} onClick={() => setDeleteModal({ isOpen: false, item: null })}>
-                  Cancel
-                </button>
-                <button className={styles.btnDanger} onClick={handleDelete}>
-                  Delete
-                </button>
-              </div>
-            </div>
-          </div>
+          <ConfirmDialog
+            title={`Delete ${TABS.find(t => t.key === activeTab)?.singular}`}
+            message={`Are you sure you want to delete "${deleteModal.item?.value}"? This value is used by ${deleteModal.item?.usageCount} feature(s). Deleting it will remove it from all features. This action cannot be undone.`}
+            confirmText="Delete"
+            onConfirm={handleDelete}
+            onCancel={() => setDeleteModal({ isOpen: false, item: null })}
+          />
         )}
       </div>
     </AdminLayout>

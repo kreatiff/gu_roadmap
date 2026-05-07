@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AdminLayout from '../../../components/AdminLayout';
+import ConfirmDialog from '../../../components/ConfirmDialog';
 import DashboardFormModal from '../../../components/DashboardFormModal/DashboardFormModal';
 import { getDashboards, createDashboard, updateDashboard, deleteDashboard } from '../../../api/dashboards';
 import { getFeatureTags } from '../../../api/features';
@@ -22,6 +23,7 @@ const AdminDashboardsPage = () => {
   const [editingDashboard, setEditingDashboard] = useState(null);
 
   const [deletingId, setDeletingId] = useState(null);
+  const [deleteDialog, setDeleteDialog] = useState({ isOpen: false, id: null });
 
   const fetchData = async () => {
     try {
@@ -80,11 +82,16 @@ const AdminDashboardsPage = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this dashboard? This action cannot be undone and the URL will stop working immediately.')) return;
-    
+  const requestDelete = (id) => {
+    setDeleteDialog({ isOpen: true, id });
+  };
+
+  const executeDelete = async () => {
+    const id = deleteDialog.id;
+    if (!id) return;
     try {
       setDeletingId(id);
+      setDeleteDialog({ isOpen: false, id: null });
       await deleteDashboard(id);
       addToast('Dashboard deleted successfully', 'success');
       await fetchData();
@@ -233,9 +240,9 @@ const AdminDashboardsPage = () => {
                                 <path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
                               </svg>
                             </button>
-                            <button 
-                              onClick={() => handleDelete(d.id)} 
-                              className={styles.deleteBtn} 
+                            <button
+                              onClick={() => requestDelete(d.id)}
+                              className={styles.deleteBtn}
                               title="Delete dashboard"
                               disabled={deletingId === d.id}
                             >
@@ -258,6 +265,17 @@ const AdminDashboardsPage = () => {
           </div>
         </section>
       </div>
+
+      {deleteDialog.isOpen && (
+        <ConfirmDialog
+          title="Delete Dashboard?"
+          message="Are you sure you want to delete this dashboard? This action cannot be undone and the URL will stop working immediately."
+          confirmText="Delete Dashboard"
+          onConfirm={executeDelete}
+          onCancel={() => setDeleteDialog({ isOpen: false, id: null })}
+          isLoading={deletingId === deleteDialog.id}
+        />
+      )}
 
       <DashboardFormModal
         isOpen={isModalOpen}

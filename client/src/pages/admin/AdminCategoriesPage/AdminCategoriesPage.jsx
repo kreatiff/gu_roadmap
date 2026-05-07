@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import AdminLayout from '../../../components/AdminLayout';
+import ReassignDialog from '../../../components/ReassignDialog';
 import { getCategories, createCategory, updateCategory, deleteCategory, reorderCategories } from '../../../api/categories';
 import { useToast } from '../../../contexts/ToastContext';
 import IconPicker from '../../../components/IconPicker';
@@ -273,28 +274,16 @@ const AdminCategoriesPage = () => {
         </section>
 
         {showDeleteModal && (
-          <div className={styles.modalOverlay}>
-            <div className={styles.modal}>
-              <h3 className={styles.modalTitle}>Safe Category Deletion</h3>
-              <p className={styles.modalText}>
-                The category <strong>{categoryToDelete?.name}</strong> has features assigned to it. 
-                Where should these features be moved?
-              </p>
-              <select 
-                className={styles.modalSelect} 
-                value={reassignTo} 
-                onChange={(e) => setReassignTo(e.target.value)}
-              >
-                {categories.filter(c => c.id !== categoryToDelete?.id).map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-              <div className={styles.modalActions}>
-                <button onClick={() => setShowDeleteModal(false)} className={styles.cancelBtn}>Cancel</button>
-                <button onClick={handleConfirmDeleteWithReassign} className={styles.confirmDeleteBtn}>Migrate & Delete</button>
-              </div>
-            </div>
-          </div>
+          <ReassignDialog
+            title="Safe Category Deletion"
+            message={`The category "${categoryToDelete?.name}" has features assigned to it. Where should these features be moved?`}
+            options={categories.filter(c => c.id !== categoryToDelete?.id).map(c => ({ value: c.id, label: c.name }))}
+            value={reassignTo}
+            onChange={setReassignTo}
+            confirmText="Migrate & Delete"
+            onConfirm={handleConfirmDeleteWithReassign}
+            onCancel={() => setShowDeleteModal(false)}
+          />
         )}
       </div>
     </AdminLayout>
