@@ -7,11 +7,54 @@ const META_CONFIG = {
   stakeholders: { field: 'key_stakeholder', isArray: false },
 };
 
+function isValidType(type) {
+  return ['tags', 'owners', 'stakeholders'].includes(type);
+}
+
+function buildMetadataQuery(type, value) {
+  if (type === 'tags') {
+    return {
+      query: 'SELECT * FROM c WHERE ARRAY_CONTAINS(c.tags, @value)',
+      parameters: [{ name: '@value', value }]
+    };
+  }
+  const field = META_CONFIG[type].field;
+  return {
+    query: `SELECT * FROM c WHERE c.${field} = @value`,
+    parameters: [{ name: '@value', value }]
+  };
+}
+
+function buildPatchOps(type, feature, oldValue, newValue) {
+  // newValue === undefined means delete operation
+  if (type === 'tags') {
+    if (newValue !== undefined) {
+      const newTags = [...new Set(feature.tags.map(t => t === oldValue ? newValue : t))];
+      return [{ op: 'set', path: '/tags', value: newTags }];
+    }
+    const newTags = feature.tags.filter(t => t !== oldValue);
+    return [{ op: 'set', path: '/tags', value: newTags }];
+  }
+  const field = META_CONFIG[type].field;
+  const value = newValue !== undefined ? newValue : '';
+  return [{ op: 'set', path: `/${field}`, value }];
+}
+
+function buildResponse(reply, updatedCount, failures) {
+  if (failures.length > 0 && updatedCount === 0) {
+    return reply.code(500).send({ error: 'All updates failed', failures });
+  }
+  if (failures.length > 0 && updatedCount > 0) {
+    return reply.code(207).send({ success: true, updatedCount, failures, warning: 'Some updates failed' });
+  }
+  return { success: true, updatedCount };
+}
+
 export default async function metadataRoutes(fastify, options) {
   // ── 1. GET /:type — List all metadata values with usage counts ──────────────
   fastify.get('/:type', { preHandler: [requireAdmin] }, async (request, reply) => {
     const { type } = request.params;
-    if (!['tags', 'owners', 'stakeholders'].includes(type)) {
+    if (!isValidType(type)) {
       return reply.code(400).send({ error: 'Invalid metadata type. Must be tags, owners, or stakeholders.' });
     }
 
@@ -49,7 +92,7 @@ export default async function metadataRoutes(fastify, options) {
     const { type } = request.params;
     const { oldValue, newValue } = request.body;
 
-    if (!['tags', 'owners', 'stakeholders'].includes(type)) {
+    if (!isValidType(type)) {
       return reply.code(400).send({ error: 'Invalid metadata type' });
     }
 
@@ -62,79 +105,20 @@ export default async function metadataRoutes(fastify, options) {
       return reply.code(400).send({ error: 'oldValue and newValue must be different' });
     }
 
-    let resources = [];
+    const querySpec = buildMetadataQuery(type, trimmedOld);
+    const { resources } = await featuresContainer.items.query(querySpec, { enableCrossPartitionQuery: true }).fetchAll();
 
-    if (type === 'tags') {
-      const queryResult = await featuresContainer.items.query({
-        query: 'SELECT * FROM c WHERE ARRAY_CONTAINS(c.tags, @oldValue)',
-        parameters: [{ name: '@oldValue', value: trimmedOld }]
-      }, { enableCrossPartitionQuery: true }).fetchAll();
-      resources = queryResult.resources;
+    const results = await Promise.allSettled(resources.map(feature => {
+      const ops = buildPatchOps(type, feature, trimmedOld, trimmedNew);
+      return featuresContainer.item(feature.id, feature.id).patch(ops);
+    }));
 
-      const results = await Promise.allSettled(resources.map(feature => {
-        const newTags = [...new Set(feature.tags.map(t => t === trimmedOld ? trimmedNew : t))];
-        return featuresContainer.item(feature.id, feature.id).patch([
-          { op: 'set', path: '/tags', value: newTags }
-        ]);
-      }));
-      const updatedCount = results.filter(r => r.status === 'fulfilled').length;
-      const failures = results
-        .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
-        .filter(r => r.status === 'rejected');
-      if (failures.length > 0 && updatedCount === 0) {
-        return reply.code(500).send({ error: 'All updates failed', failures });
-      }
-      if (failures.length > 0 && updatedCount > 0) {
-        return reply.code(207).send({ success: true, updatedCount, failures, warning: 'Some updates failed' });
-      }
-      return { success: true, updatedCount };
-    } else if (type === 'owners') {
-      const queryResult = await featuresContainer.items.query({
-        query: 'SELECT * FROM c WHERE c.owner = @oldValue',
-        parameters: [{ name: '@oldValue', value: trimmedOld }]
-      }, { enableCrossPartitionQuery: true }).fetchAll();
-      resources = queryResult.resources;
+    const updatedCount = results.filter(r => r.status === 'fulfilled').length;
+    const failures = results
+      .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
+      .filter(r => r.status === 'rejected');
 
-      const results = await Promise.allSettled(resources.map(feature =>
-        featuresContainer.item(feature.id, feature.id).patch([
-          { op: 'set', path: '/owner', value: trimmedNew }
-        ])
-      ));
-      const updatedCount = results.filter(r => r.status === 'fulfilled').length;
-      const failures = results
-        .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
-        .filter(r => r.status === 'rejected');
-      if (failures.length > 0 && updatedCount === 0) {
-        return reply.code(500).send({ error: 'All updates failed', failures });
-      }
-      if (failures.length > 0 && updatedCount > 0) {
-        return reply.code(207).send({ success: true, updatedCount, failures, warning: 'Some updates failed' });
-      }
-      return { success: true, updatedCount };
-    } else {
-      const queryResult = await featuresContainer.items.query({
-        query: 'SELECT * FROM c WHERE c.key_stakeholder = @oldValue',
-        parameters: [{ name: '@oldValue', value: trimmedOld }]
-      }, { enableCrossPartitionQuery: true }).fetchAll();
-      resources = queryResult.resources;
-
-      const results = await Promise.allSettled(resources.map(feature =>
-        featuresContainer.item(feature.id, feature.id).patch([
-          { op: 'set', path: '/key_stakeholder', value: trimmedNew }
-        ])
-      ));
-      const updatedCount = results.filter(r => r.status === 'fulfilled').length;
-      const failures = results
-        .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
-        .filter(r => r.status === 'rejected');
-      if (failures.length > 0 && updatedCount === 0) {
-        return reply.code(500).send({ error: 'All updates failed', failures });
-      }
-      if (failures.length > 0 && updatedCount > 0) {
-        return reply.code(207).send({ success: true, updatedCount, failures, warning: 'Some updates failed' });
-      }
-      return { success: true, updatedCount };
-    }
+    return buildResponse(reply, updatedCount, failures);
   });
 
   // ── 3. DELETE /:type — Delete a value from all features ──────────────────────
@@ -142,7 +126,7 @@ export default async function metadataRoutes(fastify, options) {
     const { type } = request.params;
     const { value } = request.body;
 
-    if (!['tags', 'owners', 'stakeholders'].includes(type)) {
+    if (!isValidType(type)) {
       return reply.code(400).send({ error: 'Invalid metadata type' });
     }
 
@@ -151,78 +135,19 @@ export default async function metadataRoutes(fastify, options) {
       return reply.code(400).send({ error: 'value is required' });
     }
 
-    let resources = [];
+    const querySpec = buildMetadataQuery(type, trimmedValue);
+    const { resources } = await featuresContainer.items.query(querySpec, { enableCrossPartitionQuery: true }).fetchAll();
 
-    if (type === 'tags') {
-      const queryResult = await featuresContainer.items.query({
-        query: 'SELECT * FROM c WHERE ARRAY_CONTAINS(c.tags, @value)',
-        parameters: [{ name: '@value', value: trimmedValue }]
-      }, { enableCrossPartitionQuery: true }).fetchAll();
-      resources = queryResult.resources;
+    const results = await Promise.allSettled(resources.map(feature => {
+      const ops = buildPatchOps(type, feature, trimmedValue, undefined);
+      return featuresContainer.item(feature.id, feature.id).patch(ops);
+    }));
 
-      const results = await Promise.allSettled(resources.map(feature => {
-        const newTags = feature.tags.filter(t => t !== trimmedValue);
-        return featuresContainer.item(feature.id, feature.id).patch([
-          { op: 'set', path: '/tags', value: newTags }
-        ]);
-      }));
-      const updatedCount = results.filter(r => r.status === 'fulfilled').length;
-      const failures = results
-        .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
-        .filter(r => r.status === 'rejected');
-      if (failures.length > 0 && updatedCount === 0) {
-        return reply.code(500).send({ error: 'All updates failed', failures });
-      }
-      if (failures.length > 0 && updatedCount > 0) {
-        return reply.code(207).send({ success: true, updatedCount, failures, warning: 'Some updates failed' });
-      }
-      return { success: true, updatedCount };
-    } else if (type === 'owners') {
-      const queryResult = await featuresContainer.items.query({
-        query: 'SELECT * FROM c WHERE c.owner = @value',
-        parameters: [{ name: '@value', value: trimmedValue }]
-      }, { enableCrossPartitionQuery: true }).fetchAll();
-      resources = queryResult.resources;
+    const updatedCount = results.filter(r => r.status === 'fulfilled').length;
+    const failures = results
+      .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
+      .filter(r => r.status === 'rejected');
 
-      const results = await Promise.allSettled(resources.map(feature =>
-        featuresContainer.item(feature.id, feature.id).patch([
-          { op: 'set', path: '/owner', value: '' }
-        ])
-      ));
-      const updatedCount = results.filter(r => r.status === 'fulfilled').length;
-      const failures = results
-        .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
-        .filter(r => r.status === 'rejected');
-      if (failures.length > 0 && updatedCount === 0) {
-        return reply.code(500).send({ error: 'All updates failed', failures });
-      }
-      if (failures.length > 0 && updatedCount > 0) {
-        return reply.code(207).send({ success: true, updatedCount, failures, warning: 'Some updates failed' });
-      }
-      return { success: true, updatedCount };
-    } else {
-      const queryResult = await featuresContainer.items.query({
-        query: 'SELECT * FROM c WHERE c.key_stakeholder = @value',
-        parameters: [{ name: '@value', value: trimmedValue }]
-      }, { enableCrossPartitionQuery: true }).fetchAll();
-      resources = queryResult.resources;
-
-      const results = await Promise.allSettled(resources.map(feature =>
-        featuresContainer.item(feature.id, feature.id).patch([
-          { op: 'set', path: '/key_stakeholder', value: '' }
-        ])
-      ));
-      const updatedCount = results.filter(r => r.status === 'fulfilled').length;
-      const failures = results
-        .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
-        .filter(r => r.status === 'rejected');
-      if (failures.length > 0 && updatedCount === 0) {
-        return reply.code(500).send({ error: 'All updates failed', failures });
-      }
-      if (failures.length > 0 && updatedCount > 0) {
-        return reply.code(207).send({ success: true, updatedCount, failures, warning: 'Some updates failed' });
-      }
-      return { success: true, updatedCount };
-    }
+    return buildResponse(reply, updatedCount, failures);
   });
 }
