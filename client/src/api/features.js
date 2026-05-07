@@ -11,6 +11,8 @@ export const getFeatures = (params = {}) => {
 };
 
 export const getFeatureTags = () => api('/api/features/tags');
+export const getFeatureOwners = () => api('/api/features/owners');
+export const getFeatureStakeholders = () => api('/api/features/stakeholders');
 
 export const getFeatureById = (id) => {
   return api(`/api/features/${id}`);
