@@ -11,6 +11,7 @@ const TagAutocomplete = ({ selected = [], onChange, suggestions = [] }) => {
   const tagsEqual = (a, b) => typeof a === 'string' && typeof b === 'string' && a.toLowerCase() === b.toLowerCase();
 
   const filteredSuggestions = suggestions
+    .filter(tag => typeof tag === 'string')
     .filter(tag => !selected.some(s => tagsEqual(s, tag)))
     .filter(tag => tag.toLowerCase().includes(inputValue.toLowerCase()));
 
@@ -34,13 +35,19 @@ const TagAutocomplete = ({ selected = [], onChange, suggestions = [] }) => {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') {
+    if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
       if (showDropdown && filteredSuggestions[highlightedIndex]) {
         addTag(filteredSuggestions[highlightedIndex]);
       } else {
         addTag(inputValue);
       }
+    } else if (e.key === 'Tab') {
+      if (showDropdown && filteredSuggestions[highlightedIndex]) {
+        e.preventDefault();
+        addTag(filteredSuggestions[highlightedIndex]);
+      }
+      // else: allow default Tab behavior for focus navigation
     } else if (e.key === 'Backspace' && !inputValue && selected.length > 0) {
       removeTag(selected[selected.length - 1]);
     } else if (e.key === 'ArrowDown') {
