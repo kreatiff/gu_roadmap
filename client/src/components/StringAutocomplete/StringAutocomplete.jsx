@@ -5,6 +5,7 @@ const StringAutocomplete = ({ value = '', onChange, suggestions = [], placeholde
   const [inputValue, setInputValue] = useState(value);
   const [showDropdown, setShowDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
+  const [hasNavigated, setHasNavigated] = useState(false);
   const inputRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -23,7 +24,8 @@ const StringAutocomplete = ({ value = '', onChange, suggestions = [], placeholde
   const selectValue = (newValue) => {
     const trimmed = newValue.trim();
     if (!trimmed) return;
-    onChange(trimmed);
+    setInputValue(trimmed);
+    onChange?.(trimmed);
     setShowDropdown(false);
     inputRef.current?.blur();
   };
@@ -37,7 +39,7 @@ const StringAutocomplete = ({ value = '', onChange, suggestions = [], placeholde
         selectValue(inputValue);
       }
     } else if (e.key === 'Tab') {
-      if (showDropdown && filteredSuggestions[highlightedIndex]) {
+      if (showDropdown && hasNavigated && filteredSuggestions[highlightedIndex]) {
         e.preventDefault();
         selectValue(filteredSuggestions[highlightedIndex]);
       }
@@ -45,9 +47,11 @@ const StringAutocomplete = ({ value = '', onChange, suggestions = [], placeholde
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       setShowDropdown(true);
+      setHasNavigated(true);
       setHighlightedIndex(prev => Math.min(prev + 1, filteredSuggestions.length - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
+      setHasNavigated(true);
       setHighlightedIndex(prev => Math.max(prev - 1, 0));
     } else if (e.key === 'Escape') {
       setShowDropdown(false);
@@ -58,6 +62,7 @@ const StringAutocomplete = ({ value = '', onChange, suggestions = [], placeholde
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         setShowDropdown(false);
+        setInputValue(value);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -73,6 +78,7 @@ const StringAutocomplete = ({ value = '', onChange, suggestions = [], placeholde
         onChange={(e) => {
           setInputValue(e.target.value);
           setShowDropdown(true);
+          setHasNavigated(false);
         }}
         onKeyDown={handleKeyDown}
         onFocus={() => setShowDropdown(true)}
@@ -83,7 +89,7 @@ const StringAutocomplete = ({ value = '', onChange, suggestions = [], placeholde
         <div className={styles.dropdown}>
           {filteredSuggestions.map((s, index) => (
             <div
-              key={s}
+              key={`${s}-${index}`}
               className={`${styles.suggestion} ${index === highlightedIndex ? styles.highlighted : ''}`}
               onMouseDown={(e) => {
                 e.preventDefault();

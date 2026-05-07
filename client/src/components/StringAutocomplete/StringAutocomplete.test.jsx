@@ -71,4 +71,47 @@ describe('StringAutocomplete', () => {
     fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it('highlights next suggestion on ArrowDown', () => {
+    render(<StringAutocomplete value="" onChange={vi.fn()} suggestions={suggestions} />);
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'a' } });
+    const items = screen.getAllByText(/Sarah Miller|James Chen|Emma Watson/);
+    expect(items[0].className).toMatch(/highlighted/);
+    fireEvent.keyDown(input, { key: 'ArrowDown', code: 'ArrowDown' });
+    expect(items[1].className).toMatch(/highlighted/);
+  });
+
+  it('highlights previous suggestion on ArrowUp', () => {
+    render(<StringAutocomplete value="" onChange={vi.fn()} suggestions={suggestions} />);
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'a' } });
+    const items = screen.getAllByText(/Sarah Miller|James Chen|Emma Watson/);
+    fireEvent.keyDown(input, { key: 'ArrowDown', code: 'ArrowDown' });
+    expect(items[1].className).toMatch(/highlighted/);
+    fireEvent.keyDown(input, { key: 'ArrowUp', code: 'ArrowUp' });
+    expect(items[0].className).toMatch(/highlighted/);
+  });
+
+  it('does not hijack Tab when user has not navigated suggestions', () => {
+    const onChange = vi.fn();
+    render(<StringAutocomplete value="" onChange={onChange} suggestions={suggestions} />);
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'james' } });
+    fireEvent.keyDown(input, { key: 'Tab', code: 'Tab' });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('resets input value on click outside', () => {
+    render(
+      <div>
+        <StringAutocomplete value="Sarah Miller" onChange={vi.fn()} suggestions={suggestions} />
+        <button>Outside</button>
+      </div>
+    );
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'james' } });
+    fireEvent.mouseDown(screen.getByText('Outside'));
+    expect(input).toHaveValue('Sarah Miller');
+  });
 });
