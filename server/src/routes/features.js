@@ -232,8 +232,8 @@ export default async function featureRoutes(fastify, options) {
       tags: Array.isArray(tags) ? tags : [],
       pinned: false,
       is_published: is_published === 0 ? false : true,
-      owner: owner ?? '',
-      key_stakeholder: key_stakeholder ?? '',
+      owner: (owner ?? '').trim(),
+      key_stakeholder: (key_stakeholder ?? '').trim(),
       priority: priority ?? 'Medium',
       gravity_score: 0,
       created_at: now,
@@ -357,13 +357,16 @@ export default async function featureRoutes(fastify, options) {
       changesObj.effort = { old: oldFeature.effort, new: parseInt(effort) || 1 };
       updated.effort = parseInt(effort) || 1;
     }
-    if (owner !== undefined && owner !== oldFeature.owner) {
-      changesObj.owner = { old: oldFeature.owner, new: owner };
-      updated.owner = owner;
+    const trimmedOwner = owner !== undefined ? owner.trim() : undefined;
+    const trimmedStakeholder = key_stakeholder !== undefined ? key_stakeholder.trim() : undefined;
+
+    if (trimmedOwner !== undefined && trimmedOwner !== oldFeature.owner) {
+      changesObj.owner = { old: oldFeature.owner, new: trimmedOwner };
+      updated.owner = trimmedOwner;
     }
-    if (key_stakeholder !== undefined && key_stakeholder !== oldFeature.key_stakeholder) {
-      changesObj.key_stakeholder = { old: oldFeature.key_stakeholder, new: key_stakeholder };
-      updated.key_stakeholder = key_stakeholder;
+    if (trimmedStakeholder !== undefined && trimmedStakeholder !== oldFeature.key_stakeholder) {
+      changesObj.key_stakeholder = { old: oldFeature.key_stakeholder, new: trimmedStakeholder };
+      updated.key_stakeholder = trimmedStakeholder;
     }
     if (priority !== undefined && priority !== oldFeature.priority) {
       changesObj.priority = { old: oldFeature.priority, new: priority };
