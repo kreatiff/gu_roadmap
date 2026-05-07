@@ -6,7 +6,8 @@ import FeatureDetailView from '../../../components/FeatureDetailView';
 import FeatureDetailModal from '../../../components/FeatureDetailModal';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import RevisionHistory from '../../../components/RevisionHistory';
-import { getFeatures, createFeature, updateFeature, deleteFeature, getFeatureRevisions } from '../../../api/features';
+import TagAutocomplete from '../../../components/TagAutocomplete/TagAutocomplete';
+import { getFeatures, createFeature, updateFeature, deleteFeature, getFeatureRevisions, getFeatureTags } from '../../../api/features';
 import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { useToast } from '../../../contexts/ToastContext';
@@ -21,6 +22,7 @@ const AdminFeatureFormPage = () => {
   const [categories, setCategories] = useState([]);
   const [stages, setStages] = useState([]);
   const [revisions, setRevisions] = useState([]);
+  const [tagSuggestions, setTagSuggestions] = useState([]);
   const [maxVotes, setMaxVotes] = useState(0);
   const [loading, setLoading] = useState(isEdit);
   const [showPreview, setShowPreview] = useState(false);
@@ -44,12 +46,14 @@ const AdminFeatureFormPage = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [cData, stData] = await Promise.all([
+      const [cData, stData, tagData] = await Promise.all([
         getCategories(),
-        getStages()
+        getStages(),
+        getFeatureTags().catch(() => [])
       ]);
       setCategories(cData);
       setStages(stData);
+      setTagSuggestions(Array.isArray(tagData) ? tagData : []);
 
       if (isEdit) {
         try {
@@ -156,11 +160,6 @@ const AdminFeatureFormPage = () => {
 
   const executeDiscard = () => {
     navigate('/admin');
-  };
-
-  const handleTagsChange = (e) => {
-    const tags = e.target.value.split(',').map(tag => tag.trim()).filter(Boolean);
-    setFormData(prev => ({ ...prev, tags }));
   };
 
   const calculatedScore = useMemo(() => {
@@ -423,13 +422,11 @@ const AdminFeatureFormPage = () => {
           </div>
 
           <div className={styles.field}>
-            <label className={styles.label}>Tags (comma-separated)</label>
-            <input 
-              type="text" 
-              value={formData.tags.join(', ')} 
-              onChange={handleTagsChange}
-              className={styles.input}
-              placeholder="UI/UX, Mobile, Student Portal, API..."
+            <label className={styles.label}>Tags</label>
+            <TagAutocomplete
+              selected={formData.tags}
+              onChange={(tags) => setFormData(prev => ({ ...prev, tags }))}
+              suggestions={tagSuggestions}
             />
           </div>
 
