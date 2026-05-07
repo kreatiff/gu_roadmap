@@ -174,7 +174,7 @@ export default async function featureRoutes(fastify, options) {
   fastify.post('/', { preHandler: [requireAdmin] }, async (request, reply) => {
     const {
       title, description, category_id, status, stage_id,
-      impact, effort, owner, key_stakeholder, priority, is_published,
+      impact, effort, owner, key_stakeholder, priority, is_published, tags,
     } = request.body;
 
     if (!title) return reply.code(400).send({ error: 'Title is required' });
@@ -229,7 +229,7 @@ export default async function featureRoutes(fastify, options) {
       vote_count: 0,
       impact: impact ?? 1,
       effort: effort ?? 1,
-      tags: [],
+      tags: Array.isArray(tags) ? tags : [],
       pinned: false,
       is_published: is_published === 0 ? false : true,
       owner: owner ?? '',
