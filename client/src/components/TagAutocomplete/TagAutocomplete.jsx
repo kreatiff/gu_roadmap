@@ -9,7 +9,7 @@ const TagAutocomplete = ({ selected = [], onChange, suggestions = [] }) => {
   const dropdownRef = useRef(null);
 
   const filteredSuggestions = suggestions
-    .filter(tag => !selected.includes(tag))
+    .filter(tag => !selected.some(s => s.toLowerCase() === tag.toLowerCase()))
     .filter(tag => tag.toLowerCase().includes(inputValue.toLowerCase()));
 
   useEffect(() => {
@@ -17,8 +17,11 @@ const TagAutocomplete = ({ selected = [], onChange, suggestions = [] }) => {
   }, [inputValue]);
 
   const addTag = (tag) => {
-    if (tag && !selected.includes(tag)) {
-      onChange([...selected, tag]);
+    const trimmed = tag.trim();
+    if (!trimmed) return;
+    const isDuplicate = selected.some(s => s.toLowerCase() === trimmed.toLowerCase());
+    if (!isDuplicate) {
+      onChange([...selected, trimmed]);
     }
     setInputValue('');
     setShowDropdown(false);
