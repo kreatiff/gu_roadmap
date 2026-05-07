@@ -479,6 +479,21 @@ export default async function featureRoutes(fastify, options) {
     return allTags;
   });
 
+  // ── 5.2 GET /owners — Public: all unique owners currently on features ──────────
+  fastify.get('/owners', { preHandler: [optionalAuthenticate] }, async (request, reply) => {
+    const isAdmin = request.user?.isAdmin ?? false;
+    const whereClause = isAdmin ? '' : 'WHERE c.is_published = true';
+    const { resources } = await featuresContainer.items
+      .query(
+        `SELECT c.owner FROM c ${whereClause}`,
+        { enableCrossPartitionQuery: true }
+      )
+      .fetchAll();
+
+    const allOwners = [...new Set(resources.map(r => r.owner).filter(Boolean))].sort();
+    return allOwners;
+  });
+
   // ── 6. POST /:id/vote — Cast a vote ─────────────────────────────────────────
   const voteId = (userId, featureId) => `${userId}::${featureId}`;
 
