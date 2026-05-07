@@ -14,6 +14,7 @@ import featureRoutes from './routes/features.js';
 import categoryRoutes from './routes/categories.js';
 import stageRoutes from './routes/stages.js';
 import dashboardRoutes from './routes/dashboards.js';
+import metadataRoutes from './routes/metadata.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { errorHandler } from './errorHandler.js';
@@ -60,6 +61,7 @@ server.register(featureRoutes, { prefix: '/api/features' });
 server.register(categoryRoutes, { prefix: '/api/categories' });
 server.register(stageRoutes, { prefix: '/api/stages' });
 server.register(dashboardRoutes, { prefix: '/api/dashboards' });
+server.register(metadataRoutes, { prefix: '/api/metadata' });
 
 // 4. Fallback for React Router (SPA)
 server.setNotFoundHandler((request, reply) => {
