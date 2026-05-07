@@ -7,7 +7,8 @@ import FeatureDetailModal from '../../../components/FeatureDetailModal';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import RevisionHistory from '../../../components/RevisionHistory';
 import TagAutocomplete from '../../../components/TagAutocomplete/TagAutocomplete';
-import { getFeatures, createFeature, updateFeature, deleteFeature, getFeatureRevisions, getFeatureTags } from '../../../api/features';
+import StringAutocomplete from '../../../components/StringAutocomplete/StringAutocomplete';
+import { getFeatures, createFeature, updateFeature, deleteFeature, getFeatureRevisions, getFeatureTags, getFeatureOwners, getFeatureStakeholders } from '../../../api/features';
 import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { useToast } from '../../../contexts/ToastContext';
@@ -23,6 +24,8 @@ const AdminFeatureFormPage = () => {
   const [stages, setStages] = useState([]);
   const [revisions, setRevisions] = useState([]);
   const [tagSuggestions, setTagSuggestions] = useState([]);
+  const [ownerSuggestions, setOwnerSuggestions] = useState([]);
+  const [stakeholderSuggestions, setStakeholderSuggestions] = useState([]);
   const [maxVotes, setMaxVotes] = useState(0);
   const [loading, setLoading] = useState(isEdit);
   const [showPreview, setShowPreview] = useState(false);
@@ -46,14 +49,18 @@ const AdminFeatureFormPage = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [cData, stData, tagData] = await Promise.all([
+      const [cData, stData, tagData, ownerData, stakeholderData] = await Promise.all([
         getCategories(),
         getStages(),
-        getFeatureTags().catch(() => [])
+        getFeatureTags().catch(() => []),
+        getFeatureOwners().catch(() => []),
+        getFeatureStakeholders().catch(() => [])
       ]);
       setCategories(cData);
       setStages(stData);
       setTagSuggestions(Array.isArray(tagData) ? tagData : []);
+      setOwnerSuggestions(Array.isArray(ownerData) ? ownerData : []);
+      setStakeholderSuggestions(Array.isArray(stakeholderData) ? stakeholderData : []);
 
       if (isEdit) {
         try {
@@ -400,22 +407,20 @@ const AdminFeatureFormPage = () => {
 
             <div className={styles.field}>
               <label className={styles.label}>Feature Owner</label>
-              <input 
-                type="text" 
-                value={formData.owner} 
-                onChange={(e) => setFormData(prev => ({ ...prev, owner: e.target.value }))}
-                className={styles.input}
+              <StringAutocomplete
+                value={formData.owner}
+                onChange={(owner) => setFormData(prev => ({ ...prev, owner }))}
+                suggestions={ownerSuggestions}
                 placeholder="Name (Area/Team)"
               />
             </div>
 
             <div className={styles.field}>
               <label className={styles.label}>Key Stakeholder</label>
-              <input 
-                type="text" 
-                value={formData.key_stakeholder} 
-                onChange={(e) => setFormData(prev => ({ ...prev, key_stakeholder: e.target.value }))}
-                className={styles.input}
+              <StringAutocomplete
+                value={formData.key_stakeholder}
+                onChange={(key_stakeholder) => setFormData(prev => ({ ...prev, key_stakeholder }))}
+                suggestions={stakeholderSuggestions}
                 placeholder="User/Department"
               />
             </div>
