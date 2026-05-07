@@ -23,7 +23,6 @@ const StringAutocomplete = ({ value = '', onChange, suggestions = [], placeholde
 
   const selectValue = (newValue) => {
     const trimmed = newValue.trim();
-    if (!trimmed) return;
     setInputValue(trimmed);
     onChange?.(trimmed);
     setShowDropdown(false);
@@ -67,7 +66,7 @@ const StringAutocomplete = ({ value = '', onChange, suggestions = [], placeholde
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [value]);
 
   return (
     <div className={styles.container} ref={containerRef}>

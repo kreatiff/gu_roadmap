@@ -63,13 +63,14 @@ describe('StringAutocomplete', () => {
     expect(onChange).toHaveBeenCalledWith('New Person');
   });
 
-  it('does not call onChange for empty or whitespace-only input', () => {
+  it('calls onChange with empty string when user clears the input and presses Enter', () => {
     const onChange = vi.fn();
-    render(<StringAutocomplete value="" onChange={onChange} suggestions={suggestions} />);
+    render(<StringAutocomplete value="Sarah Miller" onChange={onChange} suggestions={suggestions} />);
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: '   ' } });
     fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
-    expect(onChange).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith('');
   });
 
   it('highlights next suggestion on ArrowDown', () => {
