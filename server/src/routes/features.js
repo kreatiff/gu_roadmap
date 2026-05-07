@@ -494,6 +494,21 @@ export default async function featureRoutes(fastify, options) {
     return allOwners;
   });
 
+  // ── 5.3 GET /stakeholders — Public: all unique stakeholders on features ───────
+  fastify.get('/stakeholders', { preHandler: [optionalAuthenticate] }, async (request, reply) => {
+    const isAdmin = request.user?.isAdmin ?? false;
+    const whereClause = isAdmin ? '' : 'WHERE c.is_published = true';
+    const { resources } = await featuresContainer.items
+      .query(
+        `SELECT c.key_stakeholder FROM c ${whereClause}`,
+        { enableCrossPartitionQuery: true }
+      )
+      .fetchAll();
+
+    const allStakeholders = [...new Set(resources.map(r => r.key_stakeholder).filter(Boolean))].sort();
+    return allStakeholders;
+  });
+
   // ── 6. POST /:id/vote — Cast a vote ─────────────────────────────────────────
   const voteId = (userId, featureId) => `${userId}::${featureId}`;
 
