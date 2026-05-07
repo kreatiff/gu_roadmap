@@ -1,6 +1,5 @@
 import { votesContainer, featuresContainer } from '../db.js';
 import { authenticate } from '../auth.js';
-import { recalculateAllGravityScores } from '../lib/gravityUtils.js';
 
 export default async function voteRoutes(fastify, options) {
 
@@ -54,7 +53,6 @@ export default async function voteRoutes(fastify, options) {
       throw err;
     }
 
-    await recalculateAllGravityScores();
     return { ok: true };
   });
 
@@ -76,7 +74,6 @@ export default async function voteRoutes(fastify, options) {
     // Atomically decrement vote_count.
     await patchVoteCount(featureId, -1);
 
-    await recalculateAllGravityScores();
     return { ok: true };
   });
 

@@ -142,11 +142,11 @@ const AdminMatrixPage = () => {
                 <div className={styles.detailMetaGrid}>
                   <div className={styles.metaItem}>
                     <span className={styles.metaLabel}>Impact</span>
-                    <span className={styles.metaValue}>{selectedFeature.impact} / 5</span>
+                    <span className={styles.metaValue}>{selectedFeature.impact} / 10</span>
                   </div>
                   <div className={styles.metaItem}>
                     <span className={styles.metaLabel}>Effort</span>
-                    <span className={styles.metaValue}>{selectedFeature.effort} / 5</span>
+                    <span className={styles.metaValue}>{selectedFeature.effort} / 10</span>
                   </div>
                   <div className={styles.metaItem}>
                     <span className={styles.metaLabel}>Owner</span>

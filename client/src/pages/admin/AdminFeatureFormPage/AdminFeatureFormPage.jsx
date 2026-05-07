@@ -26,7 +26,6 @@ const AdminFeatureFormPage = () => {
   const [tagSuggestions, setTagSuggestions] = useState([]);
   const [ownerSuggestions, setOwnerSuggestions] = useState([]);
   const [stakeholderSuggestions, setStakeholderSuggestions] = useState([]);
-  const [maxVotes, setMaxVotes] = useState(0);
   const [loading, setLoading] = useState(isEdit);
   const [showPreview, setShowPreview] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -39,8 +38,8 @@ const AdminFeatureFormPage = () => {
     stage_id: '',
     pinned: false,
     tags: [],
-    impact: 1,
-    effort: 1,
+    impact: 5,
+    effort: 5,
     owner: '',
     key_stakeholder: '',
     priority: 'Medium',
@@ -71,8 +70,6 @@ const AdminFeatureFormPage = () => {
           setRevisions(Array.isArray(revRes) ? revRes : []);
           
           const fData = res.data || [];
-          const currentMaxVotes = Math.max(...fData.map(f => f.vote_count || 0), 0);
-          setMaxVotes(currentMaxVotes);
           
           const feature = fData.find(f => f.id === id);
           if (feature) {
@@ -170,15 +167,17 @@ const AdminFeatureFormPage = () => {
   };
 
   const calculatedScore = useMemo(() => {
-    const multipliers = { Low: 0.5, Medium: 1.0, High: 1.5, Critical: 2.0 };
-    const m = multipliers[formData.priority] || 1.0;
-    const v = formData.vote_count || 0;
-    const votesNorm = maxVotes > 0 ? (v / maxVotes) * 5 : 0;
-    const safeEffort = formData.effort > 0 ? formData.effort : 1;
-    const raw = (votesNorm * formData.impact * m) / safeEffort;
-    const score = Math.ceil((raw / 50) * 100);
-    return Math.min(score, 100);
-  }, [formData.impact, formData.effort, formData.priority, formData.vote_count, maxVotes]);
+    const priorityScores = { Low: 1, Medium: 2, High: 3, Critical: 4 };
+    const impact = Math.max(1, Math.min(10, formData.impact ?? 5));
+    const effort = Math.max(1, Math.min(10, formData.effort > 0 ? formData.effort : 1));
+    const priority = priorityScores[formData.priority] ?? 2;
+
+    const impactPart = (impact / 10) * 60;
+    const priorityPart = (priority / 4) * 25;
+    const effortPart = ((11 - effort) / 10) * 15;
+
+    return Math.min(Math.ceil(impactPart + priorityPart + effortPart), 100);
+  }, [formData.impact, formData.effort, formData.priority]);
 
   const previewFeature = useMemo(() => {
     const category = categories.find(c => c.id === formData.category_id);
@@ -339,7 +338,7 @@ const AdminFeatureFormPage = () => {
                 <input 
                   type="range" 
                   min="1" 
-                  max="5" 
+                  max="10" 
                   value={formData.impact} 
                   onChange={(e) => setFormData(prev => ({ ...prev, impact: parseInt(e.target.value) }))}
                   className={styles.rangeInput}
@@ -357,7 +356,7 @@ const AdminFeatureFormPage = () => {
                 <input 
                   type="range" 
                   min="1" 
-                  max="5" 
+                  max="10" 
                   value={formData.effort} 
                   onChange={(e) => setFormData(prev => ({ ...prev, effort: parseInt(e.target.value) }))}
                   className={styles.rangeInput}
@@ -384,7 +383,7 @@ const AdminFeatureFormPage = () => {
               </div>
             </div>
             <p className={styles.gravityHelpText}>
-              This score is calculated based on votes ({formData.vote_count || 0}), impact, effort, and strategic priority. Or {maxVotes} max votes.
+              This score is calculated based on impact (60%), strategic priority (25%), and effort (15%).
             </p>
           </div>
 

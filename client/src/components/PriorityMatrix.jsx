@@ -13,9 +13,9 @@ const PriorityMatrix = ({ features, onFeatureClick, selectedFeatureId }) => {
     return groups;
   }, [features]);
 
-  // Axis dots (1-5)
-  const axisIndices = [5, 4, 3, 2, 1];
-  const xAxisIndices = [1, 2, 3, 4, 5];
+  // Axis dots (1-10) — effort is reversed so low effort is on the right
+  const axisIndices = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+  const xAxisIndices = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
 
   return (
     <div className={styles.container}>
@@ -25,11 +25,7 @@ const PriorityMatrix = ({ features, onFeatureClick, selectedFeatureId }) => {
           <div className={styles.axisLabelVertical}>IMPACT</div>
           {axisIndices.map(i => (
             <div key={`y-${i}`} className={styles.axisMarker}>
-              <div className={styles.dotGroupVertical}>
-                {Array.from({ length: i }).map((_, idx) => (
-                  <div key={idx} className={styles.axisDotBlue} />
-                ))}
-              </div>
+              <span className={styles.axisNumber}>{i}</span>
             </div>
           ))}
         </div>
@@ -44,20 +40,20 @@ const PriorityMatrix = ({ features, onFeatureClick, selectedFeatureId }) => {
                   <div className={styles.cluster}>
                     {cellFeatures.map(f => {
                       const score = f.gravity_score || 0;
-                      // Map score 0-100 to size 8-28px
-                      const size = 8 + (score / 100) * 20;
+                      const bgColor = selectedFeatureId === f.id
+                        ? '#0c4bea'
+                        : score >= 60 ? '#10b981' : score >= 30 ? '#f59e0b' : '#cbd5e1';
+                      const textColor = selectedFeatureId === f.id || score >= 30 ? '#ffffff' : '#475569';
                       return (
-                        <button
+                        <div
                           key={f.id}
                           onClick={() => onFeatureClick(f)}
-                          className={`${styles.featureDot} ${selectedFeatureId === f.id ? styles.featureDotSelected : ''}`}
-                          style={{ 
-                            width: `${size}px`, 
-                            height: `${size}px`,
-                            backgroundColor: selectedFeatureId === f.id ? '#0c4bea' : (score >= 60 ? '#10b981' : score >= 30 ? '#f59e0b' : '#cbd5e1')
-                          }}
-                          title={`${f.title}\nGravity: ${score}/100\nImpact: ${f.impact}, Effort: ${f.effort}\nVotes: ${f.vote_count}`}
-                        />
+                          className={`${styles.featureBadge} ${selectedFeatureId === f.id ? styles.featureBadgeSelected : ''}`}
+                          style={{ backgroundColor: bgColor, color: textColor }}
+                          title={`${f.title}\nGravity: ${score}/100\nImpact: ${f.impact}, Effort: ${f.effort}`}
+                        >
+                          <span className={styles.featureBadgeText}>{f.title}</span>
+                        </div>
                       );
                     })}
                   </div>
@@ -72,11 +68,7 @@ const PriorityMatrix = ({ features, onFeatureClick, selectedFeatureId }) => {
         <div className={styles.xAxis}>
           {xAxisIndices.map(i => (
             <div key={`x-${i}`} className={styles.axisMarker}>
-              <div className={styles.dotGroupHorizontal}>
-                {Array.from({ length: i }).map((_, idx) => (
-                  <div key={idx} className={styles.axisDotOrange} />
-                ))}
-              </div>
+              <span className={styles.axisNumber}>{i}</span>
             </div>
           ))}
           <div className={styles.axisLabelHorizontal}>EFFORT</div>
@@ -85,7 +77,7 @@ const PriorityMatrix = ({ features, onFeatureClick, selectedFeatureId }) => {
 
       <div className={styles.legend}>
         <p className={styles.legendText}>
-          <strong>Quick Wins</strong> (High Impact, Low Effort) are in the top-left section.
+          <strong>Quick Wins</strong> (High Impact, Low Effort) are in the top-right section.
         </p>
       </div>
     </div>

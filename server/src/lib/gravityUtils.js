@@ -1,38 +1,39 @@
 import { featuresContainer } from '../db.js';
 
 /**
- * Scoring Multipliers for Strategic Priority
+ * Maps textual priority to a numeric score.
  */
-const PRIORITY_MULTIPLIER_MAP = {
-  Low: 0.5,
-  Medium: 1.0,
-  High: 1.5,
-  Critical: 2.0,
+const PRIORITY_SCORES = {
+  Low: 1,
+  Medium: 2,
+  High: 3,
+  Critical: 4,
 };
 
 /**
  * Calculates the Gravity Score for a single feature.
  *
- * Formula:
- * votes_norm = (sqrt(vote_count) / sqrt(maxVotes)) * 5
- * raw_score  = (votes_norm * impact * priority_multiplier) / effort
- * gravity_score = ceil((raw_score / 50) * 100)   clamped to 100
+ * Formula (vote-free, hierarchical):
+ *   impactPart   = (impact / 10) * 60   // up to 60 pts
+ *   priorityPart = (priority / 4) * 25  // up to 25 pts
+ *   effortPart   = ((11 - effort) / 10) * 15  // up to 15 pts (inverse)
+ *   gravity_score = ceil(impactPart + priorityPart + effortPart) clamped to 100
  *
- * @param {Object} feature  - Feature document (vote_count, impact, effort, priority)
- * @param {number} maxVotes - Current maximum vote_count across all features
- * @returns {number}        - Gravity score 0–100
+ * Hierarchy: Impact (#1) > Priority (#2) > Effort (#3)
+ *
+ * @param {Object} feature - Feature document (impact, effort, priority)
+ * @returns {number} - Gravity score 0–100
  */
-export function calculateGravityScore(feature, maxVotes) {
-  const votes = feature.vote_count || 0;
-  const impact = feature.impact ?? 3;
-  const effort = feature.effort > 0 ? feature.effort : 1;
-  const multiplier = PRIORITY_MULTIPLIER_MAP[feature.priority] ?? 1.0;
+export function calculateGravityScore(feature) {
+  const impact = Math.max(1, Math.min(10, feature.impact ?? 5));
+  const effort = Math.max(1, Math.min(10, feature.effort > 0 ? feature.effort : 1));
+  const priority = PRIORITY_SCORES[feature.priority] ?? 2;
 
-  const votesNorm =
-    maxVotes > 0 ? (Math.sqrt(votes) / Math.sqrt(maxVotes)) * 5 : 0;
+  const impactPart = (impact / 10) * 60;
+  const priorityPart = (priority / 4) * 25;
+  const effortPart = ((11 - effort) / 10) * 15;
 
-  const rawScore = (votesNorm * impact * multiplier) / effort;
-  const score = Math.ceil((rawScore / 50) * 100);
+  const score = Math.ceil(impactPart + priorityPart + effortPart);
   return Math.min(score, 100);
 }
 
@@ -46,19 +47,10 @@ export function calculateGravityScore(feature, maxVotes) {
  */
 export async function recalculateAllGravityScores() {
   try {
-    // 1. Get the current max vote_count
-    const { resources: maxResult } = await featuresContainer.items
-      .query('SELECT VALUE MAX(c.vote_count) FROM c', {
-        enableCrossPartitionQuery: true,
-      })
-      .fetchAll();
-
-    const maxVotes = maxResult[0] ?? 0;
-
-    // 2. Fetch all features (only the fields needed for scoring + id for the update)
+    // 1. Fetch all features (only the fields needed for scoring + id for the update)
     const { resources: features } = await featuresContainer.items
       .query(
-        'SELECT c.id, c.vote_count, c.impact, c.effort, c.priority FROM c',
+        'SELECT c.id, c.impact, c.effort, c.priority FROM c',
         { enableCrossPartitionQuery: true }
       )
       .fetchAll();
@@ -67,14 +59,14 @@ export async function recalculateAllGravityScores() {
 
     const now = new Date().toISOString();
 
-    // 3. Build update promises — point-read then patch each feature
+    // 2. Build update promises — point-read then patch each feature
     //    Chunk into batches of 50 to limit concurrent RU consumption.
     const BATCH_SIZE = 50;
     for (let i = 0; i < features.length; i += BATCH_SIZE) {
       const batch = features.slice(i, i + BATCH_SIZE);
       await Promise.all(
         batch.map((feature) => {
-          const score = calculateGravityScore(feature, maxVotes);
+          const score = calculateGravityScore(feature);
           return featuresContainer
             .item(feature.id, feature.id)
             .patch([

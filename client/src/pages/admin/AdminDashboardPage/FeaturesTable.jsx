@@ -5,7 +5,7 @@ import styles from './FeaturesTable.module.css';
 const DotScale = ({ value, color }) => {
   return (
     <div className={styles.dotScale}>
-      {[1, 2, 3, 4, 5].map(i => (
+      {Array.from({ length: 10 }, (_, i) => i + 1).map(i => (
         <div key={i} className={styles.dot} style={{
           backgroundColor: i <= value ? color : '#e2e8f0',
         }} />

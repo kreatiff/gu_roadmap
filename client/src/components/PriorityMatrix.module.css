@@ -1,10 +1,10 @@
 .container {
   width: 100%;
-  padding: var(--space-4);
+  height: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--space-8);
+  align-items: stretch;
+  gap: var(--space-4);
 }
 
 .matrixLayout {
@@ -13,14 +13,14 @@
   grid-template-rows: 1fr auto;
   gap: 12px;
   width: 100%;
-  max-width: 900px;
-  aspect-ratio: 1.1 / 1;
+  height: 100%;
+  min-height: 0;
 }
 
 /* Y Axis */
 .yAxis {
   display: grid;
-  grid-template-rows: repeat(5, 1fr);
+  grid-template-rows: repeat(10, 1fr);
   align-items: center;
   justify-items: end;
   padding-right: 8px;
@@ -44,30 +44,31 @@
   height: 100%;
 }
 
-.dotGroupVertical {
+.axisNumber {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  width: 18px;
+  height: 18px;
   display: flex;
-  flex-direction: column;
-  gap: 3px;
   align-items: center;
-}
-
-.axisDotBlue {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: #0c4bea;
-  opacity: 0.8;
+  justify-content: center;
+  border-radius: 3px;
+  background-color: #f1f5f9;
 }
 
 /* Matrix Grid */
 .matrixGrid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  grid-template-rows: repeat(5, 1fr);
+  grid-template-columns: repeat(10, 1fr);
+  grid-template-rows: repeat(10, 1fr);
   background-color: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 4px;
   overflow: hidden;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
 }
 
 .cell {
@@ -76,6 +77,9 @@
   align-items: center;
   justify-content: center;
   position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 /* X Axis */
@@ -85,7 +89,7 @@
 
 .xAxis {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(10, 1fr);
   align-items: start;
   padding-top: 8px;
   position: relative;
@@ -102,54 +106,56 @@
   letter-spacing: 0.1em;
 }
 
-.dotGroupHorizontal {
-  display: flex;
-  gap: 3px;
-  justify-content: center;
-}
 
-.axisDotOrange {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: #f97316;
-  opacity: 0.8;
-}
 
 /* Clustering */
 .cluster {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 8px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px;
   justify-content: center;
-  align-content: center;
+  align-items: stretch;
   width: 100%;
   height: 100%;
+  overflow: hidden;
 }
 
-.featureDot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background-color: #cbd5e1;
-  border: 1.5px solid #ffffff;
+.featureBadge {
+  width: 100%;
+  min-height: 0;
+  border-radius: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 2px;
   cursor: pointer;
-  padding: 0;
-  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  border: 1px solid rgba(255,255,255,0.6);
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  flex-shrink: 1;
+  flex-grow: 0;
 }
 
-.featureDot:hover {
-  transform: scale(1.4);
+.featureBadgeText {
+  font-size: clamp(6px, 0.6vw, 10px);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+  text-align: center;
+  line-height: 1.1;
+}
+
+.featureBadge:hover {
+  transform: scale(1.06);
   z-index: 10;
-  background-color: #64748b;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
 
-.featureDotSelected {
-  background-color: #0c4bea;
-  transform: scale(1.3);
-  box-shadow: 0 0 0 3px rgba(12, 75, 234, 0.2);
+.featureBadgeSelected {
+  box-shadow: 0 0 0 2px rgba(12, 75, 234, 0.35);
   z-index: 5;
 }
 
