@@ -8,8 +8,10 @@ const TagAutocomplete = ({ selected = [], onChange, suggestions = [] }) => {
   const inputRef = useRef(null);
   const dropdownRef = useRef(null);
 
+  const tagsEqual = (a, b) => typeof a === 'string' && typeof b === 'string' && a.toLowerCase() === b.toLowerCase();
+
   const filteredSuggestions = suggestions
-    .filter(tag => !selected.some(s => s.toLowerCase() === tag.toLowerCase()))
+    .filter(tag => !selected.some(s => tagsEqual(s, tag)))
     .filter(tag => tag.toLowerCase().includes(inputValue.toLowerCase()));
 
   useEffect(() => {
@@ -19,7 +21,7 @@ const TagAutocomplete = ({ selected = [], onChange, suggestions = [] }) => {
   const addTag = (tag) => {
     const trimmed = tag.trim();
     if (!trimmed) return;
-    const isDuplicate = selected.some(s => s.toLowerCase() === trimmed.toLowerCase());
+    const isDuplicate = selected.some(s => tagsEqual(s, trimmed));
     if (!isDuplicate) {
       onChange([...selected, trimmed]);
     }
@@ -36,8 +38,8 @@ const TagAutocomplete = ({ selected = [], onChange, suggestions = [] }) => {
       e.preventDefault();
       if (showDropdown && filteredSuggestions[highlightedIndex]) {
         addTag(filteredSuggestions[highlightedIndex]);
-      } else if (inputValue.trim()) {
-        addTag(inputValue.trim());
+      } else {
+        addTag(inputValue);
       }
     } else if (e.key === 'Backspace' && !inputValue && selected.length > 0) {
       removeTag(selected[selected.length - 1]);
