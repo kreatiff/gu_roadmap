@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import AdminLayout from '../../../components/AdminLayout';
 import PriorityMatrix from '../../../components/PriorityMatrix';
 import FeatureSidebarCard from '../../../components/FeatureSidebarCard';
-import { getFeatures } from '../../../api/features';
+import { getFeatures, updateFeature } from '../../../api/features';
 import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
+import { calculateGravityScore } from '@shared/lib/gravityScore.js';
 import styles from './AdminMatrixPage.module.css';
 
 const AdminMatrixPage = () => {
@@ -61,6 +62,27 @@ const AdminMatrixPage = () => {
     setSelectedFeatureId(feature.id);
   };
 
+  const handleFeatureMove = async (id, newImpact, newEffort) => {
+    const feature = features.find(f => f.id === id);
+    if (!feature) return;
+
+    const newGravity = calculateGravityScore(newImpact, newEffort, feature.priority);
+
+    // Optimistically update local state with new impact, effort, and gravity
+    setFeatures(prev => prev.map(f =>
+      f.id === id ? { ...f, impact: newImpact, effort: newEffort, gravity_score: newGravity } : f
+    ));
+
+    // Auto-save to server
+    try {
+      await updateFeature(id, { impact: newImpact, effort: newEffort });
+    } catch (err) {
+      console.error('Failed to update feature position:', err);
+      // Revert on error by refetching
+      fetchData();
+    }
+  };
+
   return (
     <AdminLayout>
       <div className={styles.pageContainer}>
@@ -105,7 +127,8 @@ const AdminMatrixPage = () => {
               <PriorityMatrix 
                 features={filteredFeatures} 
                 selectedFeatureId={selectedFeatureId}
-                onFeatureClick={handleFeatureClick} 
+                onFeatureClick={handleFeatureClick}
+                onFeatureMove={handleFeatureMove}
               />
             )}
           </div>

@@ -284,15 +284,15 @@
 }
 
 .gravityHigh {
-  background-color: #ecfdf5;
-  color: #059669;
-  border-color: rgba(16, 185, 129, 0.2);
+  background-color: #d4edda;
+  color: #1a5f3f;
+  border-color: rgba(26, 95, 63, 0.2);
 }
 
 .gravityMid {
-  background-color: #fffbeb;
-  color: #d97706;
-  border-color: rgba(245, 158, 11, 0.2);
+  background-color: #fff3cd;
+  color: #9ca32b;
+  border-color: rgba(156, 163, 43, 0.2);
 }
 
 .gravityLow {

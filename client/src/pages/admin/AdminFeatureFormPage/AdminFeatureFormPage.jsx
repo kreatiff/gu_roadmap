@@ -11,6 +11,7 @@ import StringAutocomplete from '../../../components/StringAutocomplete/StringAut
 import { getFeatures, createFeature, updateFeature, deleteFeature, getFeatureRevisions, getFeatureTags, getFeatureOwners, getFeatureStakeholders } from '../../../api/features';
 import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
+import { calculateGravityScore } from '@shared/lib/gravityScore.js';
 import { useToast } from '../../../contexts/ToastContext';
 import styles from './AdminFeatureFormPage.module.css';
 
@@ -167,16 +168,7 @@ const AdminFeatureFormPage = () => {
   };
 
   const calculatedScore = useMemo(() => {
-    const priorityScores = { Low: 1, Medium: 2, High: 3, Critical: 4 };
-    const impact = Math.max(1, Math.min(10, formData.impact ?? 5));
-    const effort = Math.max(1, Math.min(10, formData.effort > 0 ? formData.effort : 1));
-    const priority = priorityScores[formData.priority] ?? 2;
-
-    const impactPart = (impact / 10) * 60;
-    const priorityPart = (priority / 4) * 25;
-    const effortPart = ((11 - effort) / 10) * 15;
-
-    return Math.min(Math.ceil(impactPart + priorityPart + effortPart), 100);
+    return calculateGravityScore(formData.impact, formData.effort, formData.priority);
   }, [formData.impact, formData.effort, formData.priority]);
 
   const previewFeature = useMemo(() => {
@@ -371,8 +363,8 @@ const AdminFeatureFormPage = () => {
 
           <div className={styles.priorityPreviewRow}>
             <div className={`${styles.gravityPreview} ${
-              calculatedScore >= 60 ? styles.gravityHigh : 
-              calculatedScore >= 30 ? styles.gravityMid : 
+              calculatedScore >= 75 ? styles.gravityHigh :
+              calculatedScore >= 50 ? styles.gravityMid :
               styles.gravityLow
             }`}>
               <div className={styles.gravityPreviewLabel}>Estimated Gravity Score</div>

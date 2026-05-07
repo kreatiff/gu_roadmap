@@ -349,20 +349,20 @@
 }
 
 .gravityHigh {
-  background-color: #ecfdf5;
-  color: #059669;
-  border-color: #10b98130;
+  background-color: #d4edda;
+  color: #1a5f3f;
+  border-color: #1a5f3f30;
 }
 
 .gravityMid {
-  background-color: #fffbeb;
-  color: #d97706;
-  border-color: #f59e0b30;
+  background-color: #fff3cd;
+  color: #9ca32b;
+  border-color: #9ca32b30;
 }
 
 .gravityLow {
   background-color: #f8fafc;
-  color: #64748b;
+  color: #475569;
   border-color: #cbd5e130;
 }
 

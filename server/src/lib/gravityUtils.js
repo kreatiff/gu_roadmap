@@ -1,41 +1,7 @@
 import { featuresContainer } from '../db.js';
+import { calculateGravityScore } from '../../../shared/lib/gravityScore.js';
 
-/**
- * Maps textual priority to a numeric score.
- */
-const PRIORITY_SCORES = {
-  Low: 1,
-  Medium: 2,
-  High: 3,
-  Critical: 4,
-};
-
-/**
- * Calculates the Gravity Score for a single feature.
- *
- * Formula (vote-free, hierarchical):
- *   impactPart   = (impact / 10) * 60   // up to 60 pts
- *   priorityPart = (priority / 4) * 25  // up to 25 pts
- *   effortPart   = ((11 - effort) / 10) * 15  // up to 15 pts (inverse)
- *   gravity_score = ceil(impactPart + priorityPart + effortPart) clamped to 100
- *
- * Hierarchy: Impact (#1) > Priority (#2) > Effort (#3)
- *
- * @param {Object} feature - Feature document (impact, effort, priority)
- * @returns {number} - Gravity score 0–100
- */
-export function calculateGravityScore(feature) {
-  const impact = Math.max(1, Math.min(10, feature.impact ?? 5));
-  const effort = Math.max(1, Math.min(10, feature.effort > 0 ? feature.effort : 1));
-  const priority = PRIORITY_SCORES[feature.priority] ?? 2;
-
-  const impactPart = (impact / 10) * 60;
-  const priorityPart = (priority / 4) * 25;
-  const effortPart = ((11 - effort) / 10) * 15;
-
-  const score = Math.ceil(impactPart + priorityPart + effortPart);
-  return Math.min(score, 100);
-}
+export { calculateGravityScore };
 
 /**
  * Recalculates gravity_score for every feature document in Cosmos DB.
@@ -66,7 +32,7 @@ export async function recalculateAllGravityScores() {
       const batch = features.slice(i, i + BATCH_SIZE);
       await Promise.all(
         batch.map((feature) => {
-          const score = calculateGravityScore(feature);
+          const score = calculateGravityScore(feature.impact, feature.effort, feature.priority);
           return featuresContainer
             .item(feature.id, feature.id)
             .patch([

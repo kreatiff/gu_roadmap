@@ -16,8 +16,8 @@ const DotScale = ({ value, color }) => {
 
 const GravityBadge = ({ score }) => {
   let colorClass = styles.gravityLow;
-  if (score >= 60) colorClass = styles.gravityHigh;
-  else if (score >= 30) colorClass = styles.gravityMid;
+  if (score >= 75) colorClass = styles.gravityHigh;
+  else if (score >= 50) colorClass = styles.gravityMid;
 
   return (
     <div className={`${styles.gravityBadge} ${colorClass}`}>
