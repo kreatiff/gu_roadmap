@@ -1,13 +1,13 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
 import { getMetadata, renameMetadata, deleteMetadata } from '../../../api/metadata';
 import { useToast } from '../../../contexts/ToastContext';
 import styles from './AdminMetadataPage.module.css';
 
 const TABS = [
-  { key: 'tags', label: 'Tags' },
-  { key: 'owners', label: 'Owners' },
-  { key: 'stakeholders', label: 'Stakeholders' }
+  { key: 'tags', label: 'Tags', singular: 'Tag' },
+  { key: 'owners', label: 'Owners', singular: 'Owner' },
+  { key: 'stakeholders', label: 'Stakeholders', singular: 'Stakeholder' }
 ];
 
 const AdminMetadataPage = () => {
@@ -18,7 +18,7 @@ const AdminMetadataPage = () => {
   const [renameModal, setRenameModal] = useState({ isOpen: false, item: null, newValue: '' });
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, item: null });
 
-  const fetchItems = useCallback(async () => {
+  const fetchItems = async () => {
     setLoading(true);
     try {
       const data = await getMetadata(activeTab);
@@ -29,20 +29,51 @@ const AdminMetadataPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, addToast]);
+  };
 
   useEffect(() => {
-    fetchItems();
-  }, [fetchItems]);
+    let cancelled = false;
+    const run = async () => {
+      setLoading(true);
+      try {
+        const data = await getMetadata(activeTab);
+        if (!cancelled) {
+          setItems(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          addToast(err.error || `Failed to load ${activeTab}`, 'error');
+          setItems([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [activeTab]);
 
   const handleRename = async (e) => {
     e.preventDefault();
-    if (!renameModal.newValue.trim()) return;
+    if (!renameModal.newValue.trim()) {
+      addToast('New value cannot be empty', 'error');
+      return;
+    }
     try {
-      await renameMetadata(activeTab, renameModal.item.value, renameModal.newValue.trim());
-      addToast(`Renamed "${renameModal.item.value}" to "${renameModal.newValue.trim()}"`, 'success');
+      const result = await renameMetadata(activeTab, renameModal.item.value, renameModal.newValue.trim());
+      if (result.failures?.length > 0) {
+        if (result.updatedCount === 0) {
+          addToast('Rename failed for all features', 'error');
+        } else {
+          addToast(`Renamed ${result.updatedCount} features, but ${result.failures.length} failed`, 'warning');
+        }
+      } else {
+        addToast(`Renamed "${renameModal.item.value}" to "${renameModal.newValue.trim()}"`, 'success');
+      }
       setRenameModal({ isOpen: false, item: null, newValue: '' });
-      fetchItems();
+      await fetchItems();
     } catch (err) {
       addToast(err.error || 'Rename failed', 'error');
     }
@@ -50,10 +81,18 @@ const AdminMetadataPage = () => {
 
   const handleDelete = async () => {
     try {
-      await deleteMetadata(activeTab, deleteModal.item.value);
-      addToast(`Deleted "${deleteModal.item.value}" from ${deleteModal.item.usageCount} feature(s)`, 'success');
+      const result = await deleteMetadata(activeTab, deleteModal.item.value);
+      if (result.failures?.length > 0) {
+        if (result.updatedCount === 0) {
+          addToast('Delete failed for all features', 'error');
+        } else {
+          addToast(`Deleted from ${result.updatedCount} features, but ${result.failures.length} failed`, 'warning');
+        }
+      } else {
+        addToast(`Deleted "${deleteModal.item.value}" from ${deleteModal.item.usageCount} feature(s)`, 'success');
+      }
       setDeleteModal({ isOpen: false, item: null });
-      fetchItems();
+      await fetchItems();
     } catch (err) {
       addToast(err.error || 'Delete failed', 'error');
     }
@@ -140,7 +179,7 @@ const AdminMetadataPage = () => {
           <div className={styles.modalOverlay} onClick={() => setRenameModal({ isOpen: false, item: null, newValue: '' })}>
             <div className={styles.modal} onClick={e => e.stopPropagation()}>
               <div className={styles.modalHeader}>
-                <h3 className={styles.modalTitle}>Rename {TABS.find(t => t.key === activeTab)?.label.slice(0, -1)}</h3>
+                <h3 className={styles.modalTitle}>Rename {TABS.find(t => t.key === activeTab)?.singular}</h3>
               </div>
               <form onSubmit={handleRename}>
                 <div className={styles.modalBody}>
@@ -176,7 +215,7 @@ const AdminMetadataPage = () => {
           <div className={styles.modalOverlay} onClick={() => setDeleteModal({ isOpen: false, item: null })}>
             <div className={styles.modal} onClick={e => e.stopPropagation()}>
               <div className={styles.modalHeader}>
-                <h3 className={styles.modalTitle}>Delete {TABS.find(t => t.key === activeTab)?.label.slice(0, -1)}</h3>
+                <h3 className={styles.modalTitle}>Delete {TABS.find(t => t.key === activeTab)?.singular}</h3>
               </div>
               <div className={styles.modalBody}>
                 <p className={styles.warningText}>

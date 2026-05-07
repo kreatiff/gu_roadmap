@@ -81,7 +81,13 @@ export default async function metadataRoutes(fastify, options) {
       const failures = results
         .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
         .filter(r => r.status === 'rejected');
-      return { success: true, updatedCount, failures };
+      if (failures.length > 0 && updatedCount === 0) {
+        return reply.code(500).send({ error: 'All updates failed', failures });
+      }
+      if (failures.length > 0 && updatedCount > 0) {
+        return reply.code(207).send({ success: true, updatedCount, failures, warning: 'Some updates failed' });
+      }
+      return { success: true, updatedCount };
     } else if (type === 'owners') {
       const queryResult = await featuresContainer.items.query({
         query: 'SELECT * FROM c WHERE c.owner = @oldValue',
@@ -98,7 +104,13 @@ export default async function metadataRoutes(fastify, options) {
       const failures = results
         .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
         .filter(r => r.status === 'rejected');
-      return { success: true, updatedCount, failures };
+      if (failures.length > 0 && updatedCount === 0) {
+        return reply.code(500).send({ error: 'All updates failed', failures });
+      }
+      if (failures.length > 0 && updatedCount > 0) {
+        return reply.code(207).send({ success: true, updatedCount, failures, warning: 'Some updates failed' });
+      }
+      return { success: true, updatedCount };
     } else {
       const queryResult = await featuresContainer.items.query({
         query: 'SELECT * FROM c WHERE c.key_stakeholder = @oldValue',
@@ -115,7 +127,13 @@ export default async function metadataRoutes(fastify, options) {
       const failures = results
         .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
         .filter(r => r.status === 'rejected');
-      return { success: true, updatedCount, failures };
+      if (failures.length > 0 && updatedCount === 0) {
+        return reply.code(500).send({ error: 'All updates failed', failures });
+      }
+      if (failures.length > 0 && updatedCount > 0) {
+        return reply.code(207).send({ success: true, updatedCount, failures, warning: 'Some updates failed' });
+      }
+      return { success: true, updatedCount };
     }
   });
 
@@ -152,7 +170,13 @@ export default async function metadataRoutes(fastify, options) {
       const failures = results
         .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
         .filter(r => r.status === 'rejected');
-      return { success: true, updatedCount, failures };
+      if (failures.length > 0 && updatedCount === 0) {
+        return reply.code(500).send({ error: 'All updates failed', failures });
+      }
+      if (failures.length > 0 && updatedCount > 0) {
+        return reply.code(207).send({ success: true, updatedCount, failures, warning: 'Some updates failed' });
+      }
+      return { success: true, updatedCount };
     } else if (type === 'owners') {
       const queryResult = await featuresContainer.items.query({
         query: 'SELECT * FROM c WHERE c.owner = @value',
@@ -169,7 +193,13 @@ export default async function metadataRoutes(fastify, options) {
       const failures = results
         .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
         .filter(r => r.status === 'rejected');
-      return { success: true, updatedCount, failures };
+      if (failures.length > 0 && updatedCount === 0) {
+        return reply.code(500).send({ error: 'All updates failed', failures });
+      }
+      if (failures.length > 0 && updatedCount > 0) {
+        return reply.code(207).send({ success: true, updatedCount, failures, warning: 'Some updates failed' });
+      }
+      return { success: true, updatedCount };
     } else {
       const queryResult = await featuresContainer.items.query({
         query: 'SELECT * FROM c WHERE c.key_stakeholder = @value',
@@ -186,7 +216,13 @@ export default async function metadataRoutes(fastify, options) {
       const failures = results
         .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
         .filter(r => r.status === 'rejected');
-      return { success: true, updatedCount, failures };
+      if (failures.length > 0 && updatedCount === 0) {
+        return reply.code(500).send({ error: 'All updates failed', failures });
+      }
+      if (failures.length > 0 && updatedCount > 0) {
+        return reply.code(207).send({ success: true, updatedCount, failures, warning: 'Some updates failed' });
+      }
+      return { success: true, updatedCount };
     }
   });
 }
