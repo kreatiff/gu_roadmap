@@ -1,6 +1,12 @@
 import { featuresContainer } from '../db.js';
 import { requireAdmin } from '../auth.js';
 
+const META_CONFIG = {
+  tags: { field: 'tags', isArray: true },
+  owners: { field: 'owner', isArray: false },
+  stakeholders: { field: 'key_stakeholder', isArray: false },
+};
+
 export default async function metadataRoutes(fastify, options) {
   // ── 1. GET /:type — List all metadata values with usage counts ──────────────
   fastify.get('/:type', { preHandler: [requireAdmin] }, async (request, reply) => {
@@ -9,35 +15,27 @@ export default async function metadataRoutes(fastify, options) {
       return reply.code(400).send({ error: 'Invalid metadata type. Must be tags, owners, or stakeholders.' });
     }
 
-    let query;
-    if (type === 'tags') {
-      query = 'SELECT c.tags FROM c';
-    } else if (type === 'owners') {
-      query = 'SELECT c.owner FROM c';
-    } else {
-      query = 'SELECT c.key_stakeholder FROM c';
-    }
+    const config = META_CONFIG[type];
+    const query = `SELECT c.${config.field} FROM c`;
 
     const { resources } = await featuresContainer.items
-      .query(query, { enableCrossPartitionQuery: true })
+      .query({ query }, { enableCrossPartitionQuery: true })
       .fetchAll();
 
     const counts = {};
 
-    if (type === 'tags') {
-      resources.forEach(r => {
-        (r.tags || []).forEach(tag => {
+    resources.forEach(r => {
+      if (config.isArray) {
+        (r[config.field] || []).forEach(tag => {
           counts[tag] = (counts[tag] || 0) + 1;
         });
-      });
-    } else {
-      resources.forEach(r => {
-        const val = type === 'owners' ? r.owner : r.key_stakeholder;
+      } else {
+        const val = r[config.field];
         if (val) {
           counts[val] = (counts[val] || 0) + 1;
         }
-      });
-    }
+      }
+    });
 
     const result = Object.entries(counts)
       .map(([value, usageCount]) => ({ value, usageCount }))
@@ -54,60 +52,71 @@ export default async function metadataRoutes(fastify, options) {
     if (!['tags', 'owners', 'stakeholders'].includes(type)) {
       return reply.code(400).send({ error: 'Invalid metadata type' });
     }
-    if (!oldValue || !newValue) {
+
+    const trimmedOld = oldValue?.trim();
+    const trimmedNew = newValue?.trim();
+    if (!trimmedOld || !trimmedNew) {
       return reply.code(400).send({ error: 'oldValue and newValue are required' });
     }
-    if (oldValue === newValue) {
+    if (trimmedOld === trimmedNew) {
       return reply.code(400).send({ error: 'oldValue and newValue must be different' });
     }
 
     let resources = [];
-    let updatedCount = 0;
 
     if (type === 'tags') {
       const queryResult = await featuresContainer.items.query({
         query: 'SELECT * FROM c WHERE ARRAY_CONTAINS(c.tags, @oldValue)',
-        parameters: [{ name: '@oldValue', value: oldValue }]
+        parameters: [{ name: '@oldValue', value: trimmedOld }]
       }, { enableCrossPartitionQuery: true }).fetchAll();
       resources = queryResult.resources;
 
-      await Promise.all(resources.map(feature => {
-        const newTags = feature.tags.map(t => t === oldValue ? newValue : t);
-        return featuresContainer.item(feature.id, feature.id).replace({
-          ...feature,
-          tags: newTags
-        });
+      const results = await Promise.allSettled(resources.map(feature => {
+        const newTags = [...new Set(feature.tags.map(t => t === trimmedOld ? trimmedNew : t))];
+        return featuresContainer.item(feature.id, feature.id).patch([
+          { op: 'set', path: '/tags', value: newTags }
+        ]);
       }));
-      updatedCount = resources.length;
+      const updatedCount = results.filter(r => r.status === 'fulfilled').length;
+      const failures = results
+        .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
+        .filter(r => r.status === 'rejected');
+      return { success: true, updatedCount, failures };
     } else if (type === 'owners') {
       const queryResult = await featuresContainer.items.query({
         query: 'SELECT * FROM c WHERE c.owner = @oldValue',
-        parameters: [{ name: '@oldValue', value: oldValue }]
+        parameters: [{ name: '@oldValue', value: trimmedOld }]
       }, { enableCrossPartitionQuery: true }).fetchAll();
       resources = queryResult.resources;
 
-      await Promise.all(resources.map(feature =>
+      const results = await Promise.allSettled(resources.map(feature =>
         featuresContainer.item(feature.id, feature.id).patch([
-          { op: 'set', path: '/owner', value: newValue }
+          { op: 'set', path: '/owner', value: trimmedNew }
         ])
       ));
-      updatedCount = resources.length;
+      const updatedCount = results.filter(r => r.status === 'fulfilled').length;
+      const failures = results
+        .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
+        .filter(r => r.status === 'rejected');
+      return { success: true, updatedCount, failures };
     } else {
       const queryResult = await featuresContainer.items.query({
         query: 'SELECT * FROM c WHERE c.key_stakeholder = @oldValue',
-        parameters: [{ name: '@oldValue', value: oldValue }]
+        parameters: [{ name: '@oldValue', value: trimmedOld }]
       }, { enableCrossPartitionQuery: true }).fetchAll();
       resources = queryResult.resources;
 
-      await Promise.all(resources.map(feature =>
+      const results = await Promise.allSettled(resources.map(feature =>
         featuresContainer.item(feature.id, feature.id).patch([
-          { op: 'set', path: '/key_stakeholder', value: newValue }
+          { op: 'set', path: '/key_stakeholder', value: trimmedNew }
         ])
       ));
-      updatedCount = resources.length;
+      const updatedCount = results.filter(r => r.status === 'fulfilled').length;
+      const failures = results
+        .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
+        .filter(r => r.status === 'rejected');
+      return { success: true, updatedCount, failures };
     }
-
-    return { success: true, updatedCount };
   });
 
   // ── 3. DELETE /:type — Delete a value from all features ──────────────────────
@@ -118,56 +127,66 @@ export default async function metadataRoutes(fastify, options) {
     if (!['tags', 'owners', 'stakeholders'].includes(type)) {
       return reply.code(400).send({ error: 'Invalid metadata type' });
     }
-    if (!value) {
+
+    const trimmedValue = value?.trim();
+    if (!trimmedValue) {
       return reply.code(400).send({ error: 'value is required' });
     }
 
     let resources = [];
-    let updatedCount = 0;
 
     if (type === 'tags') {
       const queryResult = await featuresContainer.items.query({
         query: 'SELECT * FROM c WHERE ARRAY_CONTAINS(c.tags, @value)',
-        parameters: [{ name: '@value', value: value }]
+        parameters: [{ name: '@value', value: trimmedValue }]
       }, { enableCrossPartitionQuery: true }).fetchAll();
       resources = queryResult.resources;
 
-      await Promise.all(resources.map(feature => {
-        const newTags = feature.tags.filter(t => t !== value);
-        return featuresContainer.item(feature.id, feature.id).replace({
-          ...feature,
-          tags: newTags
-        });
+      const results = await Promise.allSettled(resources.map(feature => {
+        const newTags = feature.tags.filter(t => t !== trimmedValue);
+        return featuresContainer.item(feature.id, feature.id).patch([
+          { op: 'set', path: '/tags', value: newTags }
+        ]);
       }));
-      updatedCount = resources.length;
+      const updatedCount = results.filter(r => r.status === 'fulfilled').length;
+      const failures = results
+        .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
+        .filter(r => r.status === 'rejected');
+      return { success: true, updatedCount, failures };
     } else if (type === 'owners') {
       const queryResult = await featuresContainer.items.query({
         query: 'SELECT * FROM c WHERE c.owner = @value',
-        parameters: [{ name: '@value', value: value }]
+        parameters: [{ name: '@value', value: trimmedValue }]
       }, { enableCrossPartitionQuery: true }).fetchAll();
       resources = queryResult.resources;
 
-      await Promise.all(resources.map(feature =>
+      const results = await Promise.allSettled(resources.map(feature =>
         featuresContainer.item(feature.id, feature.id).patch([
           { op: 'set', path: '/owner', value: '' }
         ])
       ));
-      updatedCount = resources.length;
+      const updatedCount = results.filter(r => r.status === 'fulfilled').length;
+      const failures = results
+        .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
+        .filter(r => r.status === 'rejected');
+      return { success: true, updatedCount, failures };
     } else {
       const queryResult = await featuresContainer.items.query({
         query: 'SELECT * FROM c WHERE c.key_stakeholder = @value',
-        parameters: [{ name: '@value', value: value }]
+        parameters: [{ name: '@value', value: trimmedValue }]
       }, { enableCrossPartitionQuery: true }).fetchAll();
       resources = queryResult.resources;
 
-      await Promise.all(resources.map(feature =>
+      const results = await Promise.allSettled(resources.map(feature =>
         featuresContainer.item(feature.id, feature.id).patch([
           { op: 'set', path: '/key_stakeholder', value: '' }
         ])
       ));
-      updatedCount = resources.length;
+      const updatedCount = results.filter(r => r.status === 'fulfilled').length;
+      const failures = results
+        .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
+        .filter(r => r.status === 'rejected');
+      return { success: true, updatedCount, failures };
     }
-
-    return { success: true, updatedCount };
   });
 }
