@@ -5,53 +5,64 @@ import { authenticate } from '../auth.js';
 
 export default async function authRoutes(fastify, options) {
 
-  // 1. Redirect to OIDC provider (or our bypass)
+  // 1. Redirect to OIDC provider (Microsoft Entra ID)
   fastify.get('/login', async (request, reply) => {
-    const { url, state, nonce } = getOidcAuthUrl();
-    
+    const { url, state, nonce } = await getOidcAuthUrl();
+
     // Store state/nonce in signed cookies to prevent CSRF during token exchange
     reply.setCookie('oidc_state', state, { httpOnly: true, signed: true, path: '/' });
     reply.setCookie('oidc_nonce', nonce, { httpOnly: true, signed: true, path: '/' });
-    
+
     return reply.redirect(url);
   });
 
   // 2. Handle OIDC callback redirect
   fastify.get('/callback', async (request, reply) => {
-    const { code, state: returnedState } = request.query;
-    const storedState = request.unsignCookie(request.cookies.oidc_state).value;
-    
+    const { state: returnedState } = request.query;
+    const storedState = request.unsignCookie(request.cookies.oidc_state ?? '').value;
+    const storedNonce = request.unsignCookie(request.cookies.oidc_nonce ?? '').value;
+
     // Validate state to prevent CSRF
-    if (!code || returnedState !== storedState) {
+    if (!returnedState || returnedState !== storedState) {
       return reply.code(400).send({ error: 'Auth failed: Invalid state' });
     }
 
     try {
-      // Exchange code for user details
-      const oidcUser = await exchangeCodeForUser(code);
-      
+      // Build the full callback URL so openid-client can extract code + state
+      const callbackUrl = `${config.oidc.redirectUri}?${new URLSearchParams(request.query)}`;
+
+      const oidcUser = await exchangeCodeForUser({ callbackUrl, storedState, storedNonce });
+
+      const email = oidcUser.email?.toLowerCase();
+
+      if (!email) {
+        return reply.code(403).send({ error: 'No email returned from identity provider.' });
+      }
+
+      // Restrict access to Griffith University accounts
+      if (!email.endsWith('@griffith.edu.au')) {
+        return reply.code(403).send({ error: 'Access restricted to Griffith University accounts (@griffith.edu.au).' });
+      }
+
       // Hash the 'sub' to prevent storage of real student IDs
       const sub = crypto.createHash('sha256').update(oidcUser.sub).digest('hex');
-      const email = oidcUser.email.toLowerCase();
       const isAdmin = config.adminEmails.includes(email);
 
       // Sign JWT with minimal payload
-      const token = await reply.jwtSign({ 
-        sub, 
-        email, 
-        isAdmin 
+      const token = await reply.jwtSign({
+        sub,
+        email,
+        isAdmin,
       });
 
-      // Set HttpOnly session cookie
-      reply.setCookie('roadmap_session', token, { 
-        path: '/', 
-        httpOnly: true, 
-        secure: config.isProd, 
-        sameSite: 'lax', 
-        signed: true 
+      // Set HttpOnly session cookie (raw JWT — already cryptographically signed)
+      reply.setCookie('roadmap_session', token, {
+        path: '/',
+        httpOnly: true,
+        secure: config.isProd,
+        sameSite: 'lax',
       });
 
-      // Redirect user back to the application
       return reply.redirect(config.clientOrigin);
     } catch (err) {
       fastify.log.error(err);
@@ -67,9 +78,9 @@ export default async function authRoutes(fastify, options) {
 
   // 4. Return currently authenticated user status
   fastify.get('/me', { preHandler: [authenticate] }, async (request, reply) => {
-    return { 
-      email: request.user.email, 
-      isAdmin: request.user.isAdmin 
+    return {
+      email: request.user.email,
+      isAdmin: request.user.isAdmin,
     };
   });
 }

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
 import FeatureCard from '../../components/FeatureCard';
 import CategoryDropdown from '../../components/CategoryDropdown';
-import { getFeatures } from '../../api/features';
+import { getFeatures, getFeatureTags } from '../../api/features';
 import { getCategories } from '../../api/categories';
 import { getStages } from '../../api/stages';
 import { useDebounce } from '../../hooks/useDebounce';
@@ -12,7 +12,7 @@ import EmptyState from '../../components/EmptyState';
 import FeatureDetailModal from '../../components/FeatureDetailModal';
 import styles from './RoadmapPage.module.css';
 
-const RoadmapPage = () => {
+const RoadmapPage = ({ initialFilters = {}, isDashboard = false, scopedMeta = null, dashboardName = '' }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { isAuthenticated, login, loading: authLoading } = useAuth();
   const featureId = searchParams.get('feature');
@@ -20,8 +20,14 @@ const RoadmapPage = () => {
   const [features, setFeatures] = useState([]);
   const [categories, setCategories] = useState([]);
   const [stages, setStages] = useState([]);
+  const [allTags, setAllTags] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState({ status: '', category: '', search: '' });
+  const [filter, setFilter] = useState({ 
+    status: [], 
+    category: [], 
+    search: '',
+    tags: []
+  });
   
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -30,29 +36,44 @@ const RoadmapPage = () => {
   
   const debouncedSearch = useDebounce(filter.search, 400);
 
-  // Fetch metadata once on mount
+  // Fetch metadata once on mount — skipped in dashboard mode (uses scopedMeta instead)
   useEffect(() => {
+    if (isDashboard) return;
     const fetchMetadata = async () => {
       try {
-        const [cData, stData] = await Promise.all([getCategories(), getStages()]);
+        const [cData, stData, tData] = await Promise.all([
+          getCategories(), 
+          getStages(),
+          getFeatureTags()
+        ]);
         setCategories(cData);
         setStages(stData);
+        setAllTags(tData);
       } catch (err) {
         console.error('Failed to fetch metadata:', err);
       }
     };
     fetchMetadata();
-  }, []);
+  }, [isDashboard]);
 
   const fetchFeatures = useCallback(async (pageNum, append = false) => {
     try {
       if (append) setIsFetchingMore(true);
       else setLoading(true);
 
+      // Merge initial dashboard filters with current user filters
+      const dashboardStatus = initialFilters.stage_slugs || (initialFilters.stage_slug ? [initialFilters.stage_slug] : []);
+      const effectiveStatus = [...new Set([...dashboardStatus, ...filter.status])];
+
+      const dashboardCategory = initialFilters.category_ids || (initialFilters.category_id ? [initialFilters.category_id] : []);
+      const effectiveCategory = [...new Set([...dashboardCategory, ...filter.category])];
+
       const fRes = await getFeatures({ 
-        status: filter.status, 
-        category: filter.category, 
+        status: effectiveStatus, 
+        category: effectiveCategory, 
         search: debouncedSearch,
+        requiredTags: initialFilters.tags?.length ? [...new Set(initialFilters.tags)] : undefined,
+        tags: filter.tags?.length ? [...new Set(filter.tags)] : undefined,
         page: pageNum,
         limit: 12
       });
@@ -71,7 +92,17 @@ const RoadmapPage = () => {
       setLoading(false);
       setIsFetchingMore(false);
     }
-  }, [filter.status, filter.category, debouncedSearch]);
+  }, [
+    filter.status, 
+    filter.category, 
+    filter.tags, 
+    debouncedSearch,
+    initialFilters.stage_slug,
+    initialFilters.stage_slugs,
+    initialFilters.category_id,
+    initialFilters.category_ids,
+    initialFilters.tags
+  ]);
 
   // Triggered on filter changes
   useEffect(() => {
@@ -95,10 +126,45 @@ const RoadmapPage = () => {
     if (node) observer.current.observe(node);
   }, [loading, isFetchingMore, hasMore, page, fetchFeatures]);
 
-  const statuses = [
-    { id: '', label: 'All Stages' },
-    ...stages.filter(s => s.is_visible).map(s => ({ id: s.slug, label: s.name }))
-  ];
+  const toggleStatus = (id) => {
+    setFilter(prev => {
+      if (id === '') return { ...prev, status: [] };
+      const newStatus = prev.status.includes(id)
+        ? prev.status.filter(s => s !== id)
+        : [...prev.status, id];
+      return { ...prev, status: newStatus };
+    });
+  };
+
+  const toggleCategory = (id) => {
+    setFilter(prev => {
+      const newCategory = prev.category.includes(id)
+        ? prev.category.filter(c => c !== id)
+        : [...prev.category, id];
+      return { ...prev, category: newCategory };
+    });
+  };
+
+  const toggleTag = (tag) => {
+    setFilter(prev => {
+      const newTags = prev.tags.includes(tag)
+        ? prev.tags.filter(t => t !== tag)
+        : [...prev.tags, tag];
+      return { ...prev, tags: newTags };
+    });
+  };
+
+  // In dashboard mode, derive status pills from the scoped meta returned by the server.
+  // In normal mode, use the globally fetched stages list.
+  const statuses = isDashboard
+    ? [
+        { id: '', label: 'All' },
+        ...(scopedMeta?.stages ?? []).filter(s => s.is_visible).map(s => ({ id: s.slug, label: s.name }))
+      ]
+    : [
+        { id: '', label: 'All Stages' },
+        ...stages.filter(s => s.is_visible).map(s => ({ id: s.slug, label: s.name }))
+      ];
 
   return (
     <div className={styles.page}>
@@ -107,14 +173,28 @@ const RoadmapPage = () => {
       <header className={styles.header}>
         <div className={`container ${styles.headerContent}`}>
           <div className={styles.headerText}>
-            <h1 className={styles.h1}>Public Roadmap</h1>
+            <h1 className={styles.h1}>{isDashboard && dashboardName ? dashboardName : 'Public Roadmap'}</h1>
             <p className={styles.headerSubtitle}>
-              Help us shape the future of Griffith University's digital experience.
-              Vote for the features you need and track our progress in real-time.
+              {isDashboard
+                ? 'A curated view of the roadmap filtered for this dashboard preset.'
+                : 'Help us shape the future of Griffith University\'s digital experience. Vote for the features you need and track our progress in real-time.'}
             </p>
           </div>
         </div>
       </header>
+
+      {isDashboard && (
+        <div className={styles.dashboardBanner}>
+          <div className={`container ${styles.dashboardBannerInner}`}>
+            <span className={styles.dashboardBannerText}>
+              Viewing a filtered dashboard preset
+            </span>
+            <a href="/" className={styles.dashboardBannerLink}>
+              View Full Roadmap →
+            </a>
+          </div>
+        </div>
+      )}
 
       <main className={`container ${styles.main}`}>
         {/* Horizontal Status Filter Pills */}
@@ -122,16 +202,38 @@ const RoadmapPage = () => {
           {statuses.map(s => (
             <button 
               key={s.id}
-              onClick={() => setFilter(prev => ({ ...prev, status: s.id }))}
-              disabled={!isAuthenticated}
-              className={`${styles.statusPill} ${filter.status === s.id ? styles.statusPillActive : ''}`}
+              onClick={() => toggleStatus(s.id)}
+              disabled={!isAuthenticated && !isDashboard}
+              className={`${styles.statusPill} ${
+                (s.id === '' && filter.status.length === 0) || filter.status.includes(s.id) 
+                  ? styles.statusPillActive 
+                  : ''
+              }`}
             >
               {s.label}
             </button>
           ))}
         </div>
 
-        {!isAuthenticated && !authLoading ? (
+        {/* Tag Filters (Sub-filtering) — available in dashboards or for logged-in users */}
+        {(isDashboard || isAuthenticated) && (
+          <div className={styles.tagRow}>
+            {(isDashboard ? (scopedMeta?.tags ?? []) : allTags)
+              .filter(tag => !(initialFilters.tags ?? []).includes(tag)) // Hide tags already in scope
+              .filter(tag => !categories.some(c => c.name.toLowerCase() === tag.toLowerCase())) // Hide tags that match category names
+              .map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => toggleTag(tag)}
+                  className={`${styles.tagPill} ${filter.tags.includes(tag) ? styles.tagPillActive : ''}`}
+                >
+                  {tag}
+                </button>
+              ))}
+          </div>
+        )}
+
+        {!isAuthenticated && !authLoading && !isDashboard ? (
           <div className={styles.authWall}>
              <div className={styles.authCard}>
                 <h2 className={styles.authTitle}>Join the Community</h2>
@@ -141,7 +243,7 @@ const RoadmapPage = () => {
           </div>
         ) : (
           <>
-            {/* Search & Category hybrid */}
+            {/* Search & Category — category hidden in dashboard mode */}
             <div className={styles.filterSection}>
               <div className={styles.inputGroup}>
                 <input 
@@ -151,13 +253,26 @@ const RoadmapPage = () => {
                   onChange={(e) => setFilter(prev => ({ ...prev, search: e.target.value }))}
                   className={styles.searchInput}
                 />
-                
-                <CategoryDropdown 
-                  categories={categories} 
-                  selectedId={filter.category} 
-                  onSelect={(id) => setFilter(prev => ({ ...prev, category: id }))} 
-                />
               </div>
+              
+              {!isDashboard && (
+                <div className={styles.categoryFilterSection}>
+                  <h4 className={styles.filterLabel}>Filter by Category</h4>
+                  <div className={styles.categoryGrid}>
+                    {categories.map(cat => (
+                      <label key={cat.id} className={styles.checkboxLabel}>
+                        <input 
+                          type="checkbox"
+                          checked={filter.category.includes(cat.id)}
+                          onChange={() => toggleCategory(cat.id)}
+                          className={styles.checkbox}
+                        />
+                        <span>{cat.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {loading && features.length === 0 ? (

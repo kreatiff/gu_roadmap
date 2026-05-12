@@ -488,8 +488,8 @@ const AdminDashboardPage = () => {
                                                 {feat.vote_count} votes
                                              </div>
                                              <div className={`${styles.gravityBadge} ${
-                                               (feat.gravity_score || 0) >= 60 ? styles.gravityHigh : 
-                                               (feat.gravity_score || 0) >= 30 ? styles.gravityMid : 
+                                               (feat.gravity_score || 0) >= 75 ? styles.gravityHigh :
+                                               (feat.gravity_score || 0) >= 50 ? styles.gravityMid :
                                                styles.gravityLow
                                              }`}>
                                                <span className={styles.gravityIcon}>⚡</span>

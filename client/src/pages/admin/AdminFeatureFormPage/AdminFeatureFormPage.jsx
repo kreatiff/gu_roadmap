@@ -6,9 +6,12 @@ import FeatureDetailView from '../../../components/FeatureDetailView';
 import FeatureDetailModal from '../../../components/FeatureDetailModal';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import RevisionHistory from '../../../components/RevisionHistory';
-import { getFeatures, createFeature, updateFeature, deleteFeature, getFeatureRevisions } from '../../../api/features';
+import TagAutocomplete from '../../../components/TagAutocomplete/TagAutocomplete';
+import StringAutocomplete from '../../../components/StringAutocomplete/StringAutocomplete';
+import { getFeatures, createFeature, updateFeature, deleteFeature, getFeatureRevisions, getFeatureTags, getFeatureOwners, getFeatureStakeholders } from '../../../api/features';
 import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
+import { calculateGravityScore } from '@shared/lib/gravityScore.js';
 import { useToast } from '../../../contexts/ToastContext';
 import styles from './AdminFeatureFormPage.module.css';
 
@@ -21,7 +24,9 @@ const AdminFeatureFormPage = () => {
   const [categories, setCategories] = useState([]);
   const [stages, setStages] = useState([]);
   const [revisions, setRevisions] = useState([]);
-  const [maxVotes, setMaxVotes] = useState(0);
+  const [tagSuggestions, setTagSuggestions] = useState([]);
+  const [ownerSuggestions, setOwnerSuggestions] = useState([]);
+  const [stakeholderSuggestions, setStakeholderSuggestions] = useState([]);
   const [loading, setLoading] = useState(isEdit);
   const [showPreview, setShowPreview] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -34,8 +39,8 @@ const AdminFeatureFormPage = () => {
     stage_id: '',
     pinned: false,
     tags: [],
-    impact: 1,
-    effort: 1,
+    impact: 5,
+    effort: 5,
     owner: '',
     key_stakeholder: '',
     priority: 'Medium',
@@ -44,12 +49,18 @@ const AdminFeatureFormPage = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const [cData, stData] = await Promise.all([
+      const [cData, stData, tagData, ownerData, stakeholderData] = await Promise.all([
         getCategories(),
-        getStages()
+        getStages(),
+        getFeatureTags().catch(() => []),
+        getFeatureOwners().catch(() => []),
+        getFeatureStakeholders().catch(() => [])
       ]);
       setCategories(cData);
       setStages(stData);
+      setTagSuggestions(Array.isArray(tagData) ? tagData : []);
+      setOwnerSuggestions(Array.isArray(ownerData) ? ownerData : []);
+      setStakeholderSuggestions(Array.isArray(stakeholderData) ? stakeholderData : []);
 
       if (isEdit) {
         try {
@@ -60,8 +71,6 @@ const AdminFeatureFormPage = () => {
           setRevisions(Array.isArray(revRes) ? revRes : []);
           
           const fData = res.data || [];
-          const currentMaxVotes = Math.max(...fData.map(f => f.vote_count || 0), 0);
-          setMaxVotes(currentMaxVotes);
           
           const feature = fData.find(f => f.id === id);
           if (feature) {
@@ -158,21 +167,9 @@ const AdminFeatureFormPage = () => {
     navigate('/admin');
   };
 
-  const handleTagsChange = (e) => {
-    const tags = e.target.value.split(',').map(tag => tag.trim()).filter(Boolean);
-    setFormData(prev => ({ ...prev, tags }));
-  };
-
   const calculatedScore = useMemo(() => {
-    const multipliers = { Low: 0.5, Medium: 1.0, High: 1.5, Critical: 2.0 };
-    const m = multipliers[formData.priority] || 1.0;
-    const v = formData.vote_count || 0;
-    const votesNorm = maxVotes > 0 ? (v / maxVotes) * 5 : 0;
-    const safeEffort = formData.effort > 0 ? formData.effort : 1;
-    const raw = (votesNorm * formData.impact * m) / safeEffort;
-    const score = Math.ceil((raw / 50) * 100);
-    return Math.min(score, 100);
-  }, [formData.impact, formData.effort, formData.priority, formData.vote_count, maxVotes]);
+    return calculateGravityScore(formData.impact, formData.effort, formData.priority);
+  }, [formData.impact, formData.effort, formData.priority]);
 
   const previewFeature = useMemo(() => {
     const category = categories.find(c => c.id === formData.category_id);
@@ -333,7 +330,7 @@ const AdminFeatureFormPage = () => {
                 <input 
                   type="range" 
                   min="1" 
-                  max="5" 
+                  max="10" 
                   value={formData.impact} 
                   onChange={(e) => setFormData(prev => ({ ...prev, impact: parseInt(e.target.value) }))}
                   className={styles.rangeInput}
@@ -351,7 +348,7 @@ const AdminFeatureFormPage = () => {
                 <input 
                   type="range" 
                   min="1" 
-                  max="5" 
+                  max="10" 
                   value={formData.effort} 
                   onChange={(e) => setFormData(prev => ({ ...prev, effort: parseInt(e.target.value) }))}
                   className={styles.rangeInput}
@@ -366,8 +363,8 @@ const AdminFeatureFormPage = () => {
 
           <div className={styles.priorityPreviewRow}>
             <div className={`${styles.gravityPreview} ${
-              calculatedScore >= 60 ? styles.gravityHigh : 
-              calculatedScore >= 30 ? styles.gravityMid : 
+              calculatedScore >= 75 ? styles.gravityHigh :
+              calculatedScore >= 50 ? styles.gravityMid :
               styles.gravityLow
             }`}>
               <div className={styles.gravityPreviewLabel}>Estimated Gravity Score</div>
@@ -378,7 +375,7 @@ const AdminFeatureFormPage = () => {
               </div>
             </div>
             <p className={styles.gravityHelpText}>
-              This score is calculated based on votes ({formData.vote_count || 0}), impact, effort, and strategic priority. Or {maxVotes} max votes.
+              This score is calculated based on impact (60%), strategic priority (25%), and effort (15%).
             </p>
           </div>
 
@@ -401,35 +398,31 @@ const AdminFeatureFormPage = () => {
 
             <div className={styles.field}>
               <label className={styles.label}>Feature Owner</label>
-              <input 
-                type="text" 
-                value={formData.owner} 
-                onChange={(e) => setFormData(prev => ({ ...prev, owner: e.target.value }))}
-                className={styles.input}
+              <StringAutocomplete
+                value={formData.owner}
+                onChange={(owner) => setFormData(prev => ({ ...prev, owner }))}
+                suggestions={ownerSuggestions}
                 placeholder="Name (Area/Team)"
               />
             </div>
 
             <div className={styles.field}>
               <label className={styles.label}>Key Stakeholder</label>
-              <input 
-                type="text" 
-                value={formData.key_stakeholder} 
-                onChange={(e) => setFormData(prev => ({ ...prev, key_stakeholder: e.target.value }))}
-                className={styles.input}
+              <StringAutocomplete
+                value={formData.key_stakeholder}
+                onChange={(key_stakeholder) => setFormData(prev => ({ ...prev, key_stakeholder }))}
+                suggestions={stakeholderSuggestions}
                 placeholder="User/Department"
               />
             </div>
           </div>
 
           <div className={styles.field}>
-            <label className={styles.label}>Tags (comma-separated)</label>
-            <input 
-              type="text" 
-              value={formData.tags.join(', ')} 
-              onChange={handleTagsChange}
-              className={styles.input}
-              placeholder="UI/UX, Mobile, Student Portal, API..."
+            <label className={styles.label}>Tags</label>
+            <TagAutocomplete
+              selected={formData.tags}
+              onChange={(tags) => setFormData(prev => ({ ...prev, tags }))}
+              suggestions={tagSuggestions}
             />
           </div>
 

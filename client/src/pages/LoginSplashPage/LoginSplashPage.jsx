@@ -1,6 +1,15 @@
 import { useAuth } from '../../contexts/AuthContext';
 import styles from './LoginSplashPage.module.css';
 
+const MicrosoftIcon = () => (
+  <svg className={styles.icon} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 21 21">
+    <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+    <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+    <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+    <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+  </svg>
+);
+
 const LoginSplashPage = () => {
   const { login } = useAuth();
 
@@ -12,10 +21,8 @@ const LoginSplashPage = () => {
           <p>Sign in to view features and propose your own ideas for campus technology.</p>
         </div>
         <button className={styles.button} onClick={login}>
-          <svg className={styles.icon} viewBox="0 0 24 24">
-            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-          </svg>
-          Sign In with University SSO
+          <MicrosoftIcon />
+          Sign in with Microsoft
         </button>
         <div className={styles.footer}>
           For Griffith University staff and students only.

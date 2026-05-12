@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import AdminLayout from '../../../components/AdminLayout';
+import ReassignDialog from '../../../components/ReassignDialog';
 import { getStages, createStage, updateStage, deleteStage, reorderStages } from '../../../api/stages';
 import { useToast } from '../../../contexts/ToastContext';
 import styles from './AdminStagesPage.module.css';
@@ -279,28 +280,16 @@ const AdminStagesPage = () => {
         </section>
 
         {showDeleteModal && (
-          <div className={styles.modalOverlay}>
-            <div className={styles.modal}>
-              <h3 className={styles.modalTitle}>Safe Stage Deletion</h3>
-              <p className={styles.modalText}>
-                The stage <strong>{stageToDelete?.name}</strong> has features assigned to it. 
-                Where should these features be moved?
-              </p>
-              <select 
-                className={styles.modalSelect} 
-                value={reassignTo} 
-                onChange={(e) => setReassignTo(e.target.value)}
-              >
-                {stages.filter(s => s.id !== stageToDelete?.id).map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-              <div className={styles.modalActions}>
-                <button onClick={() => setShowDeleteModal(false)} className={styles.cancelBtn}>Cancel</button>
-                <button onClick={handleConfirmDeleteWithReassign} className={styles.confirmDeleteBtn}>Migrate & Delete</button>
-              </div>
-            </div>
-          </div>
+          <ReassignDialog
+            title="Safe Stage Deletion"
+            message={`The stage "${stageToDelete?.name}" has features assigned to it. Where should these features be moved?`}
+            options={stages.filter(s => s.id !== stageToDelete?.id).map(s => ({ value: s.id, label: s.name }))}
+            value={reassignTo}
+            onChange={setReassignTo}
+            confirmText="Migrate & Delete"
+            onConfirm={handleConfirmDeleteWithReassign}
+            onCancel={() => setShowDeleteModal(false)}
+          />
         )}
       </div>
     </AdminLayout>
