@@ -3,6 +3,7 @@ FROM node:22-alpine AS frontend-builder
 
 WORKDIR /app
 
+COPY shared/ ./shared/
 COPY client/package.json client/package-lock.json ./client/
 RUN npm ci --prefix client
 
@@ -19,8 +20,9 @@ WORKDIR /app
 COPY server/package.json server/package-lock.json ./server/
 RUN npm ci --prefix server --omit=dev
 
-# Copy server source
+# Copy server source and shared directory
 COPY server/src/ ./server/src/
+COPY shared/ ./shared/
 
 # Copy built React frontend from Stage 1
 # server/src/index.js resolves static root as path.join(__dirname, '../../client/dist')
