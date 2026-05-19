@@ -9,6 +9,7 @@ import AdminStagesPage from './pages/admin/AdminStagesPage/AdminStagesPage';
 import AdminMatrixPage from './pages/admin/AdminMatrixPage/AdminMatrixPage';
 import AdminDashboardsPage from './pages/admin/AdminDashboardsPage/AdminDashboardsPage';
 import AdminMetadataPage from './pages/admin/AdminMetadataPage/AdminMetadataPage';
+import AdminDataManagementPage from './pages/admin/AdminDataManagementPage/AdminDataManagementPage';
 import PublicDashboardPage from './pages/PublicDashboardPage/PublicDashboardPage';
 import LoginSplashPage from './pages/LoginSplashPage/LoginSplashPage';
 import styles from './AppRouter.module.css';
@@ -104,6 +105,12 @@ const AppRouter = () => {
             <Route path="/admin/metadata" element={
               <ProtectedRoute adminOnly>
                 <AdminMetadataPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin/data" element={
+              <ProtectedRoute adminOnly>
+                <AdminDataManagementPage />
               </ProtectedRoute>
             } />
 

@@ -15,6 +15,8 @@ import categoryRoutes from './routes/categories.js';
 import stageRoutes from './routes/stages.js';
 import dashboardRoutes from './routes/dashboards.js';
 import metadataRoutes from './routes/metadata.js';
+import dataRoutes from './routes/data.js';
+import fastifyMultipart from '@fastify/multipart';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { errorHandler } from './errorHandler.js';
@@ -41,6 +43,12 @@ server.register(cookie, {
   parseOptions: {}
 });
 
+server.register(fastifyMultipart, {
+  limits: {
+    fileSize: 50 * 1024 * 1024 // 50MB
+  }
+});
+
 server.register(jwt, {
   secret: config.jwtSecret,
   cookie: {
@@ -62,6 +70,7 @@ server.register(categoryRoutes, { prefix: '/api/categories' });
 server.register(stageRoutes, { prefix: '/api/stages' });
 server.register(dashboardRoutes, { prefix: '/api/dashboards' });
 server.register(metadataRoutes, { prefix: '/api/metadata' });
+server.register(dataRoutes, { prefix: '/api/admin/data' });
 
 // 4. Fallback for React Router (SPA)
 server.setNotFoundHandler((request, reply) => {
