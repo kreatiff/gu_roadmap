@@ -1,0 +1,329 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+  width: 100%;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-top: 4px solid var(--gu-red);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-4);
+}
+
+.tabsContainer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: var(--space-2);
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tabsContainer::-webkit-scrollbar {
+  display: none;
+}
+
+.tabBtn {
+  position: relative;
+  padding: var(--space-2) var(--space-3) var(--space-3) var(--space-3);
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tabBtn:hover {
+  color: var(--text-primary);
+}
+
+.tabBtn::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; /* Align perfectly with the container's bottom border */
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--gu-red);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tabBtnActive {
+  color: var(--gu-red) !important;
+  font-weight: var(--font-weight-bold);
+}
+
+.tabBtnActive::after {
+  transform: scaleX(1);
+}
+
+.filterBarRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+@media (min-width: 768px) {
+  .filterBarRow {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+/* Search input container */
+.searchWrapper {
+  position: relative;
+  flex: 1;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  height: 40px;
+  padding: 8px 36px 8px 36px;
+  background-color: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--gu-red);
+  box-shadow: 0 0 0 2px rgba(232, 52, 28, 0.05);
+}
+
+.searchClearBtn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.searchClearBtn:hover {
+  color: var(--text-primary);
+}
+
+/* Dropdown group alignment */
+.dropdownsGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+@media (max-width: 767px) {
+  .dropdownsGroup {
+    width: 100%;
+  }
+  
+  .dropdownsGroup > div {
+    flex: 1;
+  }
+  
+  .dropdownsGroup :global(.FilterDropdown_trigger__2-s8c) {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+.dropdownContent {
+  padding: var(--space-1);
+}
+
+.tagDropdown {
+  width: 280px;
+}
+
+/* Tag Specific Dropdown Styles */
+.tagSearchWrapper {
+  margin-bottom: var(--space-2);
+  padding: 0 var(--space-1);
+}
+
+.tagSearchInput {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  outline: none;
+  background: var(--bg-muted);
+  font-family: inherit;
+}
+
+.tagSearchInput:focus {
+  background: #ffffff;
+  border-color: var(--gu-red);
+}
+
+.tagList {
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tagCheckboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px var(--space-2);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  user-select: none;
+}
+
+.tagCheckboxLabel:hover {
+  background: var(--bg-muted);
+}
+
+.checkbox {
+  accent-color: var(--gu-red);
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.tagText {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.noTagsFound {
+  text-align: center;
+  padding: var(--space-3);
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+/* Active filter pills row styles */
+.activePillsRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: 0.8125rem;
+  padding: 4px 0;
+}
+
+.activeLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+  margin-top: 5px;
+}
+
+.pillsList {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(232, 52, 28, 0.05);
+  color: var(--gu-red);
+  border: 1px solid rgba(232, 52, 28, 0.1);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+
+.pillRemoveBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--gu-red);
+  cursor: pointer;
+  padding: 0;
+  border-radius: 50%;
+  width: 14px;
+  height: 14px;
+}
+
+.pillRemoveBtn:hover {
+  background: rgba(232, 52, 28, 0.1);
+}
+
+.pillCategory {
+  background: rgba(234, 88, 12, 0.05) !important;
+  color: #ea580c !important;
+  border-color: rgba(234, 88, 12, 0.15) !important;
+}
+
+.pillCategory .pillRemoveBtn {
+  color: #ea580c !important;
+}
+
+.pillCategory .pillRemoveBtn:hover {
+  background: rgba(234, 88, 12, 0.1) !important;
+}
+
+.pillTag {
+  background: rgba(5, 150, 105, 0.05) !important;
+  color: #059669 !important;
+  border-color: rgba(5, 150, 105, 0.15) !important;
+}
+
+.pillTag .pillRemoveBtn {
+  color: #059669 !important;
+}
+
+.pillTag .pillRemoveBtn:hover {
+  background: rgba(5, 150, 105, 0.1) !important;
+}
+
+.clearAllBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: color 0.15s ease;
+}
+
+.clearAllBtn:hover {
+  color: var(--gu-red);
+  text-decoration: underline;
+}

@@ -1,0 +1,143 @@
+.container {
+  position: relative;
+  display: inline-block;
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 12px;
+  background-color: #ffffff;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+  font-family: inherit;
+  height: 40px;
+}
+
+.trigger:hover {
+  border-color: var(--text-muted);
+}
+
+.triggerActive {
+  border-color: var(--gu-red);
+  background-color: rgba(232, 52, 28, 0.02);
+}
+
+.triggerContent {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.label {
+  font-weight: 500;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.triggerActive .label {
+  color: var(--gu-red);
+  font-weight: 600;
+}
+
+.badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--gu-red);
+  min-width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+.arrow {
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+.triggerActive .arrow {
+  color: var(--gu-red);
+}
+
+.arrowOpen {
+  transform: rotate(180deg);
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 260px;
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-color);
+  z-index: 1000;
+  padding: 12px;
+}
+
+/* Align dropdown to left if it fits better, but right-aligned is standard for bar items */
+@media (min-width: 768px) {
+  .dropdown {
+    left: 0;
+    right: auto;
+  }
+}
+
+.content {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.content::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 10px;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+}
+
+/* Custom Active Category styles */
+.triggerActive_category {
+  border-color: #ea580c !important;
+  background-color: rgba(234, 88, 12, 0.02) !important;
+}
+.triggerActive_category .label {
+  color: #ea580c !important;
+}
+.triggerActive_category .badge {
+  background: #ea580c !important;
+}
+.triggerActive_category .arrow {
+  color: #ea580c !important;
+}
+
+/* Custom Active Tag styles */
+.triggerActive_tag {
+  border-color: #059669 !important;
+  background-color: rgba(5, 150, 105, 0.02) !important;
+}
+.triggerActive_tag .label {
+  color: #059669 !important;
+}
+.triggerActive_tag .badge {
+  background: #059669 !important;
+}
+.triggerActive_tag .arrow {
+  color: #059669 !important;
+}

@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Navbar from '../../components/Navbar';
 import FeatureCard from '../../components/FeatureCard';
-import CategoryDropdown from '../../components/CategoryDropdown';
+import FilterBar from '../../components/FilterBar/FilterBar';
 import { getFeatures, getFeatureTags } from '../../api/features';
 import { getCategories } from '../../api/categories';
 import { getStages } from '../../api/stages';
@@ -63,10 +63,10 @@ const RoadmapPage = ({ initialFilters = {}, isDashboard = false, scopedMeta = nu
 
       // Merge initial dashboard filters with current user filters
       const dashboardStatus = initialFilters.stage_slugs || (initialFilters.stage_slug ? [initialFilters.stage_slug] : []);
-      const effectiveStatus = [...new Set([...dashboardStatus, ...filter.status])];
+      const effectiveStatus = filter.status.length > 0 ? filter.status : dashboardStatus;
 
       const dashboardCategory = initialFilters.category_ids || (initialFilters.category_id ? [initialFilters.category_id] : []);
-      const effectiveCategory = [...new Set([...dashboardCategory, ...filter.category])];
+      const effectiveCategory = filter.category.length > 0 ? filter.category : dashboardCategory;
 
       const fRes = await getFeatures({ 
         status: effectiveStatus, 
@@ -126,45 +126,7 @@ const RoadmapPage = ({ initialFilters = {}, isDashboard = false, scopedMeta = nu
     if (node) observer.current.observe(node);
   }, [loading, isFetchingMore, hasMore, page, fetchFeatures]);
 
-  const toggleStatus = (id) => {
-    setFilter(prev => {
-      if (id === '') return { ...prev, status: [] };
-      const newStatus = prev.status.includes(id)
-        ? prev.status.filter(s => s !== id)
-        : [...prev.status, id];
-      return { ...prev, status: newStatus };
-    });
-  };
 
-  const toggleCategory = (id) => {
-    setFilter(prev => {
-      const newCategory = prev.category.includes(id)
-        ? prev.category.filter(c => c !== id)
-        : [...prev.category, id];
-      return { ...prev, category: newCategory };
-    });
-  };
-
-  const toggleTag = (tag) => {
-    setFilter(prev => {
-      const newTags = prev.tags.includes(tag)
-        ? prev.tags.filter(t => t !== tag)
-        : [...prev.tags, tag];
-      return { ...prev, tags: newTags };
-    });
-  };
-
-  // In dashboard mode, derive status pills from the scoped meta returned by the server.
-  // In normal mode, use the globally fetched stages list.
-  const statuses = isDashboard
-    ? [
-        { id: '', label: 'All' },
-        ...(scopedMeta?.stages ?? []).filter(s => s.is_visible).map(s => ({ id: s.slug, label: s.name }))
-      ]
-    : [
-        { id: '', label: 'All Stages' },
-        ...stages.filter(s => s.is_visible).map(s => ({ id: s.slug, label: s.name }))
-      ];
 
   return (
     <div className={styles.page}>
@@ -197,42 +159,6 @@ const RoadmapPage = ({ initialFilters = {}, isDashboard = false, scopedMeta = nu
       )}
 
       <main className={`container ${styles.main}`}>
-        {/* Horizontal Status Filter Pills */}
-        <div className={styles.statusRow}>
-          {statuses.map(s => (
-            <button 
-              key={s.id}
-              onClick={() => toggleStatus(s.id)}
-              disabled={!isAuthenticated && !isDashboard}
-              className={`${styles.statusPill} ${
-                (s.id === '' && filter.status.length === 0) || filter.status.includes(s.id) 
-                  ? styles.statusPillActive 
-                  : ''
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tag Filters (Sub-filtering) — available in dashboards or for logged-in users */}
-        {(isDashboard || isAuthenticated) && (
-          <div className={styles.tagRow}>
-            {(isDashboard ? (scopedMeta?.tags ?? []) : allTags)
-              .filter(tag => !(initialFilters.tags ?? []).includes(tag)) // Hide tags already in scope
-              .filter(tag => !categories.some(c => c.name.toLowerCase() === tag.toLowerCase())) // Hide tags that match category names
-              .map(tag => (
-                <button
-                  key={tag}
-                  onClick={() => toggleTag(tag)}
-                  className={`${styles.tagPill} ${filter.tags.includes(tag) ? styles.tagPillActive : ''}`}
-                >
-                  {tag}
-                </button>
-              ))}
-          </div>
-        )}
-
         {!isAuthenticated && !authLoading && !isDashboard ? (
           <div className={styles.authWall}>
              <div className={styles.authCard}>
@@ -243,37 +169,16 @@ const RoadmapPage = ({ initialFilters = {}, isDashboard = false, scopedMeta = nu
           </div>
         ) : (
           <>
-            {/* Search & Category — category hidden in dashboard mode */}
-            <div className={styles.filterSection}>
-              <div className={styles.inputGroup}>
-                <input 
-                  type="text" 
-                  placeholder="Search features..." 
-                  value={filter.search}
-                  onChange={(e) => setFilter(prev => ({ ...prev, search: e.target.value }))}
-                  className={styles.searchInput}
-                />
-              </div>
-              
-              {!isDashboard && (
-                <div className={styles.categoryFilterSection}>
-                  <h4 className={styles.filterLabel}>Filter by Category</h4>
-                  <div className={styles.categoryGrid}>
-                    {categories.map(cat => (
-                      <label key={cat.id} className={styles.checkboxLabel}>
-                        <input 
-                          type="checkbox"
-                          checked={filter.category.includes(cat.id)}
-                          onChange={() => toggleCategory(cat.id)}
-                          className={styles.checkbox}
-                        />
-                        <span>{cat.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            <FilterBar 
+              filter={filter}
+              setFilter={setFilter}
+              categories={categories}
+              stages={isDashboard ? (scopedMeta?.stages ?? []) : stages}
+              allTags={isDashboard ? (scopedMeta?.tags ?? []) : allTags}
+              isDashboard={isDashboard}
+              isAuthenticated={isAuthenticated}
+              initialFilters={initialFilters}
+            />
 
             {loading && features.length === 0 ? (
               <div className={styles.infoMessage}>Loading modern roadmap...</div>
