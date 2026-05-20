@@ -34,8 +34,19 @@ export const requireAdmin = async (request, reply) => {
   if (reply.sent) return;
 
   // TODO [2026-06-20]: Remove isAdmin fallback once all JWTs have role field (after 30-day expiry window)
-  const isAdmin = request.user?.role === 'admin' || request.user?.isAdmin === true;
+  const role = request.user?.role;
+  const isAdmin = role === 'admin' || role === 'super_admin' || request.user?.isAdmin === true;
   if (!isAdmin) {
     return reply.code(403).send({ error: 'Forbidden: admin access required' });
+  }
+};
+
+/** Only super_admin accounts may access user management and data management routes. */
+export const requireSuperAdmin = async (request, reply) => {
+  await authenticate(request, reply);
+  if (reply.sent) return;
+
+  if (request.user?.role !== 'super_admin') {
+    return reply.code(403).send({ error: 'Forbidden: super admin access required' });
   }
 };

@@ -1,4 +1,4 @@
-import { requireAdmin } from '../auth.js';
+import { requireSuperAdmin } from '../auth.js';
 import { 
   categoriesContainer, 
   stagesContainer, 
@@ -23,7 +23,7 @@ const containersMap = {
 export default async function dataRoutes(fastify, options) {
   // ── GET /api/admin/data/export ────────────────────────────────────────────────
   // Exports all documents from all configured Cosmos DB containers
-  fastify.get('/export', { preHandler: requireAdmin }, async (request, reply) => {
+  fastify.get('/export', { preHandler: requireSuperAdmin }, async (request, reply) => {
     try {
       const exportData = {};
 
@@ -46,7 +46,7 @@ export default async function dataRoutes(fastify, options) {
 
   // ── POST /api/admin/data/import ───────────────────────────────────────────────
   // Imports data from a JSON file. Requires multipart/form-data.
-  fastify.post('/import', { preHandler: requireAdmin }, async (request, reply) => {
+  fastify.post('/import', { preHandler: requireSuperAdmin }, async (request, reply) => {
     try {
       const data = await request.file();
       if (!data) {

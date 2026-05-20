@@ -104,7 +104,7 @@ const ResetPasswordModal = ({ user, onClose, onSuccess }) => {
 // ── Main Page ───────────────────────────────────────────────────────────────────
 
 const AdminUsersPage = () => {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isSuperAdmin } = useAuth();
 
   // List state
   const [users, setUsers] = useState([]);
@@ -273,6 +273,7 @@ const AdminUsersPage = () => {
         onClose={handleClosePanel}
         onSuccess={handlePanelSuccess}
         currentUser={currentUser}
+        isSuperAdmin={isSuperAdmin}
       />
 
       {/* ── Reset Password Modal ── */}

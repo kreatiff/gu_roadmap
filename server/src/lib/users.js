@@ -186,15 +186,15 @@ export async function bootstrapAdminIfEmpty() {
       return;
     }
 
-    console.log(`🚀 Bootstrapping admin user: ${email}`);
+    console.log(`🚀 Bootstrapping super admin user: ${email}`);
     await createUser({
       email,
       name: 'System Admin',
       password,
-      role: 'admin',
+      role: 'super_admin',
       createdBy: 'system'
     });
-    console.log('✅ Admin user bootstrapped successfully.');
+    console.log('✅ Super admin user bootstrapped successfully.');
   } catch (err) {
     if (err.statusCode === 409) {
       console.log('ℹ️ Admin user already exists (409 Conflict), skipping bootstrap.');

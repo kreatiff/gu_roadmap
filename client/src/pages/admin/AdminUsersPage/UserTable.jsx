@@ -56,8 +56,14 @@ const UserTable = ({ users, onEdit, onResetPassword, onToggleStatus, currentUser
                 <span className={styles.emailText}>{user.email}</span>
               </td>
               <td className={styles.td}>
-                <span className={`${styles.roleBadge} ${user.role === 'admin' ? styles.roleAdmin : styles.roleUser}`}>
-                  {user.role === 'admin' ? 'Admin' : 'User'}
+                <span className={`${styles.roleBadge} ${
+                  user.role === 'super_admin' ? styles.roleSuperAdmin
+                  : user.role === 'admin' ? styles.roleAdmin
+                  : styles.roleUser
+                }`}>
+                  {user.role === 'super_admin' ? 'Super Admin'
+                  : user.role === 'admin' ? 'Admin'
+                  : 'User'}
                 </span>
               </td>
               <td className={styles.td}>

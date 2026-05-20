@@ -69,7 +69,8 @@ export default async function authRoutes(fastify, options) {
       email: user.email,
       name: user.name,
       role: user.role,
-      isAdmin: user.role === 'admin'
+      isAdmin: user.role === 'admin' || user.role === 'super_admin',
+      isSuperAdmin: user.role === 'super_admin'
     }, {
       expiresIn: config.jwtExpiry
     });
@@ -146,7 +147,8 @@ export default async function authRoutes(fastify, options) {
         email: user.email,
         name: user.name,
         role: user.role,
-        isAdmin: user.role === 'admin'
+        isAdmin: user.role === 'admin' || user.role === 'super_admin',
+        isSuperAdmin: user.role === 'super_admin'
       }, {
         expiresIn: config.jwtExpiry
       });

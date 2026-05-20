@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { createUser, updateUser } from '../../../api/users';
 import styles from './AdminUsersPage.module.css';
 
-const InviteUserPanel = ({ isOpen, mode, user, onClose, onSuccess, currentUser }) => {
+const InviteUserPanel = ({ isOpen, mode, user, onClose, onSuccess, currentUser, isSuperAdmin }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('user');
@@ -136,7 +136,7 @@ const InviteUserPanel = ({ isOpen, mode, user, onClose, onSuccess, currentUser }
           <div className={styles.formRow}>
             <div className={styles.formGroup}>
               <label htmlFor="modal-role" className={styles.label}>System Role</label>
-              <select
+                <select
                 id="modal-role"
                 className={styles.select}
                 value={role}
@@ -145,6 +145,9 @@ const InviteUserPanel = ({ isOpen, mode, user, onClose, onSuccess, currentUser }
               >
                 <option value="user">User</option>
                 <option value="admin">Administrator</option>
+                {isSuperAdmin && (
+                  <option value="super_admin">Super Administrator</option>
+                )}
               </select>
               {isSelf && (
                 <span className={styles.inputHint}>You cannot demote yourself.</span>

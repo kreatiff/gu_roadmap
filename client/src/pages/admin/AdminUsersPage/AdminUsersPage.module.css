@@ -299,6 +299,11 @@
   color: #dc2626;
 }
 
+.roleSuperAdmin {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
 .roleUser {
   background-color: var(--bg-primary);
   color: var(--text-secondary);

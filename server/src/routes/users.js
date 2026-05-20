@@ -1,4 +1,4 @@
-import { requireAdmin } from '../auth.js';
+import { requireSuperAdmin } from '../auth.js';
 import { usersContainer } from '../db.js';
 import {
   findUserById,
@@ -12,7 +12,7 @@ import {
 export default async function userRoutes(fastify, options) {
 
   // 1. List users (paginated, search-enabled, admin-only)
-  fastify.get('/', { preHandler: [requireAdmin] }, async (request, reply) => {
+  fastify.get('/', { preHandler: [requireSuperAdmin] }, async (request, reply) => {
     const { search, continuationToken, pageSize } = request.query;
     try {
       const result = await listUsers({ search, continuationToken, pageSize });
@@ -23,7 +23,7 @@ export default async function userRoutes(fastify, options) {
   });
 
   // 2. Get single user
-  fastify.get('/:id', { preHandler: [requireAdmin] }, async (request, reply) => {
+  fastify.get('/:id', { preHandler: [requireSuperAdmin] }, async (request, reply) => {
     const { id } = request.params;
     try {
       const user = await findUserById(id);
@@ -38,7 +38,7 @@ export default async function userRoutes(fastify, options) {
 
   // 3. Create a new user
   fastify.post('/', {
-    preHandler: [requireAdmin],
+    preHandler: [requireSuperAdmin],
     schema: {
       body: {
         type: 'object',
@@ -78,7 +78,7 @@ export default async function userRoutes(fastify, options) {
 
   // 4. Update user details (name, role, status) - NO password updates here
   fastify.patch('/:id', {
-    preHandler: [requireAdmin],
+    preHandler: [requireSuperAdmin],
     schema: {
       body: {
         type: 'object',
@@ -140,7 +140,7 @@ export default async function userRoutes(fastify, options) {
 
   // 5. Reset user password (admin-only, strict 3/min rate limit)
   fastify.post('/:id/reset-password', {
-    preHandler: [requireAdmin],
+    preHandler: [requireSuperAdmin],
     schema: {
       body: {
         type: 'object',
