@@ -96,7 +96,6 @@ const FilterBar = ({
   });
 
   const hasActiveFilters = 
-    filter.status.length > 0 || 
     filter.category.length > 0 || 
     filter.tags.length > 0 || 
     filter.search !== '';
