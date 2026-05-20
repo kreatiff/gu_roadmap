@@ -160,6 +160,7 @@ export default function AdminDataManagementPage() {
           title="DANGER: Wipe and Replace Database?"
           message="You have selected the 'Hard Reset' strategy. This will permanently delete ALL data in the database before importing the new file. This action cannot be undone."
           confirmLabel="Yes, Wipe Database"
+          confirmWord="WIPE"
           onConfirm={handleImportSubmit}
           onCancel={() => setShowConfirm(false)}
         />
