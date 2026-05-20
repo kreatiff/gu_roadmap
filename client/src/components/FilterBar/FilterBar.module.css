@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  margin-top: var(--space-6);
   margin-bottom: var(--space-6);
   width: 100%;
   background-color: var(--bg-surface);
@@ -48,7 +49,8 @@
 .tabBtn::after {
   content: '';
   position: absolute;
-  bottom: -1px; /* Align perfectly with the container's bottom border */
+  bottom: -1px;
+  /* Align perfectly with the container's bottom border */
   left: 0;
   width: 100%;
   height: 2px;
@@ -144,11 +146,11 @@
   .dropdownsGroup {
     width: 100%;
   }
-  
-  .dropdownsGroup > div {
+
+  .dropdownsGroup>div {
     flex: 1;
   }
-  
+
   .dropdownsGroup :global(.FilterDropdown_trigger__2-s8c) {
     width: 100%;
     justify-content: space-between;
