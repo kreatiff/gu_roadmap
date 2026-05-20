@@ -40,7 +40,17 @@ const api = async (path, options = {}) => {
   const response = await fetch(path, finalOptions);
 
   if (!response.ok) {
-    if (response.status === 401 && path !== '/api/auth/me' && path !== '/api/auth/login') {
+    // Don't force-reload on 401 for:
+    //  • session check — expected to 401 when logged out
+    //  • login — error is shown in the form
+    //  • public dashboard API calls — unauthenticated viewers should see an error, not a reload loop
+    const isPublicDashboardPath = window.location.pathname.startsWith('/d/');
+    if (
+      response.status === 401 &&
+      path !== '/api/auth/me' &&
+      path !== '/api/auth/login' &&
+      !isPublicDashboardPath
+    ) {
       window.location.reload();
       return;
     }
