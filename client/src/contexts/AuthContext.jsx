@@ -22,12 +22,26 @@ export const AuthProvider = ({ children }) => {
     checkSession();
   }, []);
 
-  // 2. Login: Redirect to the backend auth endpoint
-  const login = () => {
+  // 2. Login: Local credentials authentication
+  const login = async (email, password) => {
+    try {
+      await api('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await api('/api/auth/me');
+      setUser(data);
+    } catch (err) {
+      throw new Error(err?.error ?? 'Login failed');
+    }
+  };
+
+  // 3. Navigate to Login (SSO Bypass redirect)
+  const navigateToLogin = () => {
     window.location.href = '/api/auth/login';
   };
 
-  // 3. Logout: Call backend and clear local state
+  // 4. Logout: Call backend and clear local state
   const logout = async () => {
     try {
       await api('/api/auth/logout', { method: 'POST' });
@@ -37,8 +51,10 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const isAdmin = user?.role === 'admin' || user?.isAdmin === true;
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isAuthenticated: !!user, isAdmin: user?.isAdmin }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, navigateToLogin, isAuthenticated: !!user, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );

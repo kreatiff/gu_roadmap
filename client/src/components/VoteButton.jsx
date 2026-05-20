@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import styles from './VoteButton.module.css';
 
 const VoteButton = ({ featureId, initialCount, initialVoted, onUpdate, large = false, accentColor, isCombined = false }) => {
-  const { isAuthenticated, login } = useAuth();
+  const { isAuthenticated, navigateToLogin } = useAuth();
   const [voted, setVoted] = useState(initialVoted);
   const [count, setCount] = useState(initialCount);
   const [loading, setLoading] = useState(false);
@@ -17,7 +17,7 @@ const VoteButton = ({ featureId, initialCount, initialVoted, onUpdate, large = f
     }
 
     if (!isAuthenticated) {
-      login();
+      navigateToLogin();
       return;
     }
 

@@ -14,7 +14,7 @@ import styles from './RoadmapPage.module.css';
 
 const RoadmapPage = ({ initialFilters = {}, isDashboard = false, scopedMeta = null, dashboardName = '' }) => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAuthenticated, login, loading: authLoading } = useAuth();
+  const { isAuthenticated, navigateToLogin, loading: authLoading } = useAuth();
   const featureId = searchParams.get('feature');
 
   const [features, setFeatures] = useState([]);
@@ -164,7 +164,7 @@ const RoadmapPage = ({ initialFilters = {}, isDashboard = false, scopedMeta = nu
              <div className={styles.authCard}>
                 <h2 className={styles.authTitle}>Join the Community</h2>
                 <p className={styles.authDesc}>Please log in with your Griffith credentials to view the full roadmap, participate in discussions, and vote for the future of our digital services.</p>
-                <button onClick={login} className={styles.loginBtn}>Login with GU SSO</button>
+                <button onClick={navigateToLogin} className={styles.loginBtn}>Login with GU SSO</button>
              </div>
           </div>
         ) : (

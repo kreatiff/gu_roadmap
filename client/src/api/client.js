@@ -40,7 +40,7 @@ const api = async (path, options = {}) => {
   const response = await fetch(path, finalOptions);
 
   if (!response.ok) {
-    if (response.status === 401 && path !== '/api/auth/me') {
+    if (response.status === 401 && path !== '/api/auth/me' && path !== '/api/auth/login') {
       window.location.reload();
       return;
     }

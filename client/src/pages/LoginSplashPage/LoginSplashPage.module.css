@@ -4,20 +4,22 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background-color: var(--bg-base);
-  color: var(--text-primary);
-  text-align: center;
+  background: radial-gradient(circle at top left, #0f172a, #020617);
+  color: #f8fafc;
   padding: var(--space-4);
+  font-family: var(--font-family);
 }
 
 .content {
   max-width: 420px;
   width: 100%;
-  padding: var(--space-12) var(--space-8);
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  padding: var(--space-10) var(--space-8);
+  background-color: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
 }
 
 .brand {
@@ -25,53 +27,202 @@
 }
 
 .brand h1 {
-  font-size: 1.75rem;
+  font-size: 2rem;
   font-weight: 800;
   margin-bottom: var(--space-2);
-  color: var(--text-primary);
+  color: #ffffff;
   letter-spacing: -0.05em;
 }
 
-.brand h1 span {
+.logoGu {
   color: var(--gu-red);
 }
 
 .brand p {
-  color: var(--text-secondary);
+  color: #94a3b8;
   font-size: 0.9375rem;
   margin: 0;
   line-height: 1.5;
 }
 
-.button {
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1.5);
+}
+
+.label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.input {
   width: 100%;
-  padding: 14px;
-  background-color: var(--gu-red);
+  padding: 12px 14px;
+  background-color: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 0.9375rem;
+  transition: all 0.15s ease-in-out;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+  background-color: rgba(15, 23, 42, 0.8);
+}
+
+.input::placeholder {
+  color: #475569;
+}
+
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.errorAlert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: 10px 12px;
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  text-align: left;
+}
+
+.errorIcon {
+  font-size: 1rem;
+}
+
+.errorMessage {
+  font-size: 0.8125rem;
+  color: #fca5a5;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+.submitButton {
+  width: 100%;
+  padding: 12px 16px;
+  background-color: #2563eb;
   color: #ffffff;
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: 6px;
   font-size: 0.9375rem;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.15s ease;
+  transition: all 0.15s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-2);
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+}
+
+.submitButton:hover:not(:disabled) {
+  background-color: #1d4ed8;
+  box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
+  transform: translateY(-1px);
+}
+
+.submitButton:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.submitButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.dividerLine {
+  flex-grow: 1;
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.dividerText {
+  font-size: 0.75rem;
+  color: #64748b;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.ssoButton {
+  width: 100%;
+  padding: 12px 16px;
+  background-color: transparent;
+  color: #f8fafc;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
   display: flex;
   justify-content: center;
   align-items: center;
   gap: var(--space-2);
 }
 
-.button:hover {
-  background-color: var(--gu-red-hover);
+.ssoButton:hover:not(:disabled) {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.ssoButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .footer {
   margin-top: var(--space-8);
   font-size: 0.75rem;
-  color: var(--text-muted);
+  color: #64748b;
 }
 
 .icon {
   width: 18px;
   height: 18px;
-  fill: currentColor;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  animation: spin 1s linear infinite;
+}
+
+.spinnerTrack {
+  opacity: 0.25;
+}
+
+.spinnerArc {
+  opacity: 0.75;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }

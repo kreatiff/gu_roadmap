@@ -5,7 +5,8 @@ import {
   featuresContainer, 
   votesContainer, 
   revisionsContainer, 
-  dashboardsContainer 
+  dashboardsContainer,
+  usersContainer
 } from '../db.js';
 
 // Map of all containers we want to export/import
@@ -16,6 +17,7 @@ const containersMap = {
   votes: votesContainer,
   feature_revisions: revisionsContainer,
   dashboards: dashboardsContainer,
+  users: usersContainer,
 };
 
 export default async function dataRoutes(fastify, options) {
@@ -78,6 +80,7 @@ export default async function dataRoutes(fastify, options) {
             // we will extract the partition key from the item based on known structures.
             let pk = item.id;
             if (key === 'votes' || key === 'feature_revisions') pk = item.featureId;
+            else if (key === 'users') pk = item.email;
             
             await container.item(item.id, pk).delete().catch(() => {});
           }

@@ -12,6 +12,7 @@ import AdminMetadataPage from './pages/admin/AdminMetadataPage/AdminMetadataPage
 import AdminDataManagementPage from './pages/admin/AdminDataManagementPage/AdminDataManagementPage';
 import PublicDashboardPage from './pages/PublicDashboardPage/PublicDashboardPage';
 import LoginSplashPage from './pages/LoginSplashPage/LoginSplashPage';
+import AdminUsersPage from './pages/admin/AdminUsersPage/AdminUsersPage';
 import styles from './AppRouter.module.css';
 
 // Pages
@@ -24,11 +25,11 @@ const NotFound = () => (
 );
 
 const ProtectedRoute = ({ children, adminOnly = false }) => {
-  const { isAdmin } = useAuth();
+  const { isAuthenticated, isAdmin, loading } = useAuth();
   
-  if (adminOnly && !isAdmin) {
-    return <Navigate to="/" replace />;
-  }
+  if (loading) return null;
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  if (adminOnly && !isAdmin) return <Navigate to="/" replace />;
 
   return children;
 };
@@ -63,6 +64,12 @@ const AppRouter = () => {
             <Route path="/admin" element={
               <ProtectedRoute adminOnly>
                 <AdminDashboardPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin/users" element={
+              <ProtectedRoute adminOnly>
+                <AdminUsersPage />
               </ProtectedRoute>
             } />
 

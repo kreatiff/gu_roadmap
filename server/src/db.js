@@ -26,6 +26,7 @@ export const featuresContainer = database.container("features");
 export const votesContainer = database.container("votes");
 export const revisionsContainer = database.container("feature_revisions");
 export const dashboardsContainer = database.container("dashboards");
+export const usersContainer = database.container("users");
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 // Creates the database and all containers if they don't already exist.
@@ -77,9 +78,21 @@ export async function initDb() {
       partitionKey: { paths: ["/id"] },
       uniqueKeyPolicy: { uniqueKeys: [{ paths: ["/slug"] }] },
     }),
+
+    // Users: partition by email, unique keys on email and oauthSub
+    db.containers.createIfNotExists({
+      id: "users",
+      partitionKey: { paths: ["/email"] },
+      uniqueKeyPolicy: {
+        uniqueKeys: [
+          { paths: ["/email"] },
+          { paths: ["/oauthSub"] },
+        ],
+      },
+    }),
   ]);
 
   console.log(
-    `✅ Cosmos DB "${config.cosmos.databaseId}" ready — all containers initialised.`,
+    `✅ Cosmos DB "${config.cosmos.databaseId}" ready — all containers initialised.`
   );
 }

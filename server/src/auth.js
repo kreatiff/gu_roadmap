@@ -32,8 +32,10 @@ export const optionalAuthenticate = async (request, reply) => {
 export const requireAdmin = async (request, reply) => {
   await authenticate(request, reply);
   if (reply.sent) return;
-  
-  if (request.user && !request.user.isAdmin) {
+
+  // TODO [2026-06-20]: Remove isAdmin fallback once all JWTs have role field (after 30-day expiry window)
+  const isAdmin = request.user?.role === 'admin' || request.user?.isAdmin === true;
+  if (!isAdmin) {
     return reply.code(403).send({ error: 'Forbidden: admin access required' });
   }
 };
