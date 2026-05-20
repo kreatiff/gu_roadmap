@@ -164,7 +164,9 @@
 .tableWrapper {
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  /* overflow:visible so absolute-positioned dropdowns aren't clipped;
+     corner rounding is achieved via th/td border-radius below instead */
+  overflow: visible;
   background-color: #ffffff;
   box-shadow: var(--shadow-card);
 }
@@ -186,6 +188,14 @@
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
 }
+
+/* Round the top-left / top-right header cells to recreate the wrapper radius */
+.th:first-child { border-top-left-radius: var(--radius-lg); }
+.th:last-child  { border-top-right-radius: var(--radius-lg); }
+
+/* Round the bottom cells of the final row */
+.tr:last-child .td:first-child { border-bottom-left-radius: var(--radius-lg); }
+.tr:last-child .td:last-child  { border-bottom-right-radius: var(--radius-lg); }
 
 .tr {
   border-bottom: 1px solid var(--border-color);
