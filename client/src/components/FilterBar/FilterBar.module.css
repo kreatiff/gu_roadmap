@@ -4,6 +4,67 @@
   gap: var(--space-3);
   margin-bottom: var(--space-6);
   width: 100%;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-top: 4px solid var(--gu-red);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-4);
+}
+
+.tabsContainer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: var(--space-2);
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.tabsContainer::-webkit-scrollbar {
+  display: none;
+}
+
+.tabBtn {
+  position: relative;
+  padding: var(--space-2) var(--space-3) var(--space-3) var(--space-3);
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-medium);
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tabBtn:hover {
+  color: var(--text-primary);
+}
+
+.tabBtn::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; /* Align perfectly with the container's bottom border */
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--gu-red);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tabBtnActive {
+  color: var(--gu-red) !important;
+  font-weight: var(--font-weight-bold);
+}
+
+.tabBtnActive::after {
+  transform: scaleX(1);
 }
 
 .filterBarRow {
@@ -221,6 +282,34 @@
 
 .pillRemoveBtn:hover {
   background: rgba(232, 52, 28, 0.1);
+}
+
+.pillCategory {
+  background: rgba(234, 88, 12, 0.05) !important;
+  color: #ea580c !important;
+  border-color: rgba(234, 88, 12, 0.15) !important;
+}
+
+.pillCategory .pillRemoveBtn {
+  color: #ea580c !important;
+}
+
+.pillCategory .pillRemoveBtn:hover {
+  background: rgba(234, 88, 12, 0.1) !important;
+}
+
+.pillTag {
+  background: rgba(5, 150, 105, 0.05) !important;
+  color: #059669 !important;
+  border-color: rgba(5, 150, 105, 0.15) !important;
+}
+
+.pillTag .pillRemoveBtn {
+  color: #059669 !important;
+}
+
+.pillTag .pillRemoveBtn:hover {
+  background: rgba(5, 150, 105, 0.1) !important;
 }
 
 .clearAllBtn {

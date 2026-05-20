@@ -88,11 +88,7 @@ const FilterBar = ({
     tag.toLowerCase().includes(tagSearch.toLowerCase())
   );
 
-  // 3. Active filter counts and labels for display pills
-  const activeStatusLabels = filter.status.map(slug => {
-    const stage = stages.find(s => s.slug === slug);
-    return { id: slug, label: stage ? stage.name : slug };
-  });
+
 
   const activeCategoryLabels = filter.category.map(id => {
     const cat = categories.find(c => c.id === id);
@@ -107,6 +103,30 @@ const FilterBar = ({
 
   return (
     <div className={styles.container}>
+      {/* Stages Tabs Row */}
+      <div className={styles.tabsContainer}>
+        <button
+          className={`${styles.tabBtn} ${filter.status.length === 0 ? styles.tabBtnActive : ''}`}
+          onClick={() => handleStatusChange([])}
+          type="button"
+        >
+          All Stages
+        </button>
+        {statusOptions.map(option => {
+          const isActive = filter.status.includes(option.id);
+          return (
+            <button
+              key={option.id}
+              className={`${styles.tabBtn} ${isActive ? styles.tabBtnActive : ''}`}
+              onClick={() => handleStatusChange([option.id])}
+              type="button"
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+
       <div className={styles.filterBarRow}>
         {/* Search Field */}
         <div className={styles.searchWrapper}>
@@ -127,25 +147,14 @@ const FilterBar = ({
 
         {/* Dropdowns */}
         <div className={styles.dropdownsGroup}>
-          {/* Status Dropdown */}
-          <FilterDropdown 
-            label="Stages" 
-            selectedCount={filter.status.length}
-          >
-            <div className={styles.dropdownContent}>
-              <MultiSelectFilter 
-                options={statusOptions}
-                selectedValues={filter.status}
-                onChange={handleStatusChange}
-              />
-            </div>
-          </FilterDropdown>
+
 
           {/* Category Dropdown (only visible when not in dashboard preset) */}
           {!isDashboard && (
             <FilterDropdown 
               label="Categories" 
               selectedCount={filter.category.length}
+              type="category"
             >
               <div className={styles.dropdownContent}>
                 <MultiSelectFilter 
@@ -162,6 +171,7 @@ const FilterBar = ({
             <FilterDropdown 
               label="Tags" 
               selectedCount={filter.tags.length}
+              type="tag"
             >
               <div className={`${styles.dropdownContent} ${styles.tagDropdown}`}>
                 {/* Search tags inside dropdown if more than 5 */}
@@ -220,23 +230,11 @@ const FilterBar = ({
               </span>
             )}
 
-            {/* Status pills */}
-            {activeStatusLabels.map(item => (
-              <span key={item.id} className={styles.pill}>
-                Stage: {item.label}
-                <button 
-                  className={styles.pillRemoveBtn} 
-                  onClick={() => removeFilterItem('status', item.id)} 
-                  aria-label={`Remove stage filter for ${item.label}`}
-                >
-                  <X size={12} />
-                </button>
-              </span>
-            ))}
+
 
             {/* Category pills */}
             {activeCategoryLabels.map(item => (
-              <span key={item.id} className={styles.pill}>
+              <span key={item.id} className={`${styles.pill} ${styles.pillCategory}`}>
                 Category: {item.label}
                 <button 
                   className={styles.pillRemoveBtn} 
@@ -250,7 +248,7 @@ const FilterBar = ({
 
             {/* Tag pills */}
             {filter.tags.map(tag => (
-              <span key={tag} className={styles.pill}>
+              <span key={tag} className={`${styles.pill} ${styles.pillTag}`}>
                 Tag: {tag}
                 <button 
                   className={styles.pillRemoveBtn} 

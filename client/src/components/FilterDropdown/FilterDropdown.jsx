@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import styles from './FilterDropdown.module.css';
 
-const FilterDropdown = ({ label, selectedCount = 0, children }) => {
+const FilterDropdown = ({ label, selectedCount = 0, type, children }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
     <div className={styles.container}>
       <button 
         type="button" 
-        className={`${styles.trigger} ${selectedCount > 0 ? styles.triggerActive : ''}`}
+        className={`${styles.trigger} ${selectedCount > 0 ? styles.triggerActive : ''} ${selectedCount > 0 && type ? styles[`triggerActive_${type}`] : ''}`}
         onClick={() => setIsOpen(!isOpen)}
       >
         <span className={styles.triggerContent}>
