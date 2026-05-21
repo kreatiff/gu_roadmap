@@ -31,7 +31,6 @@
   font-weight: 800;
   margin-bottom: var(--space-2);
   color: #ffffff;
-  letter-spacing: -0.05em;
 }
 
 .logoGu {
@@ -223,6 +222,11 @@
 }
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }

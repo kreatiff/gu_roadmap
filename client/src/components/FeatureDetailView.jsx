@@ -1,18 +1,16 @@
-import VoteButton from './VoteButton';
 import RichTextViewer from './RichTextViewer';
 import CategoryIcon from './CategoryIcon';
+import VerifiedBadge from './VerifiedBadge';
 import styles from './FeatureDetailView.module.css';
 
 /**
  * FeatureDetailView renders the visual 'card' content of a feature request.
  * It is used by both FeatureDetailModal and the Admin Panel Preview.
- * 
+ *
  * @param {Object} feature - The feature data object
- * @param {Function} onUpdate - Optional callback for voting updates
- * @param {Boolean} showActions - Whether to show the voting buttons (defaults to true)
  * @param {ReactNode} closeButton - Optional close button to render in the header
  */
-const FeatureDetailView = ({ feature, onUpdate, showActions = true, closeButton = null }) => {
+const FeatureDetailView = ({ feature, closeButton = null, isAdmin = false }) => {
   if (!feature) return null;
 
   return (
@@ -43,15 +41,7 @@ const FeatureDetailView = ({ feature, onUpdate, showActions = true, closeButton 
           </div>
           
           <div className={styles.headerActions}>
-            {showActions && (
-              <VoteButton 
-                featureId={feature.id} 
-                initialCount={feature.vote_count} 
-                initialVoted={feature.user_voted}
-                onUpdate={onUpdate}
-                isCombined={true}
-              />
-            )}
+            {feature.is_reviewed && <VerifiedBadge size={34} className={styles.reviewedBadge} />}
             {closeButton}
           </div>
         </div>
@@ -66,6 +56,31 @@ const FeatureDetailView = ({ feature, onUpdate, showActions = true, closeButton 
               content={feature.description || 'No detailed description available for this request.'} 
               className={styles.description}
             />
+            {isAdmin && feature.internal_notes && (
+              <div className={styles.internalNotesSection}>
+                <div className={styles.internalNotesHeader}>
+                  <span className={styles.internalNotesLabel}>Internal Notes</span>
+                  <span className={styles.internalNotesBadge}>Admin Only</span>
+                </div>
+                <RichTextViewer 
+                  content={feature.internal_notes} 
+                  className={styles.internalNotesContent}
+                />
+              </div>
+            )}
+            {isAdmin && feature.dependency_details && feature.dependency_details.length > 0 && (
+              <div className={styles.dependenciesSection}>
+                <div className={styles.dependenciesHeader}>
+                  <span className={styles.dependenciesLabel}>Dependencies</span>
+                  <span className={styles.dependenciesBadge}>Admin Only</span>
+                </div>
+                <div className={styles.dependenciesList}>
+                  {feature.dependency_details.map(dep => (
+                    <span key={dep.id} className={styles.dependencyChip}>{dep.title}</span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className={styles.footer}>

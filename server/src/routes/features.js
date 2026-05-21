@@ -8,7 +8,7 @@ export default async function featureRoutes(fastify, options) {
 
   // ── 1. GET / — List & filter features ────────────────────────────────────────
   fastify.get('/', { preHandler: [optionalAuthenticate] }, async (request, reply) => {
-    const { status, category, search, tags, page = 1, limit = 12 } = request.query;
+    const { status, category, search, tags, is_reviewed, page = 1, limit = 12 } = request.query;
     const userId = request.user?.sub ?? null;
     const isAdmin = request.user?.isAdmin ?? false;
 
@@ -57,7 +57,10 @@ export default async function featureRoutes(fastify, options) {
     }
 
     if (search) {
-      conditions.push('(CONTAINS(c.title, @search, true) OR CONTAINS(c.description, @search, true))');
+      const searchFields = isAdmin
+        ? '(CONTAINS(c.title, @search, true) OR CONTAINS(c.description, @search, true) OR CONTAINS(c.internal_notes, @search, true))'
+        : '(CONTAINS(c.title, @search, true) OR CONTAINS(c.description, @search, true))';
+      conditions.push(searchFields);
       parameters.push({ name: '@search', value: search });
     }
 
@@ -89,6 +92,12 @@ export default async function featureRoutes(fastify, options) {
       }
     }
 
+    if (is_reviewed === 'true') {
+      conditions.push('c.is_reviewed = true');
+    } else if (is_reviewed === 'false') {
+      conditions.push('(c.is_reviewed = false OR IS_DEFINED(c.is_reviewed) = false)');
+    }
+
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
 
     const querySpec = {
@@ -96,7 +105,7 @@ export default async function featureRoutes(fastify, options) {
         SELECT *
         FROM c
         ${whereClause}
-        ORDER BY c.pinned DESC, c.vote_count DESC, c.created_at DESC
+        ORDER BY c.pinned DESC, c.stage_sort_order ASC, c.vote_count DESC, c.created_at DESC
         OFFSET ${offsetNum} LIMIT ${limitNum}
       `,
       parameters,
@@ -125,10 +134,18 @@ export default async function featureRoutes(fastify, options) {
       votedFeatureIds = new Set(voted.map((v) => v.featureId));
     }
 
-    const data = features.map((f) => ({
-      ...f,
-      user_voted: votedFeatureIds.has(f.id),
-    }));
+    const data = features.map((f) => {
+      const featureData = {
+        ...f,
+        user_voted: votedFeatureIds.has(f.id),
+      };
+      if (!isAdmin) {
+        delete featureData.internal_notes;
+        delete featureData.dependencies;
+        delete featureData.dependency_details;
+      }
+      return featureData;
+    });
 
     return {
       data,
@@ -167,14 +184,34 @@ export default async function featureRoutes(fastify, options) {
       }
     }
 
-    return { ...feature, user_voted };
+    const result = { ...feature, user_voted };
+    if (!isAdmin) {
+      delete result.internal_notes;
+      delete result.dependencies;
+      delete result.dependency_details;
+    } else if (Array.isArray(feature.dependencies) && feature.dependencies.length > 0) {
+      try {
+        const depIds = feature.dependencies.filter(d => typeof d === 'string');
+        if (depIds.length > 0) {
+          const depQuery = {
+            query: `SELECT c.id, c.title, c.slug, c.stage_name, c.stage_color, c.status, c.owner, c.key_stakeholder, c.gravity_score FROM c WHERE c.id IN (${depIds.map((_, i) => `@dep${i}`).join(',')})`,
+            parameters: depIds.map((id, i) => ({ name: `@dep${i}`, value: id })),
+          };
+          const { resources: deps } = await featuresContainer.items
+            .query(depQuery, { enableCrossPartitionQuery: true })
+            .fetchAll();
+          result.dependency_details = deps;
+        }
+      } catch { /* ignore lookup failures */ }
+    }
+    return result;
   });
 
   // ── 2. POST / — Admin: Create feature ────────────────────────────────────────
   fastify.post('/', { preHandler: [requireAdmin] }, async (request, reply) => {
     const {
-      title, description, category_id, status, stage_id,
-      impact, effort, owner, key_stakeholder, priority, is_published, tags,
+      title, description, internal_notes, category_id, status, stage_id,
+      impact, effort, owner, key_stakeholder, priority, is_published, tags, dependencies,
     } = request.body;
 
     if (!title) return reply.code(400).send({ error: 'Title is required' });
@@ -212,11 +249,29 @@ export default async function featureRoutes(fastify, options) {
       } catch { /* category not found — leave nulls */ }
     }
 
+    // Find max sort_order for this stage so new feature goes to the end
+    let maxSortOrder = 0;
+    if (finalStageId) {
+      try {
+        const { resources: orderRes } = await featuresContainer.items
+          .query({
+            query: 'SELECT TOP 1 c.stage_sort_order FROM c WHERE c.stage_id = @stageId ORDER BY c.stage_sort_order DESC',
+            parameters: [{ name: '@stageId', value: finalStageId }],
+          }, { enableCrossPartitionQuery: true })
+          .fetchAll();
+        if (orderRes.length > 0 && typeof orderRes[0].stage_sort_order === 'number') {
+          maxSortOrder = orderRes[0].stage_sort_order;
+        }
+      } catch { /* keep 0 */ }
+    }
+
     const doc = {
       id,
       title,
       slug,
       description: description ?? '',
+      internal_notes: internal_notes ?? '',
+      dependencies: Array.isArray(dependencies) ? dependencies : [],
       status: status ?? stageSlug ?? 'under_review',
       category_id: finalCategoryId,
       category_name: categoryName,
@@ -229,6 +284,7 @@ export default async function featureRoutes(fastify, options) {
       vote_count: 0,
       impact: impact ?? 5,
       effort: effort ?? 5,
+      stage_sort_order: maxSortOrder + 1000,
       tags: Array.isArray(tags) ? tags : [],
       pinned: false,
       is_published: is_published === 0 ? false : true,
@@ -236,6 +292,7 @@ export default async function featureRoutes(fastify, options) {
       key_stakeholder: (key_stakeholder ?? '').trim(),
       priority: priority ?? 'Medium',
       gravity_score: 0,
+      is_reviewed: false,
       created_at: now,
       updated_at: now,
     };
@@ -263,8 +320,8 @@ export default async function featureRoutes(fastify, options) {
   fastify.put('/:id', { preHandler: [requireAdmin] }, async (request, reply) => {
     const { id } = request.params;
     const {
-      title, description, category_id, status, impact, effort,
-      owner, key_stakeholder, priority, pinned, tags, stage_id, is_published,
+      title, description, internal_notes, category_id, status, impact, effort,
+      owner, key_stakeholder, priority, pinned, tags, dependencies, stage_id, is_published, is_reviewed,
     } = request.body;
 
     // Fetch existing document
@@ -289,6 +346,14 @@ export default async function featureRoutes(fastify, options) {
     if (description !== undefined && description !== oldFeature.description) {
       changesObj.description = { updated: true };
       updated.description = description;
+    }
+    if (internal_notes !== undefined && internal_notes !== oldFeature.internal_notes) {
+      changesObj.internal_notes = { updated: true };
+      updated.internal_notes = internal_notes;
+    }
+    if (dependencies !== undefined) {
+      changesObj.dependencies = { updated: true };
+      updated.dependencies = Array.isArray(dependencies) ? dependencies : oldFeature.dependencies;
     }
 
     // Category change — re-embed display fields
@@ -379,6 +444,10 @@ export default async function featureRoutes(fastify, options) {
         updated.is_published = newVal;
       }
     }
+    if (is_reviewed !== undefined && Boolean(is_reviewed) !== oldFeature.is_reviewed) {
+      changesObj.is_reviewed = { old: oldFeature.is_reviewed, new: Boolean(is_reviewed) };
+      updated.is_reviewed = Boolean(is_reviewed);
+    }
 
     if (Object.keys(changesObj).length === 0) {
       return reply.code(400).send({ error: 'No updates provided or no changes detected' });
@@ -406,6 +475,40 @@ export default async function featureRoutes(fastify, options) {
     });
 
     return { ok: true };
+  });
+
+  // ── 3.5 PATCH /reorder — Admin: Batch update stage_sort_order ─────────────────
+  fastify.patch('/reorder', { preHandler: [requireAdmin] }, async (request, reply) => {
+    const { items } = request.body;
+    // items: Array<{ id: string, stage_sort_order: number }>
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return reply.code(400).send({ error: 'items array is required' });
+    }
+
+    const now = new Date().toISOString();
+    const results = [];
+
+    for (const item of items) {
+      if (!item.id || typeof item.stage_sort_order !== 'number') continue;
+      try {
+        const { resource: feature } = await featuresContainer.item(item.id, item.id).read();
+        const ops = [
+          { op: 'set', path: '/stage_sort_order', value: item.stage_sort_order },
+          { op: 'replace', path: '/updated_at', value: now },
+        ];
+        const { resource: updated } = await featuresContainer.item(item.id, item.id).patch(ops);
+        results.push({ id: item.id, stage_sort_order: updated.stage_sort_order });
+      } catch (err) {
+        if (err.code === 404) {
+          results.push({ id: item.id, error: 'Not found' });
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    return { ok: true, updated: results.length };
   });
 
   // ── 4. DELETE /:id — Admin: Delete feature ────────────────────────────────────

@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { Clock, X } from 'lucide-react';
 import styles from './RevisionHistory.module.css';
 
 const formatTime = (isoString) => {
@@ -21,8 +22,7 @@ const FieldMap = {
   effort: 'Effort',
   owner: 'Owner',
   key_stakeholder: 'Stakeholder',
-  priority: 'Priority',
-  vote_count: 'Votes'
+  priority: 'Priority'
 };
 
 const RevisionHistory = ({ isOpen, onClose, revisions, categories = [], stages = [] }) => {
@@ -68,16 +68,11 @@ const RevisionHistory = ({ isOpen, onClose, revisions, categories = [], stages =
       <div className={styles.modal} onClick={e => e.stopPropagation()}>
         <div className={styles.header}>
           <h3 className={styles.title}>
-            <svg className={styles.titleIcon} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 8v4l3 3M3 12a9 9 0 1018 0 9 9 0 00-18 0z" />
-            </svg>
+            <Clock size={18} strokeWidth={2.3} className={styles.titleIcon} />
             Revision History
           </h3>
           <button className={styles.closeBtn} onClick={onClose} aria-label="Close">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
+            <X size={20} strokeWidth={2.5} />
           </button>
         </div>
 

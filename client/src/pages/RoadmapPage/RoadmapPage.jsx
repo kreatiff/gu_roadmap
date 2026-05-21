@@ -14,7 +14,7 @@ import styles from './RoadmapPage.module.css';
 
 const RoadmapPage = ({ initialFilters = {}, isDashboard = false, scopedMeta = null, dashboardName = '' }) => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { isAuthenticated, navigateToLogin, loading: authLoading } = useAuth();
+  const { isAuthenticated, isAdmin, navigateToLogin, loading: authLoading } = useAuth();
   const featureId = searchParams.get('feature');
 
   const [features, setFeatures] = useState([]);
@@ -26,7 +26,8 @@ const RoadmapPage = ({ initialFilters = {}, isDashboard = false, scopedMeta = nu
     status: [],
     category: [],
     search: '',
-    tags: []
+    tags: [],
+    is_reviewed: ''
   });
 
   const [page, setPage] = useState(1);
@@ -74,6 +75,7 @@ const RoadmapPage = ({ initialFilters = {}, isDashboard = false, scopedMeta = nu
         search: debouncedSearch,
         requiredTags: initialFilters.tags?.length ? [...new Set(initialFilters.tags)] : undefined,
         tags: filter.tags?.length ? [...new Set(filter.tags)] : undefined,
+        is_reviewed: filter.is_reviewed || undefined,
         page: pageNum,
         limit: 12
       });
@@ -96,6 +98,7 @@ const RoadmapPage = ({ initialFilters = {}, isDashboard = false, scopedMeta = nu
     filter.status,
     filter.category,
     filter.tags,
+    filter.is_reviewed,
     debouncedSearch,
     initialFilters.stage_slug,
     initialFilters.stage_slugs,
@@ -139,7 +142,7 @@ const RoadmapPage = ({ initialFilters = {}, isDashboard = false, scopedMeta = nu
             <p className={styles.headerSubtitle}>
               {isDashboard
                 ? 'A curated view of the roadmap filtered for this dashboard preset.'
-                : 'Help us shape the future of Griffith University\'s digital experience. Vote for the features you need and track our progress in real-time.'}
+                : 'Help us shape the future of Griffith University\'s digital experience. Track our progress in real-time.'}
             </p>
           </div>
         </div>
@@ -150,7 +153,7 @@ const RoadmapPage = ({ initialFilters = {}, isDashboard = false, scopedMeta = nu
           <div className={styles.authWall}>
             <div className={styles.authCard}>
               <h2 className={styles.authTitle}>Join the Community</h2>
-              <p className={styles.authDesc}>Please log in with your Griffith credentials to view the full roadmap, participate in discussions, and vote for the future of our digital services.</p>
+              <p className={styles.authDesc}>Please log in with your Griffith credentials to view the full roadmap, participate in discussions, and help shape the future of our digital services.</p>
               <button onClick={navigateToLogin} className={styles.loginBtn}>Login with GU SSO</button>
             </div>
           </div>
@@ -212,11 +215,11 @@ const RoadmapPage = ({ initialFilters = {}, isDashboard = false, scopedMeta = nu
       {featureId && (
         <FeatureDetailModal
           featureId={featureId}
+          isAdmin={isAdmin}
           onClose={() => {
             searchParams.delete('feature');
             setSearchParams(searchParams);
           }}
-          onUpdate={() => fetchFeatures(1, false)}
         />
       )}
 

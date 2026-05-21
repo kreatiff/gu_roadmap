@@ -138,6 +138,14 @@ const seed = async () => {
       title: f.title,
       slug: slugify(f.title, { lower: true, strict: true }),
       description: `This is a highly requested feature for the ${cat.name} ecosystem. Implementing this will significantly improve institutional efficiency and student engagement.`,
+      internal_notes: `**Strategic Assessment (Admin Only)**
+
+- **Viability:** High — aligns with current tech stack and available resources
+- **Timeline target:** Q3 2026
+- **Dependencies:** Awaiting ${cat.name} API upgrade completion
+- **Risk level:** Low
+
+_Internal planning notes — students will not see this content._`,
       status: f.status,
       category_id:    cat.id,
       category_name:  cat.name,

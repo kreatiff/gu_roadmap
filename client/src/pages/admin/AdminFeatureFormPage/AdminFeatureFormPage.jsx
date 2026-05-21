@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import AdminLayout from '../../../components/AdminLayout';
 import RichTextEditor from '../../../components/RichTextEditor';
@@ -8,11 +8,14 @@ import ConfirmDialog from '../../../components/ConfirmDialog';
 import RevisionHistory from '../../../components/RevisionHistory';
 import TagAutocomplete from '../../../components/TagAutocomplete/TagAutocomplete';
 import StringAutocomplete from '../../../components/StringAutocomplete/StringAutocomplete';
-import { getFeatures, createFeature, updateFeature, deleteFeature, getFeatureRevisions, getFeatureTags, getFeatureOwners, getFeatureStakeholders } from '../../../api/features';
+import FeatureDependencyAutocomplete from '../../../components/FeatureDependencyAutocomplete/FeatureDependencyAutocomplete';
+import { getFeatures, getFeatureById, createFeature, updateFeature, deleteFeature, getFeatureRevisions, getFeatureTags, getFeatureOwners, getFeatureStakeholders } from '../../../api/features';
 import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { calculateGravityScore } from '@shared/lib/gravityScore.js';
 import { useToast } from '../../../contexts/ToastContext';
+import { Eye, Clock } from 'lucide-react';
+import VerifiedBadge from '../../../components/VerifiedBadge';
 import styles from './AdminFeatureFormPage.module.css';
 
 const AdminFeatureFormPage = () => {
@@ -34,6 +37,7 @@ const AdminFeatureFormPage = () => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
+    internal_notes: '',
     category_id: '',
     status: 'under_review',
     stage_id: '',
@@ -44,8 +48,51 @@ const AdminFeatureFormPage = () => {
     owner: '',
     key_stakeholder: '',
     priority: 'Medium',
-    is_published: true
+    is_published: true,
+    is_reviewed: false,
+    dependencies: []
   });
+  const [isDirty, setIsDirty] = useState(false);
+  const initialLoadDone = useRef(false);
+  const skipDirtyRef = useRef(false);
+
+  // Mark dirty on any form change after initial load
+  useEffect(() => {
+    if (initialLoadDone.current && !skipDirtyRef.current) {
+      setIsDirty(true);
+    }
+    skipDirtyRef.current = false;
+  }, [formData]);
+
+  // Warn on browser tab close / refresh
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (isDirty) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
+
+  // Warn on in-app navigation (link clicks)
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (!isDirty) return;
+      const link = e.target.closest('a');
+      if (!link) return;
+      const href = link.getAttribute('href');
+      if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+      if (href === window.location.pathname) return;
+      const confirmed = window.confirm('You have unsaved changes. Are you sure you want to leave this page?');
+      if (!confirmed) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+    document.addEventListener('click', handleClick, true);
+    return () => document.removeEventListener('click', handleClick, true);
+  }, [isDirty]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -64,19 +111,17 @@ const AdminFeatureFormPage = () => {
 
       if (isEdit) {
         try {
-          const [res, revRes] = await Promise.all([
-            getFeatures({ limit: 1000 }),
+          const [feature, revRes] = await Promise.all([
+            getFeatureById(id),
             getFeatureRevisions(id).catch(() => [])
           ]);
           setRevisions(Array.isArray(revRes) ? revRes : []);
-          
-          const fData = res.data || [];
-          
-          const feature = fData.find(f => f.id === id);
+
           if (feature) {
             setFormData({
               title: feature.title,
               description: feature.description,
+              internal_notes: feature.internal_notes || '',
               category_id: feature.category_id || '',
               status: feature.status,
               stage_id: feature.stage_id || '',
@@ -87,12 +132,18 @@ const AdminFeatureFormPage = () => {
               owner: feature.owner || '',
               key_stakeholder: feature.key_stakeholder || '',
               priority: feature.priority || 'Medium',
-              vote_count: feature.vote_count || 0,
-              is_published: feature.is_published ?? true
+              is_published: feature.is_published ?? true,
+              is_reviewed: feature.is_reviewed ?? false,
+              dependencies: (feature.dependency_details || feature.dependencies || []).map(d =>
+                typeof d === 'string' ? { id: d, title: d, stage_name: '--', stage_color: '#94a3b8', owner: '', key_stakeholder: '', gravity_score: 0 } : { id: d.id, title: d.title, stage_name: d.stage_name || '--', stage_color: d.stage_color || '#94a3b8', owner: d.owner || '', key_stakeholder: d.key_stakeholder || '', gravity_score: d.gravity_score || 0 }
+              )
             });
+            skipDirtyRef.current = true;
+            setIsDirty(false);
           }
         } finally {
           setLoading(false);
+          initialLoadDone.current = true;
         }
       }
     };
@@ -108,10 +159,10 @@ const AdminFeatureFormPage = () => {
 
   const requestSubmit = (isPublishAction) => {
     if (isEdit && formData.is_published && !isPublishAction) {
-      setConfirmDialog({ 
-        isOpen: true, 
-        type: 'unpublish', 
-        payload: isPublishAction 
+      setConfirmDialog({
+        isOpen: true,
+        type: 'unpublish',
+        payload: isPublishAction
       });
       return;
     }
@@ -121,10 +172,12 @@ const AdminFeatureFormPage = () => {
   const executeSubmit = async (isPublishAction) => {
     setConfirmDialog({ isOpen: false, type: null, payload: null });
     try {
-      const payload = { ...formData, is_published: !!isPublishAction };
+      const payload = { ...formData, is_published: !!isPublishAction, dependencies: formData.dependencies.map(d => d.id) };
       if (isEdit) {
         await updateFeature(id, payload);
         addToast(isPublishAction ? 'Feature published' : 'Draft saved', 'success');
+        skipDirtyRef.current = true;
+        setIsDirty(false);
         // Refresh revisions since a save happened
         const revRes = await getFeatureRevisions(id).catch(() => []);
         setRevisions(Array.isArray(revRes) ? revRes : []);
@@ -174,18 +227,18 @@ const AdminFeatureFormPage = () => {
   const previewFeature = useMemo(() => {
     const category = categories.find(c => c.id === formData.category_id);
     const stage = stages.find(s => s.id === formData.stage_id);
-    
+
     return {
       title: formData.title || 'Feature Title Preview',
       description: formData.description,
+      internal_notes: formData.internal_notes,
+      dependency_details: formData.dependencies,
       category_name: category ? category.name : 'Uncategorized',
       category_icon: category ? category.icon : 'package',
       category_color: category ? category.color : '#64748b',
       stage_id: formData.stage_id,
       stage_name: stage ? stage.name : 'Unknown Status',
       stage_color: stage ? stage.color : '#94a3b8',
-      vote_count: formData.vote_count || 0,
-      user_voted: false,
       tags: formData.tags
     };
   }, [formData, categories, stages]);
@@ -199,15 +252,16 @@ const AdminFeatureFormPage = () => {
   return (
     <AdminLayout>
       {showPreview && (
-        <FeatureDetailModal 
-          feature={previewFeature} 
-          onClose={() => setShowPreview(false)} 
+        <FeatureDetailModal
+          feature={previewFeature}
+          isAdmin={true}
+          onClose={() => setShowPreview(false)}
         />
       )}
 
       {confirmDialog.isOpen && confirmDialog.type === 'unpublish' && (
-        <ConfirmDialog 
-          title="Unpublish Feature?" 
+        <ConfirmDialog
+          title="Unpublish Feature?"
           message="This will remove the feature from the public roadmap immediately. Are you sure you want to revert to a draft?"
           confirmText="Yes, Unpublish"
           onConfirm={() => executeSubmit(confirmDialog.payload)}
@@ -215,17 +269,17 @@ const AdminFeatureFormPage = () => {
         />
       )}
       {confirmDialog.isOpen && confirmDialog.type === 'delete' && (
-        <ConfirmDialog 
-          title="Delete Feature?" 
-          message="This action cannot be undone. All votes and data will be permanently deleted."
+        <ConfirmDialog
+          title="Delete Feature?"
+          message="This action cannot be undone. All data will be permanently deleted."
           confirmText="Delete Feature"
           onConfirm={executeDelete}
           onCancel={() => setConfirmDialog({ isOpen: false, type: null })}
         />
       )}
       {confirmDialog.isOpen && confirmDialog.type === 'discard' && (
-        <ConfirmDialog 
-          title="Discard Changes?" 
+        <ConfirmDialog
+          title="Discard Changes?"
           message="You have unsaved changes. Are you sure you want to discard them and return to the dashboard?"
           confirmText="Discard Changes"
           onConfirm={executeDiscard}
@@ -236,48 +290,31 @@ const AdminFeatureFormPage = () => {
       <div className={styles.content}>
         <header className={styles.header}>
           <div>
-            <div className={styles.breadcrumb}>ADMIN › {isEdit ? 'EDIT FEATURE' : 'NEW FEATURE'}</div>
             <h1 className={styles.h1}>
-              {formData.title || (isEdit ? 'Editing Feature' : 'Create New Feature')}
-              {isEdit && formData.is_published && (
-                <span className={styles.publishedBadgeBadge}>Published</span>
+              {isEdit && (formData.is_published || formData.is_reviewed) && (
+                <div className={styles.headerBadges}>
+                  {formData.is_published && (
+                    <span className={styles.publishedBadgeBadge}>Published</span>
+                  )}
+                  {formData.is_reviewed && (
+                    <VerifiedBadge size={23} className={styles.headerReviewedBadge} />
+                  )}
+                </div>
               )}
+              {formData.title || (isEdit ? 'Editing Feature' : 'Create New Feature')}
+
             </h1>
           </div>
-          
-          <div className={styles.headerActions}>
-            <button 
-              type="button" 
-              className={styles.previewBtn}
-              onClick={() => setShowPreview(true)}
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={styles.icon}>
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                <circle cx="12" cy="12" r="3"></circle>
-              </svg>
-              Live Preview
-            </button>
-            {isEdit && (
-              <button 
-                type="button" 
-                className={styles.previewBtn}
-                onClick={() => setShowHistory(true)}
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={styles.icon}>
-                  <path d="M12 8v4l3 3M3 12a9 9 0 1018 0 9 9 0 00-18 0z" />
-                </svg>
-                History
-              </button>
-            )}
-          </div>
-        </header>
 
+        </header>
         <form id="feature-form" onSubmit={(e) => e.preventDefault()} className={styles.form}>
+
+
           <div className={styles.field}>
             <label className={styles.label}>Feature Title</label>
-            <input 
-              type="text" 
-              value={formData.title} 
+            <input
+              type="text"
+              value={formData.title}
               onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
               className={styles.input}
               placeholder="e.g. Simplified Timetable View"
@@ -287,18 +324,28 @@ const AdminFeatureFormPage = () => {
 
           <div className={styles.field}>
             <label className={styles.label}>Description</label>
-            <RichTextEditor 
-              value={formData.description} 
+            <RichTextEditor
+              value={formData.description}
               onChange={(val) => setFormData(prev => ({ ...prev, description: val }))}
               placeholder="Describe the problem this feature solves and who it is for..."
+            />
+          </div>
+
+          <div className={styles.field}>
+            <label className={styles.label}>Internal Notes (Admin Only)</label>
+            <p className={styles.fieldHint}>These notes are only visible to administrators and will never appear on the public roadmap.</p>
+            <RichTextEditor
+              value={formData.internal_notes}
+              onChange={(val) => setFormData(prev => ({ ...prev, internal_notes: val }))}
+              placeholder="Add internal planning notes, strategic context, or discussion points..."
             />
           </div>
 
           <div className={styles.row}>
             <div className={styles.field}>
               <label className={styles.label}>Current Status</label>
-              <select 
-                value={formData.stage_id || formData.status} 
+              <select
+                value={formData.stage_id || formData.status}
                 onChange={(e) => setFormData(prev => ({ ...prev, stage_id: e.target.value }))}
                 className={styles.select}
               >
@@ -310,8 +357,8 @@ const AdminFeatureFormPage = () => {
 
             <div className={styles.field}>
               <label className={styles.label}>Application Category</label>
-              <select 
-                value={formData.category_id} 
+              <select
+                value={formData.category_id}
                 onChange={(e) => setFormData(prev => ({ ...prev, category_id: e.target.value }))}
                 className={styles.select}
               >
@@ -327,11 +374,11 @@ const AdminFeatureFormPage = () => {
             <div className={styles.field}>
               <label className={styles.label}>Impact ({formData.impact})</label>
               <div className={styles.sliderContainer}>
-                <input 
-                  type="range" 
-                  min="1" 
-                  max="10" 
-                  value={formData.impact} 
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={formData.impact}
                   onChange={(e) => setFormData(prev => ({ ...prev, impact: parseInt(e.target.value) }))}
                   className={styles.rangeInput}
                 />
@@ -345,11 +392,11 @@ const AdminFeatureFormPage = () => {
             <div className={styles.field}>
               <label className={styles.label}>Effort ({formData.effort})</label>
               <div className={styles.sliderContainer}>
-                <input 
-                  type="range" 
-                  min="1" 
-                  max="10" 
-                  value={formData.effort} 
+                <input
+                  type="range"
+                  min="1"
+                  max="10"
+                  value={formData.effort}
                   onChange={(e) => setFormData(prev => ({ ...prev, effort: parseInt(e.target.value) }))}
                   className={styles.rangeInput}
                 />
@@ -362,11 +409,10 @@ const AdminFeatureFormPage = () => {
           </div>
 
           <div className={styles.priorityPreviewRow}>
-            <div className={`${styles.gravityPreview} ${
-              calculatedScore >= 75 ? styles.gravityHigh :
+            <div className={`${styles.gravityPreview} ${calculatedScore >= 75 ? styles.gravityHigh :
               calculatedScore >= 50 ? styles.gravityMid :
-              styles.gravityLow
-            }`}>
+                styles.gravityLow
+              }`}>
               <div className={styles.gravityPreviewLabel}>Estimated Gravity Score</div>
               <div className={styles.gravityPreviewValue}>
                 <span className={styles.gravityIcon}>⚡</span>
@@ -374,9 +420,6 @@ const AdminFeatureFormPage = () => {
                 <span className={styles.gravityMax}>/ 100</span>
               </div>
             </div>
-            <p className={styles.gravityHelpText}>
-              This score is calculated based on impact (60%), strategic priority (25%), and effort (15%).
-            </p>
           </div>
 
           <div className={styles.categoryDivider}>Strategic Internal Data (Admin Only)</div>
@@ -384,8 +427,8 @@ const AdminFeatureFormPage = () => {
           <div className={styles.row}>
             <div className={styles.field}>
               <label className={styles.label}>Strategic Priority</label>
-              <select 
-                value={formData.priority} 
+              <select
+                value={formData.priority}
                 onChange={(e) => setFormData(prev => ({ ...prev, priority: e.target.value }))}
                 className={styles.select}
               >
@@ -426,33 +469,80 @@ const AdminFeatureFormPage = () => {
             />
           </div>
 
+          <div className={styles.field}>
+            <label className={styles.label}>Dependencies (Admin Only)</label>
+            <p className={styles.fieldHint}>Link to other features this depends on. Only visible to admins.</p>
+            <FeatureDependencyAutocomplete
+              selected={formData.dependencies}
+              onChange={(deps) => setFormData(prev => ({ ...prev, dependencies: deps }))}
+              excludeId={id}
+            />
+          </div>
+
           <div className={styles.fieldRow}>
-            <input 
-              type="checkbox" 
+            <input
+              type="checkbox"
               id="pinned"
-              checked={!!formData.pinned} 
+              checked={!!formData.pinned}
               onChange={(e) => setFormData(prev => ({ ...prev, pinned: e.target.checked }))}
               className={styles.checkbox}
             />
             <label htmlFor="pinned" className={styles.checkboxLabel}>Pin feature to top of public roadmap</label>
           </div>
 
-          <RevisionHistory 
+          <div className={styles.fieldRow}>
+            <input
+              type="checkbox"
+              id="reviewed"
+              checked={!!formData.is_reviewed}
+              onChange={(e) => setFormData(prev => ({ ...prev, is_reviewed: e.target.checked }))}
+              className={styles.checkbox}
+            />
+            <label htmlFor="reviewed" className={styles.checkboxLabel}>
+              <VerifiedBadge size={22} className={styles.reviewedIcon} />
+              Reviewed
+            </label>
+          </div>
+
+          <RevisionHistory
             isOpen={showHistory}
             onClose={() => setShowHistory(false)}
-            revisions={revisions} 
-            categories={categories} 
-            stages={stages} 
+            revisions={revisions}
+            categories={categories}
+            stages={stages}
           />
 
         </form>
+
+        {isEdit && (
+          <div className={styles.deleteSection}>
+            <button type="button" onClick={requestDelete} className={styles.deleteBtn}>Delete Feature</button>
+          </div>
+        )}
       </div>
 
       <div className={styles.stickyFooterArea}>
         <div className={styles.stickyFooterInner}>
           <div className={styles.leftActions}>
+            <button
+              type="button"
+              className={styles.iconBtn}
+              onClick={() => setShowPreview(true)}
+              title="Preview"
+              aria-label="Preview"
+            >
+              <Eye size={18} strokeWidth={2.5} />
+            </button>
             {isEdit && (
-              <button type="button" onClick={requestDelete} className={styles.deleteBtn}>Delete Feature</button>
+              <button
+                type="button"
+                className={styles.iconBtn}
+                onClick={() => setShowHistory(true)}
+                title="History"
+                aria-label="History"
+              >
+                <Clock size={18} strokeWidth={2.5} />
+              </button>
             )}
           </div>
           <div className={styles.formFooterActions}>

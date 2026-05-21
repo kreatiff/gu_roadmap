@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { X, Info } from 'lucide-react';
 import TagAutocomplete from '../TagAutocomplete/TagAutocomplete';
 import MultiSelectFilter from '../MultiSelectFilter/MultiSelectFilter';
 import styles from './DashboardFormModal.module.css';
@@ -175,10 +176,7 @@ const DashboardFormModal = ({ isOpen, onClose, onSubmit, dashboard = null, categ
     <div className={styles.overlay} onClick={handleClose} role="dialog" aria-modal="true" aria-labelledby="dashboard-modal-title">
       <div className={styles.modal} onClick={(e) => e.stopPropagation()} ref={modalRef}>
         <button className={styles.closeBtn} onClick={handleClose} aria-label="Close" disabled={submitting} type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={styles.closeIcon} aria-hidden="true">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
+          <X size={20} strokeWidth={2.5} className={styles.closeIcon} aria-hidden="true" />
         </button>
 
         <div className={styles.modalContent}>
@@ -260,11 +258,7 @@ const DashboardFormModal = ({ isOpen, onClose, onSubmit, dashboard = null, categ
             <legend className={styles.legend}>Access Control</legend>
             {isEditing && editingProtected && !passwordTouched && (
               <div className={styles.infoBanner} role="status">
-                <svg className={styles.infoIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="16" x2="12" y2="12"></line>
-                  <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                </svg>
+                <Info size={20} strokeWidth={2} className={styles.infoIcon} aria-hidden="true" />
                 <span>This dashboard is currently password protected. Type a new password below to replace it, or leave both fields empty to remove protection.</span>
               </div>
             )}

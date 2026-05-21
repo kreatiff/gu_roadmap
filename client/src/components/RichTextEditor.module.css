@@ -74,6 +74,14 @@
   min-height: 180px;
 }
 
+.editorContent :global(.ProseMirror h3) {
+  line-height: 2.8em;
+}
+
+.editorContent :global(.ProseMirror h4) {
+  line-height: 2.8em;
+}
+
 .editorContent :global(.ProseMirror p.is-editor-empty:first-child::before) {
   content: attr(data-placeholder);
   float: left;

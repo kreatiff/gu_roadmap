@@ -79,8 +79,11 @@ const StringAutocomplete = ({ value = '', onChange, suggestions = [], placeholde
           setShowDropdown(true);
           setHasNavigated(false);
         }}
-        onKeyDown={handleKeyDown}
-        onFocus={() => setShowDropdown(true)}
+          onKeyDown={handleKeyDown}
+          onFocus={() => setShowDropdown(true)}
+          onBlur={() => {
+            setTimeout(() => setShowDropdown(false), 150);
+          }}
         className={styles.input}
         placeholder={placeholder}
       />

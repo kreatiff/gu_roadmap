@@ -19,6 +19,7 @@ const RichTextViewer = ({ content, className = '' }) => {
             heading: {
               levels: [3, 4],
             },
+            link: false,
           }),
           Link.configure({
             HTMLAttributes: {

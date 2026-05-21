@@ -107,6 +107,7 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Write something...' })
         heading: {
           levels: [3, 4],
         },
+        link: false,
       }),
       Link.configure({
         openOnClick: false,

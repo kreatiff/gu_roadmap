@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
 import { getFeatureById } from '../api/features';
 import FeatureDetailView from './FeatureDetailView';
 import styles from './FeatureDetailModal.module.css';
 
-const FeatureDetailModal = ({ featureId, onClose, onUpdate, feature: featureProp }) => {
+const FeatureDetailModal = ({ featureId, onClose, feature: featureProp, isAdmin = false }) => {
   const [feature, setFeature] = useState(featureProp || null);
   const [loading, setLoading] = useState(!featureProp);
   const [error, setError] = useState(null);
@@ -44,10 +45,7 @@ const FeatureDetailModal = ({ featureId, onClose, onUpdate, feature: featureProp
 
   const closeButton = (
     <button className={styles.closeBtn} onClick={onClose} aria-label="Close">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={styles.closeIcon}>
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
-      </svg>
+      <X size={20} strokeWidth={2.5} className={styles.closeIcon} />
     </button>
   );
 
@@ -62,10 +60,10 @@ const FeatureDetailModal = ({ featureId, onClose, onUpdate, feature: featureProp
         ) : error ? (
           <div className={styles.error}>{error}</div>
         ) : feature ? (
-          <FeatureDetailView 
-            feature={feature} 
-            onUpdate={onUpdate} 
+          <FeatureDetailView
+            feature={feature}
             closeButton={closeButton}
+            isAdmin={isAdmin}
           />
         ) : null}
       </div>

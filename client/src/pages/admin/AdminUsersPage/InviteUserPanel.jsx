@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
 import { createUser, updateUser } from '../../../api/users';
 import styles from './AdminUsersPage.module.css';
 
@@ -87,10 +88,7 @@ const InviteUserPanel = ({ isOpen, mode, user, onClose, onSuccess, currentUser, 
         <div className={styles.modalHeader}>
           <h2>{mode === 'invite' ? 'Invite New User' : 'Edit User Details'}</h2>
           <button className={styles.closeBtn} onClick={onClose} aria-label="Close modal">
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2" fill="none">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
+            <X size={24} strokeWidth={2} />
           </button>
         </div>
 

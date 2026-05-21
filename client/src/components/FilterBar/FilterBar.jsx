@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Search, X, Filter } from 'lucide-react';
+import VerifiedBadge from '../VerifiedBadge';
 import FilterDropdown from '../FilterDropdown/FilterDropdown';
 import MultiSelectFilter from '../MultiSelectFilter/MultiSelectFilter';
 import styles from './FilterBar.module.css';
@@ -42,6 +43,10 @@ const FilterBar = ({
     });
   };
 
+  const handleReviewedChange = (value) => {
+    setFilter(prev => ({ ...prev, is_reviewed: value }));
+  };
+
   const removeFilterItem = (type, value) => {
     setFilter(prev => {
       if (type === 'status') {
@@ -53,6 +58,9 @@ const FilterBar = ({
       if (type === 'tag') {
         return { ...prev, tags: prev.tags.filter(t => t !== value) };
       }
+      if (type === 'is_reviewed') {
+        return { ...prev, is_reviewed: '' };
+      }
       return prev;
     });
   };
@@ -62,7 +70,8 @@ const FilterBar = ({
       status: [],
       category: [],
       search: '',
-      tags: []
+      tags: [],
+      is_reviewed: ''
     });
   };
 
@@ -98,7 +107,8 @@ const FilterBar = ({
   const hasActiveFilters = 
     filter.category.length > 0 || 
     filter.tags.length > 0 || 
-    filter.search !== '';
+    filter.search !== '' ||
+    filter.is_reviewed !== '';
 
   return (
     <div className={styles.container}>
@@ -124,6 +134,31 @@ const FilterBar = ({
             </button>
           );
         })}
+      </div>
+
+      <div className={styles.reviewedTabs}>
+        <button
+          className={`${styles.tabBtn} ${filter.is_reviewed === '' ? styles.reviewedTabActive : ''}`}
+          onClick={() => handleReviewedChange('')}
+          type="button"
+        >
+          All
+        </button>
+        <button
+          className={`${styles.tabBtn} ${filter.is_reviewed === 'true' ? styles.reviewedTabActive : ''}`}
+          onClick={() => handleReviewedChange('true')}
+          type="button"
+        >
+          <VerifiedBadge size={20} />
+          Reviewed
+        </button>
+        <button
+          className={`${styles.tabBtn} ${filter.is_reviewed === 'false' ? styles.reviewedTabActive : ''}`}
+          onClick={() => handleReviewedChange('false')}
+          type="button"
+        >
+          Not Reviewed
+        </button>
       </div>
 
       <div className={styles.filterBarRow}>
@@ -258,6 +293,20 @@ const FilterBar = ({
                 </button>
               </span>
             ))}
+
+            {/* Reviewed pill */}
+            {filter.is_reviewed !== '' && (
+              <span className={`${styles.pill} ${styles.pillVerified}`}>
+                {filter.is_reviewed === 'true' ? 'Reviewed' : 'Not Reviewed'}
+                <button 
+                  className={styles.pillRemoveBtn} 
+                  onClick={() => removeFilterItem('is_reviewed', '')}
+                  aria-label="Remove reviewed filter"
+                >
+                  <X size={12} />
+                </button>
+              </span>
+            )}
 
             {/* Clear All Button */}
             <button className={styles.clearAllBtn} onClick={clearAllFilters}>
