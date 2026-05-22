@@ -19,15 +19,46 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
       }
     };
+
     checkSession();
+
+    // Poll every 5 minutes to detect role/session changes server-side
+    const interval = setInterval(() => {
+      checkSession();
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  // 2. Login: Redirect to the backend auth endpoint
-  const login = () => {
+  // Listen for auth:logout events from api client on 401
+  useEffect(() => {
+    const handleLogout = () => {
+      setUser(null);
+    };
+    window.addEventListener('auth:logout', handleLogout);
+    return () => window.removeEventListener('auth:logout', handleLogout);
+  }, []);
+
+  // 2. Login: Local credentials authentication
+  const login = async (email, password) => {
+    try {
+      await api('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await api('/api/auth/me');
+      setUser(data);
+    } catch (err) {
+      throw new Error(err?.error ?? 'Login failed');
+    }
+  };
+
+  // 3. Navigate to Login (SSO Bypass redirect)
+  const navigateToLogin = () => {
     window.location.href = '/api/auth/login';
   };
 
-  // 3. Logout: Call backend and clear local state
+  // 4. Logout: Call backend and clear local state
   const logout = async () => {
     try {
       await api('/api/auth/logout', { method: 'POST' });
@@ -37,8 +68,11 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const isSuperAdmin = user?.role === 'super_admin';
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, isAuthenticated: !!user, isAdmin: user?.isAdmin }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, navigateToLogin, isAuthenticated: !!user, isAdmin, isSuperAdmin }}>
       {children}
     </AuthContext.Provider>
   );

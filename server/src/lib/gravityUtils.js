@@ -11,7 +11,7 @@ export { calculateGravityScore };
  *
  * Callers must await this function.
  */
-export async function recalculateAllGravityScores() {
+export async function recalculateAllGravityScores(logger = console) {
   try {
     // 1. Fetch all features (only the fields needed for scoring + id for the update)
     const { resources: features } = await featuresContainer.items
@@ -22,8 +22,6 @@ export async function recalculateAllGravityScores() {
       .fetchAll();
 
     if (features.length === 0) return;
-
-    const now = new Date().toISOString();
 
     // 2. Build update promises — point-read then patch each feature
     //    Chunk into batches of 50 to limit concurrent RU consumption.
@@ -37,12 +35,11 @@ export async function recalculateAllGravityScores() {
             .item(feature.id, feature.id)
             .patch([
               { op: 'set', path: '/gravity_score', value: score },
-              { op: 'set', path: '/updated_at', value: now },
             ]);
         })
       );
     }
   } catch (error) {
-    console.error('Error recalculating gravity scores:', error);
+    logger.error('Error recalculating gravity scores:', error);
   }
 }

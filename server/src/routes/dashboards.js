@@ -3,6 +3,10 @@ import { requireAdmin } from '../auth.js';
 import { v4 as uuidv4 } from 'uuid';
 import slugify from 'slugify';
 import bcrypt from 'bcryptjs';
+import { BCRYPT_ROUNDS } from '../constants.js';
+
+// Pre-compute dummy hash for timing-safe dashboard verification
+const DUMMY_HASH = bcrypt.hashSync('__dummy__', BCRYPT_ROUNDS);
 
 export default async function dashboardRoutes(fastify, options) {
 
@@ -65,13 +69,17 @@ export default async function dashboardRoutes(fastify, options) {
   // Returns { ok: true, token } on success; client stores token in sessionStorage.
   fastify.post('/:slug/unlock', async (request, reply) => {
     const doc = await findBySlug(request.params.slug);
-    if (!doc) return reply.code(404).send({ error: 'Dashboard not found' });
-    if (!doc.is_protected) return { ok: true }; // unprotected — always ok
 
     const { password } = request.body ?? {};
     if (!password) return reply.code(400).send({ error: 'password required' });
 
-    const match = await bcrypt.compare(password, doc.password_hash);
+    // Always perform bcrypt.compare to prevent timing attacks that reveal
+    // whether a dashboard exists or is password-protected.
+    const candidateHash = doc?.password_hash ?? DUMMY_HASH;
+    const match = await bcrypt.compare(password, candidateHash);
+
+    if (!doc) return reply.code(404).send({ error: 'Dashboard not found' });
+    if (!doc.is_protected) return { ok: true }; // unprotected — always ok
     if (!match) return reply.code(403).send({ error: 'Incorrect password' });
 
     // Issue a short-lived signed token the client stores in sessionStorage
@@ -167,7 +175,7 @@ export default async function dashboardRoutes(fastify, options) {
 
     const is_protected = typeof password === 'string' && password.length > 0;
     const password_hash = is_protected
-      ? await bcrypt.hash(password, 10)
+      ? await bcrypt.hash(password, BCRYPT_ROUNDS)
       : null;
 
     const doc = {
@@ -233,7 +241,7 @@ export default async function dashboardRoutes(fastify, options) {
       const hasPassword = typeof password === 'string' && password.length > 0;
       if (hasPassword) {
         updated.is_protected = true;
-        updated.password_hash = await bcrypt.hash(password, 10);
+        updated.password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
       } else {
         updated.is_protected = false;
         updated.password_hash = null;

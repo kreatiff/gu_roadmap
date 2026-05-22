@@ -29,7 +29,6 @@
   font-weight: 800;
   margin-bottom: var(--space-2);
   color: var(--text-primary);
-  letter-spacing: -0.05em;
 }
 
 .login-brand h1 span {

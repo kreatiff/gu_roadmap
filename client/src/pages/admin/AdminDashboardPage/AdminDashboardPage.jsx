@@ -1,7 +1,9 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { Plus, Search } from 'lucide-react';
 import AdminLayout from '../../../components/AdminLayout';
-import { getFeatures, updateFeature } from '../../../api/features';
+import VerifiedBadge from '../../../components/VerifiedBadge';
+import { getFeatures, updateFeature, updateStageSortOrders } from '../../../api/features';
 import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
@@ -14,29 +16,56 @@ const AdminDashboardPage = () => {
   const { addToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const readPrefs = () => {
+    try {
+      return JSON.parse(localStorage.getItem('adminDashboardPrefs') || '{}');
+    } catch {
+      return {};
+    }
+  };
+
+  const writePrefs = (prefs) => {
+    localStorage.setItem('adminDashboardPrefs', JSON.stringify(prefs));
+  };
+
+  const savedPrefs = readPrefs();
+
   const [features, setFeatures] = useState([]);
   const [categories, setCategories] = useState([]);
   const [stages, setStages] = useState([]);
   const [viewMode, setViewMode] = useState(() => {
-    return localStorage.getItem('adminViewMode') || 'board';
+    return savedPrefs.viewMode || localStorage.getItem('adminViewMode') || 'board';
   });
   const [loading, setLoading] = useState(true);
 
-  // Filter state — initialised from URL params
-  const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || '');
-  const [selectedCategoryId, setSelectedCategoryId] = useState(searchParams.get('category') || '');
-  const [selectedStatusId, setSelectedStatusId] = useState(searchParams.get('status') || '');
-  const [selectedPriority, setSelectedPriority] = useState(searchParams.get('priority') || '');
-  const [showAllStages, setShowAllStages] = useState(false);
-  const [sortBy, setSortBy] = useState(searchParams.get('sort') || 'default');
-  const [groupBy, setGroupBy] = useState(searchParams.get('group') || 'category');
+  // Filter state — initialised from URL params first, then localStorage pref fallback
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || savedPrefs.searchTerm || '');
+  const [selectedCategoryId, setSelectedCategoryId] = useState(searchParams.get('category') || savedPrefs.selectedCategoryId || '');
+  const [selectedStatusId, setSelectedStatusId] = useState(searchParams.get('status') || savedPrefs.selectedStatusId || '');
+  const [selectedPriority, setSelectedPriority] = useState(searchParams.get('priority') || savedPrefs.selectedPriority || '');
+  const [selectedReviewed, setSelectedReviewed] = useState(searchParams.get('reviewed') || savedPrefs.selectedReviewed || '');
+  const [showAllStages, setShowAllStages] = useState(() => {
+    return savedPrefs.showAllStages !== undefined ? savedPrefs.showAllStages : false;
+  });
+  const [sortBy, setSortBy] = useState(searchParams.get('sort') || savedPrefs.sortBy || 'order');
+  const [groupBy, setGroupBy] = useState(searchParams.get('group') || savedPrefs.groupBy || 'category');
 
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
 
-  // Save view selection to localStorage
+  // Persist all preferences to localStorage
   useEffect(() => {
-    localStorage.setItem('adminViewMode', viewMode);
-  }, [viewMode]);
+    writePrefs({
+      viewMode,
+      searchTerm,
+      selectedCategoryId,
+      selectedStatusId,
+      selectedPriority,
+      selectedReviewed,
+      showAllStages,
+      sortBy,
+      groupBy,
+    });
+  }, [viewMode, searchTerm, selectedCategoryId, selectedStatusId, selectedPriority, selectedReviewed, showAllStages, sortBy, groupBy]);
 
   // Sync filter state → URL params (replace so we don't pollute back-stack)
   useEffect(() => {
@@ -45,10 +74,11 @@ const AdminDashboardPage = () => {
     if (selectedCategoryId) params.category = selectedCategoryId;
     if (selectedStatusId) params.status = selectedStatusId;
     if (selectedPriority) params.priority = selectedPriority;
+    if (selectedReviewed) params.reviewed = selectedReviewed;
     if (sortBy !== 'default') params.sort = sortBy;
     if (groupBy !== 'category') params.group = groupBy;
     setSearchParams(params, { replace: true });
-  }, [debouncedSearchTerm, selectedCategoryId, selectedStatusId, selectedPriority, sortBy, groupBy]);
+  }, [debouncedSearchTerm, selectedCategoryId, selectedStatusId, selectedPriority, selectedReviewed, sortBy, groupBy]);
 
   const fetchFeatures = async () => {
     try {
@@ -85,23 +115,28 @@ const AdminDashboardPage = () => {
 
       const matchesPriority = !selectedPriority || f.priority === selectedPriority;
 
-      return matchesSearch && matchesCategory && matchesStatus && matchesPriority;
+      const matchesReviewed = !selectedReviewed || (selectedReviewed === 'true' ? !!f.is_reviewed : !f.is_reviewed);
+
+      return matchesSearch && matchesCategory && matchesStatus && matchesPriority && matchesReviewed;
     });
 
     // Apply sorting
     result.sort((a, b) => {
       if (sortBy === 'newest') return new Date(b.created_at) - new Date(a.created_at);
       if (sortBy === 'updated') return new Date(b.updated_at) - new Date(a.updated_at);
-      if (sortBy === 'votes') return b.vote_count - a.vote_count;
       if (sortBy === 'gravity') return b.gravity_score - a.gravity_score;
-      // Default: pinned first, then vote count, then creation date
+      if (sortBy === 'order') {
+        const aOrder = a.stage_sort_order ?? 0;
+        const bOrder = b.stage_sort_order ?? 0;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+      }
+      // Default: pinned first, then creation date
       if (a.pinned !== b.pinned) return b.pinned - a.pinned;
-      if (a.vote_count !== b.vote_count) return b.vote_count - a.vote_count;
       return new Date(b.created_at) - new Date(a.created_at);
     });
 
     return result;
-  }, [features, debouncedSearchTerm, selectedCategoryId, selectedStatusId, selectedPriority, sortBy]);
+  }, [features, debouncedSearchTerm, selectedCategoryId, selectedStatusId, selectedPriority, selectedReviewed, sortBy]);
 
   // Active filter chips — one chip per active non-default filter
   const activeFilters = useMemo(() => {
@@ -134,14 +169,20 @@ const AdminDashboardPage = () => {
       label: `Priority: ${selectedPriority}`,
       onRemove: () => setSelectedPriority('')
     });
+    if (selectedReviewed) chips.push({
+      key: 'reviewed',
+      label: selectedReviewed === 'true' ? 'Reviewed' : 'Not Reviewed',
+      onRemove: () => setSelectedReviewed('')
+    });
     return chips;
-  }, [debouncedSearchTerm, selectedCategoryId, selectedStatusId, selectedPriority, categories, stages]);
+  }, [debouncedSearchTerm, selectedCategoryId, selectedStatusId, selectedPriority, selectedReviewed, categories, stages]);
 
   const clearAllFilters = () => {
     setSearchTerm('');
     setSelectedCategoryId('');
     setSelectedStatusId('');
     setSelectedPriority('');
+    setSelectedReviewed('');
   };
 
   const columnsData = useMemo(() => {
@@ -180,6 +221,23 @@ const AdminDashboardPage = () => {
     }
   };
 
+  const handleFeatureReorder = useCallback((reorderedItems) => {
+    if (!reorderedItems) {
+      fetchFeatures();
+      return;
+    }
+    setFeatures(prev => {
+      const newFeatures = [...prev];
+      reorderedItems.forEach(({ id, stage_sort_order }) => {
+        const idx = newFeatures.findIndex(f => f.id.toString() === id.toString());
+        if (idx !== -1) {
+          newFeatures[idx] = { ...newFeatures[idx], stage_sort_order };
+        }
+      });
+      return newFeatures;
+    });
+  }, []);
+
   const onDragEnd = async (result) => {
     const { destination, source, draggableId } = result;
 
@@ -191,26 +249,86 @@ const AdminDashboardPage = () => {
     if (sourceIdx === -1) return;
 
     const oldFeature = features[sourceIdx];
-    const newStageId = destination.droppableId;
-    const destStage = stages.find(s => s.id === newStageId);
+    const isCrossColumn = destination.droppableId !== source.droppableId;
 
-    const newFeatures = [...features];
-    newFeatures[sourceIdx] = {
-      ...oldFeature,
-      stage_id: newStageId,
-      stage_name: destStage?.name || oldFeature.stage_name,
-      stage_color: destStage?.color || oldFeature.stage_color,
-      stage_slug: destStage?.slug || oldFeature.stage_slug,
-      status: destStage?.slug || oldFeature.status
-    };
-    setFeatures(newFeatures);
+    if (isCrossColumn) {
+      // Cross-column: move feature to new stage + insert at destination index
+      const newStageId = destination.droppableId;
+      const destStage = stages.find(s => s.id === newStageId);
 
-    try {
-      await updateFeature(draggableIdStr, { stage_id: newStageId, status: destStage?.slug });
-      addToast(`Moved to ${destStage?.name || 'new stage'}`, 'success');
-    } catch {
-      addToast('Failed to move feature', 'error');
-      fetchFeatures();
+      // Compute new stage_sort_order for insertion at destination.index in the new column
+      const destColFeatures = (columnsData[newStageId] || [])
+        .filter(f => f.id.toString() !== draggableIdStr)
+        .sort((a, b) => (a.stage_sort_order ?? 0) - (b.stage_sort_order ?? 0));
+
+      let newSortOrder;
+      if (destColFeatures.length === 0) {
+        newSortOrder = 1000;
+      } else if (destination.index === 0) {
+        newSortOrder = (destColFeatures[0].stage_sort_order ?? 0) - 1000;
+      } else if (destination.index >= destColFeatures.length) {
+        newSortOrder = (destColFeatures[destColFeatures.length - 1].stage_sort_order ?? 0) + 1000;
+      } else {
+        const prevOrder = destColFeatures[destination.index - 1].stage_sort_order ?? 0;
+        const nextOrder = destColFeatures[destination.index].stage_sort_order ?? 0;
+        newSortOrder = Math.round((prevOrder + nextOrder) / 2);
+      }
+
+      const newFeatures = [...features];
+      newFeatures[sourceIdx] = {
+        ...oldFeature,
+        stage_id: newStageId,
+        stage_name: destStage?.name || oldFeature.stage_name,
+        stage_color: destStage?.color || oldFeature.stage_color,
+        stage_slug: destStage?.slug || oldFeature.stage_slug,
+        status: destStage?.slug || oldFeature.status,
+        stage_sort_order: newSortOrder,
+      };
+      setFeatures(newFeatures);
+
+      try {
+        await updateFeature(draggableIdStr, {
+          stage_id: newStageId,
+          status: destStage?.slug,
+          stage_sort_order: newSortOrder,
+        });
+        addToast(`Moved to ${destStage?.name || 'new stage'}`, 'success');
+      } catch {
+        addToast('Failed to move feature', 'error');
+        fetchFeatures();
+      }
+    } else {
+      // Within-column: reorder — update stage_sort_order for all features in the column
+      const stageId = destination.droppableId;
+      const colFeatures = [...(columnsData[stageId] || [])];
+
+      // Remove the dragged item from its original position
+      const [dragged] = colFeatures.splice(source.index, 1);
+      // Insert at destination index
+      colFeatures.splice(destination.index, 0, dragged);
+
+      // Assign gap-based sort orders: 1000, 2000, 3000, ...
+      const reordered = colFeatures.map((f, i) => ({
+        id: f.id,
+        stage_sort_order: (i + 1) * 1000,
+      }));
+
+      // Optimistically update local state
+      const newFeatures = [...features];
+      reordered.forEach(({ id, stage_sort_order }) => {
+        const idx = newFeatures.findIndex(f => f.id.toString() === id.toString());
+        if (idx !== -1) {
+          newFeatures[idx] = { ...newFeatures[idx], stage_sort_order };
+        }
+      });
+      setFeatures(newFeatures);
+
+      try {
+        await updateStageSortOrders(reordered);
+      } catch {
+        addToast('Failed to reorder features', 'error');
+        fetchFeatures();
+      }
     }
   };
 
@@ -230,14 +348,11 @@ const AdminDashboardPage = () => {
       <div className={styles.content}>
         <header className={styles.header}>
           <div>
-            <div className={styles.breadcrumb}>PROJECT › INDIGO ETHER</div>
             <h1 className={styles.h1}>Roadmap Editor</h1>
           </div>
           <div className={styles.headerActions}>
             <Link to="/admin/features/new" className={styles.newFeatureBtn}>
-              <svg className={styles.btnIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
+              <Plus size={16} strokeWidth={2} className={styles.btnIcon} />
               New Feature
             </Link>
           </div>
@@ -247,9 +362,7 @@ const AdminDashboardPage = () => {
         <div className={styles.filterSection}>
         <div className={styles.filterBar}>
           <div className={styles.searchWrapper}>
-            <svg className={styles.searchIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-            </svg>
+            <Search size={16} strokeWidth={2} className={styles.searchIcon} />
             <input
               type="text"
               placeholder="Search by title, owner, or #tags..."
@@ -334,6 +447,17 @@ const AdminDashboardPage = () => {
               <option value="Low">Low</option>
             </select>
 
+            <select
+              className={styles.select}
+              value={selectedReviewed}
+              onChange={(e) => setSelectedReviewed(e.target.value)}
+              title="Filter by review status"
+            >
+              <option value="">All Review Status</option>
+              <option value="true">Reviewed</option>
+              <option value="false">Not Reviewed</option>
+            </select>
+
             {/* Sort — board view only (table uses column headers) */}
             {viewMode === 'board' && (
               <select
@@ -342,10 +466,10 @@ const AdminDashboardPage = () => {
                 onChange={(e) => setSortBy(e.target.value)}
                 title="Sort order"
               >
+                <option value="order">Manual Order</option>
                 <option value="default">Default Order</option>
                 <option value="updated">Recently Modified</option>
                 <option value="newest">Newest First</option>
-                <option value="votes">Most Votes</option>
                 <option value="gravity">Highest Gravity</option>
               </select>
             )}
@@ -410,6 +534,7 @@ const AdminDashboardPage = () => {
               stages={stages}
               onUpdateFeatureField={onUpdateFeatureField}
               groupBy={groupBy}
+              onReorder={handleFeatureReorder}
             />
           ) : (
             <DragDropContext onDragEnd={onDragEnd}>
@@ -467,6 +592,7 @@ const AdminDashboardPage = () => {
                                       <div className={styles.cardHeader}>
                                         <span className={styles.cardTag}>{feat.category_name || 'GENERAL'}</span>
                                         <div className={styles.cardHeaderRight}>
+                                          {feat.is_reviewed && <VerifiedBadge size={22} className={styles.reviewedBadge} />}
                                           {!feat.is_published && <span className={styles.draftBadgeBadge}>DRAFT</span>}
                                           <span className={`${styles.priorityBadge} ${priorityClasses[feat.priority] || ''}`}>
                                             {feat.priority}
@@ -480,22 +606,16 @@ const AdminDashboardPage = () => {
                                            <div className={styles.cardUpdatedDate}>
                                              Updated {new Date(feat.updated_at).toLocaleDateString('en-AU', { month: 'short', day: 'numeric', year: 'numeric' })}
                                            </div>
-                                           <div className={styles.cardMetrics}>
-                                             <div className={styles.voteBadge}>
-                                                <svg className={styles.voteIcon} viewBox="0 0 24 24" fill="currentColor">
-                                                   <path d="M12 5l-8 8h16l-8-8z" />
-                                                </svg>
-                                                {feat.vote_count} votes
-                                             </div>
-                                             <div className={`${styles.gravityBadge} ${
-                                               (feat.gravity_score || 0) >= 75 ? styles.gravityHigh :
-                                               (feat.gravity_score || 0) >= 50 ? styles.gravityMid :
-                                               styles.gravityLow
-                                             }`}>
-                                               <span className={styles.gravityIcon}>⚡</span>
-                                               {feat.gravity_score || 0}
-                                             </div>
-                                           </div>
+                                            <div className={styles.cardMetrics}>
+                                              <div className={`${styles.gravityBadge} ${
+                                                (feat.gravity_score || 0) >= 75 ? styles.gravityHigh :
+                                                (feat.gravity_score || 0) >= 50 ? styles.gravityMid :
+                                                styles.gravityLow
+                                              }`}>
+                                                <span className={styles.gravityIcon}>⚡</span>
+                                                {feat.gravity_score || 0}
+                                              </div>
+                                            </div>
                                         </div>
                                     </div>
                                   </div>

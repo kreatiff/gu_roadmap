@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Search } from 'lucide-react';
 import AdminLayout from '../../../components/AdminLayout';
 import PriorityMatrix from '../../../components/PriorityMatrix';
 import FeatureSidebarCard from '../../../components/FeatureSidebarCard';
@@ -7,6 +8,7 @@ import { getFeatures, updateFeature } from '../../../api/features';
 import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { calculateGravityScore } from '@shared/lib/gravityScore.js';
+import RichTextViewer from '../../../components/RichTextViewer';
 import styles from './AdminMatrixPage.module.css';
 
 const AdminMatrixPage = () => {
@@ -89,15 +91,12 @@ const AdminMatrixPage = () => {
         <div className={styles.mainContent}>
           <header className={styles.header}>
             <div>
-              <div className={styles.breadcrumb}>PROJECT › STRATEGY</div>
               <h1 className={styles.h1}>Impact vs Effort</h1>
             </div>
             
             <div className={styles.headerActions}>
               <div className={styles.searchWrapper}>
-                 <svg className={styles.searchIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                   <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-                 </svg>
+                 <Search size={16} strokeWidth={2} className={styles.searchIcon} />
                   <input 
                     type="text" 
                     placeholder="Find an idea..." 
@@ -183,9 +182,11 @@ const AdminMatrixPage = () => {
 
                 <div className={styles.detailSection}>
                   <h4 className={styles.sectionTitle}>Description</h4>
-                  <p className={styles.sectionText}>
-                    {selectedFeature.description || 'No description provided.'}
-                  </p>
+                  {selectedFeature.description ? (
+                    <RichTextViewer content={selectedFeature.description} className={styles.richTextViewer} />
+                  ) : (
+                    <p className={styles.sectionText}>No description provided.</p>
+                  )}
                 </div>
 
                 {selectedFeature.tags && selectedFeature.tags.length > 0 && (

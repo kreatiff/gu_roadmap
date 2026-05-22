@@ -41,3 +41,10 @@ export const deleteFeature = (id) => {
 export const getFeatureRevisions = (id) => {
   return api(`/api/features/${id}/revisions`);
 };
+
+export const updateStageSortOrders = (items) => {
+  return api('/api/features/reorder', {
+    method: 'PATCH',
+    body: JSON.stringify({ items }),
+  });
+};
