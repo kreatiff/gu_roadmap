@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
-import PasswordGate from './components/PasswordGate';
 
 import RoadmapPage from './pages/RoadmapPage/RoadmapPage';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage/AdminDashboardPage';
@@ -54,85 +53,78 @@ const AppRouter = () => {
         {/* ── Public dashboard routes — NO login required, NO password gate ── */}
         <Route path="/d/:slug" element={<PublicDashboardPage />} />
 
-        {/* ── All other routes are behind the site-wide PasswordGate ── */}
-        <Route path="*" element={
-          <PasswordGate>
-            <Routes>
-              {!isAuthenticated ? (
-                // Unauthenticated: show login splash for all non-dashboard routes
-                <Route path="*" element={<LoginSplashPage />} />
-              ) : (
-                <>
-                  <Route path="/" element={<RoadmapPage />} />
+        {/* ── All other routes require authentication ── */}
+        {!isAuthenticated ? (
+          <Route path="*" element={<LoginSplashPage />} />
+        ) : (
+          <>
+            <Route path="/" element={<RoadmapPage />} />
 
-                  {/* Admin Routes */}
-                  <Route path="/admin" element={
-                    <ProtectedRoute adminOnly>
-                      <AdminDashboardPage />
-                    </ProtectedRoute>
-                  } />
+            {/* Admin Routes */}
+            <Route path="/admin" element={
+              <ProtectedRoute adminOnly>
+                <AdminDashboardPage />
+              </ProtectedRoute>
+            } />
 
-                  <Route path="/admin/users" element={
-                    <ProtectedRoute superAdminOnly>
-                      <AdminUsersPage />
-                    </ProtectedRoute>
-                  } />
+            <Route path="/admin/users" element={
+              <ProtectedRoute superAdminOnly>
+                <AdminUsersPage />
+              </ProtectedRoute>
+            } />
 
-                  <Route path="/admin/matrix" element={
-                    <ProtectedRoute adminOnly>
-                      <AdminMatrixPage />
-                    </ProtectedRoute>
-                  } />
+            <Route path="/admin/matrix" element={
+              <ProtectedRoute adminOnly>
+                <AdminMatrixPage />
+              </ProtectedRoute>
+            } />
 
-                  <Route path="/admin/features/new" element={
-                    <ProtectedRoute adminOnly>
-                      <AdminFeatureFormPage />
-                    </ProtectedRoute>
-                  } />
+            <Route path="/admin/features/new" element={
+              <ProtectedRoute adminOnly>
+                <AdminFeatureFormPage />
+              </ProtectedRoute>
+            } />
 
-                  <Route path="/admin/features/:id/edit" element={
-                    <ProtectedRoute adminOnly>
-                      <AdminFeatureFormPage />
-                    </ProtectedRoute>
-                  } />
+            <Route path="/admin/features/:id/edit" element={
+              <ProtectedRoute adminOnly>
+                <AdminFeatureFormPage />
+              </ProtectedRoute>
+            } />
 
-                  <Route path="/admin/categories" element={
-                    <ProtectedRoute adminOnly>
-                      <AdminCategoriesPage />
-                    </ProtectedRoute>
-                  } />
+            <Route path="/admin/categories" element={
+              <ProtectedRoute adminOnly>
+                <AdminCategoriesPage />
+              </ProtectedRoute>
+            } />
 
-                  <Route path="/admin/stages" element={
-                    <ProtectedRoute adminOnly>
-                      <AdminStagesPage />
-                    </ProtectedRoute>
-                  } />
+            <Route path="/admin/stages" element={
+              <ProtectedRoute adminOnly>
+                <AdminStagesPage />
+              </ProtectedRoute>
+            } />
 
-                  <Route path="/admin/dashboards" element={
-                    <ProtectedRoute adminOnly>
-                      <AdminDashboardsPage />
-                    </ProtectedRoute>
-                  } />
+            <Route path="/admin/dashboards" element={
+              <ProtectedRoute adminOnly>
+                <AdminDashboardsPage />
+              </ProtectedRoute>
+            } />
 
-                  <Route path="/admin/metadata" element={
-                    <ProtectedRoute adminOnly>
-                      <AdminMetadataPage />
-                    </ProtectedRoute>
-                  } />
+            <Route path="/admin/metadata" element={
+              <ProtectedRoute adminOnly>
+                <AdminMetadataPage />
+              </ProtectedRoute>
+            } />
 
-                  <Route path="/admin/data" element={
-                    <ProtectedRoute superAdminOnly>
-                      <AdminDataManagementPage />
-                    </ProtectedRoute>
-                  } />
+            <Route path="/admin/data" element={
+              <ProtectedRoute superAdminOnly>
+                <AdminDataManagementPage />
+              </ProtectedRoute>
+            } />
 
-                  {/* 404 */}
-                  <Route path="*" element={<NotFound />} />
-                </>
-              )}
-            </Routes>
-          </PasswordGate>
-        } />
+            {/* 404 */}
+            <Route path="*" element={<NotFound />} />
+          </>
+        )}
       </Routes>
     </BrowserRouter>
   );

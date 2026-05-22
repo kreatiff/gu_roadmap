@@ -111,6 +111,7 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Write something...' })
       }),
       Link.configure({
         openOnClick: false,
+        validate: (href) => /^https?:\/\//i.test(href),
         HTMLAttributes: {
           class: styles.editorLink,
         },
@@ -134,6 +135,7 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Write something...' })
 
   const handleSaveLink = useCallback((url) => {
     if (!editor) return;
+    if (url && !/^https?:\/\//i.test(url)) return;
     setIsLinkModalOpen(false);
     
     if (url === '') {

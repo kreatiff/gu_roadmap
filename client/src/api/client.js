@@ -4,10 +4,12 @@
  * Also attaches the dashboard unlock token when viewing a public dashboard.
  */
 
+import { getDashboardToken as getTokenFromMap } from '../utils/dashboardTokens';
+
 function getDashboardToken() {
   const match = window.location.pathname.match(/^\/d\/([^/]+)/);
   if (match) {
-    return sessionStorage.getItem(`dashboard_token_${match[1]}`);
+    return getTokenFromMap(match[1]);
   }
   return null;
 }
@@ -51,7 +53,8 @@ const api = async (path, options = {}) => {
       path !== '/api/auth/login' &&
       !isPublicDashboardPath
     ) {
-      window.location.reload();
+      window.dispatchEvent(new CustomEvent('auth:logout', { detail: { reason: 'unauthorized' } }));
+      window.location.replace('/');
       return;
     }
     const error = await response.json().catch(() => ({ error: 'An unknown error occurred' }));

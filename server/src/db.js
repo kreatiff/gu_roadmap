@@ -27,12 +27,13 @@ export const votesContainer = database.container("votes");
 export const revisionsContainer = database.container("feature_revisions");
 export const dashboardsContainer = database.container("dashboards");
 export const usersContainer = database.container("users");
+export const auditLogContainer = database.container("audit_log");
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 // Creates the database and all containers if they don't already exist.
 // Call `await initDb()` once during server startup (index.js) before routes run.
 
-export async function initDb() {
+export async function initDb(logger = console) {
   const { database: db } = await client.databases.createIfNotExists({
     id: config.cosmos.databaseId,
     throughput: 900,
@@ -90,9 +91,15 @@ export async function initDb() {
         ],
       },
     }),
+
+    // Audit logs: partition by action for query efficiency
+    db.containers.createIfNotExists({
+      id: "audit_log",
+      partitionKey: { paths: ["/action"] },
+    }),
   ]);
 
-  console.log(
+  logger.info(
     `✅ Cosmos DB "${config.cosmos.databaseId}" ready — all containers initialised.`
   );
 }

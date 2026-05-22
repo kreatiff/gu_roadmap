@@ -1,19 +1,33 @@
 import { featuresContainer, categoriesContainer, stagesContainer, revisionsContainer, votesContainer } from '../db.js';
 import { v4 as uuidv4 } from 'uuid';
 import slugify from 'slugify';
-import { requireAdmin, optionalAuthenticate, authenticate } from '../auth.js';
+import { requireAdmin, requireSuperAdmin, optionalAuthenticate, authenticate } from '../auth.js';
 import { recalculateAllGravityScores } from '../lib/gravityUtils.js';
 
 export default async function featureRoutes(fastify, options) {
+
+  async function validateDependencyIds(dependencyIds) {
+    if (!dependencyIds || dependencyIds.length === 0) return { valid: true };
+    const invalid = [];
+    for (const id of dependencyIds) {
+      try {
+        await featuresContainer.item(id, id).read();
+      } catch (err) {
+        if (err.statusCode === 404) invalid.push(id);
+        else throw err;
+      }
+    }
+    return { valid: invalid.length === 0, invalid };
+  }
 
   // ── 1. GET / — List & filter features ────────────────────────────────────────
   fastify.get('/', { preHandler: [optionalAuthenticate] }, async (request, reply) => {
     const { status, category, search, tags, is_reviewed, page = 1, limit = 12 } = request.query;
     const userId = request.user?.sub ?? null;
-    const isAdmin = request.user?.isAdmin ?? false;
+    const isAdmin = ['admin', 'super_admin'].includes(request.user?.role);
 
     const pageNum = Math.max(1, parseInt(page, 10) || 1);
-    const limitNum = Math.max(1, parseInt(limit, 10) || 12);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 12));
     const offsetNum = (pageNum - 1) * limitNum;
 
     // Build parameterized Cosmos SQL query.
@@ -77,8 +91,7 @@ export default async function featureRoutes(fastify, options) {
       }
     }
 
-    // requiredTags are applied with AND logic — used by dashboards to enforce
-    // mandatory tag scope so user sub-filters cannot expand the result set.
+    // requiredTags are applied with OR logic — any required tag must match
     const { requiredTags } = request.query;
     if (requiredTags) {
       const reqTagList = requiredTags.split(',').map(t => t.trim()).filter(Boolean);
@@ -157,7 +170,7 @@ export default async function featureRoutes(fastify, options) {
   fastify.get('/:id', { preHandler: [optionalAuthenticate] }, async (request, reply) => {
     const { id } = request.params;
     const userId = request.user?.sub ?? null;
-    const isAdmin = request.user?.isAdmin ?? false;
+    const isAdmin = ['admin', 'super_admin'].includes(request.user?.role);
 
     let feature;
     try {
@@ -208,13 +221,45 @@ export default async function featureRoutes(fastify, options) {
   });
 
   // ── 2. POST / — Admin: Create feature ────────────────────────────────────────
-  fastify.post('/', { preHandler: [requireAdmin] }, async (request, reply) => {
+  fastify.post('/', {
+    preHandler: [requireAdmin],
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', maxLength: 500 },
+          description: { type: 'string', maxLength: 100000 },
+          internal_notes: { type: 'string', maxLength: 100000 },
+          impact: { type: 'integer', minimum: 1, maximum: 10 },
+          effort: { type: 'integer', minimum: 1, maximum: 10 },
+          priority: { type: 'string', enum: ['Low', 'Medium', 'High', 'Critical'] },
+          tags: { type: 'array', maxItems: 20, items: { type: 'string', maxLength: 50 } },
+          owner: { type: 'string', maxLength: 200 },
+          key_stakeholder: { type: 'string', maxLength: 200 },
+          stage_id: { type: 'string', maxLength: 100 },
+          category_id: { type: 'string', maxLength: 100 },
+          status: { type: 'string', maxLength: 100 },
+          is_published: { type: 'boolean' },
+          is_reviewed: { type: 'boolean' },
+          dependencies: { type: 'array', items: { type: 'string', maxLength: 100 } },
+          pinned: { type: 'boolean' },
+        },
+        required: ['title'],
+      },
+    },
+  }, async (request, reply) => {
     const {
       title, description, internal_notes, category_id, status, stage_id,
       impact, effort, owner, key_stakeholder, priority, is_published, tags, dependencies,
     } = request.body;
 
     if (!title) return reply.code(400).send({ error: 'Title is required' });
+
+    const depIds = Array.isArray(dependencies) ? dependencies : [];
+    const depCheck = await validateDependencyIds(depIds);
+    if (!depCheck.valid) {
+      return reply.code(400).send({ error: 'Invalid dependency IDs', invalid: depCheck.invalid });
+    }
 
     const id = uuidv4();
     const slug = slugify(title, { lower: true, strict: true });
@@ -287,7 +332,7 @@ export default async function featureRoutes(fastify, options) {
       stage_sort_order: maxSortOrder + 1000,
       tags: Array.isArray(tags) ? tags : [],
       pinned: false,
-      is_published: is_published === 0 ? false : true,
+      is_published: is_published === 0 ? false : Boolean(is_published),
       owner: (owner ?? '').trim(),
       key_stakeholder: (key_stakeholder ?? '').trim(),
       priority: priority ?? 'Medium',
@@ -312,12 +357,38 @@ export default async function featureRoutes(fastify, options) {
       changes: { action: 'created', title },
     });
 
-    await recalculateAllGravityScores();
+    await recalculateAllGravityScores(request.log);
     return { id, title, slug };
   });
 
   // ── 3. PUT /:id — Admin: Update feature ───────────────────────────────────────
-  fastify.put('/:id', { preHandler: [requireAdmin] }, async (request, reply) => {
+  fastify.put('/:id', {
+    preHandler: [requireAdmin],
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', maxLength: 500 },
+          description: { type: 'string', maxLength: 100000 },
+          internal_notes: { type: 'string', maxLength: 100000 },
+          impact: { type: 'integer', minimum: 1, maximum: 10 },
+          effort: { type: 'integer', minimum: 1, maximum: 10 },
+          priority: { type: 'string', enum: ['Low', 'Medium', 'High', 'Critical'] },
+          tags: { type: 'array', maxItems: 20, items: { type: 'string', maxLength: 50 } },
+          owner: { type: 'string', maxLength: 200 },
+          key_stakeholder: { type: 'string', maxLength: 200 },
+          stage_id: { type: 'string', maxLength: 100 },
+          category_id: { type: 'string', maxLength: 100 },
+          status: { type: 'string', maxLength: 100 },
+          is_published: { type: 'boolean' },
+          is_reviewed: { type: 'boolean' },
+          dependencies: { type: 'array', items: { type: 'string', maxLength: 100 } },
+          pinned: { type: 'boolean' },
+        },
+        required: [],
+      },
+    },
+  }, async (request, reply) => {
     const { id } = request.params;
     const {
       title, description, internal_notes, category_id, status, impact, effort,
@@ -354,6 +425,12 @@ export default async function featureRoutes(fastify, options) {
     if (dependencies !== undefined) {
       changesObj.dependencies = { updated: true };
       updated.dependencies = Array.isArray(dependencies) ? dependencies : oldFeature.dependencies;
+    }
+
+    const putDepIds = Array.isArray(updated.dependencies) ? updated.dependencies : [];
+    const putDepCheck = await validateDependencyIds(putDepIds);
+    if (!putDepCheck.valid) {
+      return reply.code(400).send({ error: 'Invalid dependency IDs', invalid: putDepCheck.invalid });
     }
 
     // Category change — re-embed display fields
@@ -450,20 +527,20 @@ export default async function featureRoutes(fastify, options) {
     }
 
     if (Object.keys(changesObj).length === 0) {
-      return reply.code(400).send({ error: 'No updates provided or no changes detected' });
+      return reply.send({ ok: true, message: 'No changes detected' });
     }
 
     try {
       await featuresContainer.item(id, id).replace(updated);
     } catch (err) {
-      console.error('Cosmos error in Feature Update:', err);
+      request.log.error(err, 'Cosmos error in Feature Update');
       return reply.code(500).send({ error: 'Internal Server Error', message: err.message });
     }
 
     // Recalculate gravity scores if scoring inputs changed
     const scoringFields = ['impact', 'effort', 'priority'];
     if (scoringFields.some((f) => changesObj[f])) {
-      await recalculateAllGravityScores();
+      await recalculateAllGravityScores(request.log);
     }
 
     await revisionsContainer.items.create({
@@ -523,13 +600,21 @@ export default async function featureRoutes(fastify, options) {
     }
 
     // Cascade-delete votes (Cosmos has no ON DELETE CASCADE)
+    const cascadeErrors = [];
     const { resources: votes } = await votesContainer.items
       .query(
         { query: 'SELECT c.id FROM c WHERE c.featureId = @fid', parameters: [{ name: '@fid', value: id }] },
         { enableCrossPartitionQuery: true }
       )
       .fetchAll();
-    await Promise.all(votes.map((v) => votesContainer.item(v.id, id).delete().catch(() => {})));
+    await Promise.all(votes.map(async (v) => {
+      try {
+        await votesContainer.item(v.id, id).delete();
+      } catch (err) {
+        cascadeErrors.push({ type: 'vote', id: v.id, error: err.message });
+        request.log.error({ err }, `Failed to cascade-delete vote ${v.id} for feature ${id}`);
+      }
+    }));
 
     // Cascade-delete revisions
     const { resources: revisions } = await revisionsContainer.items
@@ -538,10 +623,16 @@ export default async function featureRoutes(fastify, options) {
         { enableCrossPartitionQuery: true }
       )
       .fetchAll();
-    await Promise.all(revisions.map((r) => revisionsContainer.item(r.id, id).delete().catch(() => {})));
+    await Promise.all(revisions.map(async (r) => {
+      try {
+        await revisionsContainer.item(r.id, id).delete();
+      } catch (err) {
+        cascadeErrors.push({ type: 'revision', id: r.id, error: err.message });
+        request.log.error({ err }, `Failed to cascade-delete revision ${r.id} for feature ${id}`);
+      }
+    }));
 
-    await recalculateAllGravityScores();
-    return { ok: true };
+    return { ok: true, cascadeWarnings: cascadeErrors.length > 0 ? cascadeErrors : undefined };
   });
 
   // ── 5. GET /:id/revisions — Admin: Get revision history ───────────────────────
@@ -571,7 +662,7 @@ export default async function featureRoutes(fastify, options) {
 
   // ── 5.1 GET /tags — Public: all unique tags currently on features ─────────────
   fastify.get('/tags', { preHandler: [optionalAuthenticate] }, async (request, reply) => {
-    const isAdmin = request.user?.isAdmin ?? false;
+    const isAdmin = ['admin', 'super_admin'].includes(request.user?.role);
     const whereClause = isAdmin ? '' : 'WHERE c.is_published = true';
     const { resources } = await featuresContainer.items
       .query(
@@ -587,7 +678,7 @@ export default async function featureRoutes(fastify, options) {
 
   // ── 5.2 GET /owners — Public: all unique owners currently on features ──────────
   fastify.get('/owners', { preHandler: [optionalAuthenticate] }, async (request, reply) => {
-    const isAdmin = request.user?.isAdmin ?? false;
+    const isAdmin = ['admin', 'super_admin'].includes(request.user?.role);
     const whereClause = isAdmin ? '' : 'WHERE c.is_published = true';
     const { resources } = await featuresContainer.items
       .query(
@@ -602,7 +693,7 @@ export default async function featureRoutes(fastify, options) {
 
   // ── 5.3 GET /stakeholders — Public: all unique stakeholders on features ───────
   fastify.get('/stakeholders', { preHandler: [optionalAuthenticate] }, async (request, reply) => {
-    const isAdmin = request.user?.isAdmin ?? false;
+    const isAdmin = ['admin', 'super_admin'].includes(request.user?.role);
     const whereClause = isAdmin ? '' : 'WHERE c.is_published = true';
     const { resources } = await featuresContainer.items
       .query(
@@ -618,6 +709,11 @@ export default async function featureRoutes(fastify, options) {
   // ── 6. POST /:id/vote — Cast a vote ─────────────────────────────────────────
   const voteId = (userId, featureId) => `${userId}::${featureId}`;
 
+  // NOTE: Vote creation and count increment are non-atomic (two separate Cosmos
+  // operations). In the extremely rare case that the count patch fails and the
+  // rollback delete also fails, a vote document exists but the cached count is
+  // wrong. Use the admin recount endpoint to fix. This is an accepted eventual
+  // consistency trade-off for the Cosmos DB patch-based approach.
   async function patchVoteCount(featureId, delta) {
     await featuresContainer.item(featureId, featureId).patch([
       { op: 'incr', path: '/vote_count', value: delta },
@@ -627,6 +723,22 @@ export default async function featureRoutes(fastify, options) {
   fastify.post('/:id/vote', { preHandler: [authenticate] }, async (request, reply) => {
     const featureId = request.params.id;
     const userId = request.user.sub;
+
+    // Verify feature exists and is published
+    try {
+      const { resource: feature } = await featuresContainer.item(featureId, featureId).read();
+      if (!feature) {
+        return reply.code(404).send({ error: 'Feature not found' });
+      }
+      if (!feature.is_published) {
+        return reply.code(400).send({ error: 'Cannot vote on an unpublished feature' });
+      }
+    } catch (err) {
+      if (err.statusCode === 404) {
+        return reply.code(404).send({ error: 'Feature not found' });
+      }
+      throw err;
+    }
 
     try {
       await votesContainer.items.create({
@@ -644,12 +756,11 @@ export default async function featureRoutes(fastify, options) {
     try {
       await patchVoteCount(featureId, 1);
     } catch (err) {
-      console.error('Vote count increment failed, rolling back vote document:', err);
+      request.log.error(err, 'Vote count increment failed, rolling back vote document');
       await votesContainer.item(voteId(userId, featureId), featureId).delete().catch(() => {});
       throw err;
     }
 
-    await recalculateAllGravityScores();
     return { ok: true };
   });
 
@@ -669,8 +780,39 @@ export default async function featureRoutes(fastify, options) {
 
     await patchVoteCount(featureId, -1);
 
-    await recalculateAllGravityScores();
     return { ok: true };
+  });
+
+  // ── 8. POST /admin/recount-votes — Recalculate vote counts from votes container ─
+  fastify.post('/admin/recount-votes', { preHandler: [requireSuperAdmin] }, async (request, reply) => {
+    const { resources: features } = await featuresContainer.items.readAll().fetchAll();
+    const { resources: votes } = await votesContainer.items.readAll().fetchAll();
+
+    const voteCounts = {};
+    for (const vote of votes) {
+      voteCounts[vote.featureId] = (voteCounts[vote.featureId] || 0) + 1;
+    }
+
+    const results = { updated: 0, skipped: 0, errors: [] };
+    for (const feature of features) {
+      const correctCount = voteCounts[feature.id] || 0;
+      if (feature.vote_count !== correctCount) {
+        try {
+          await featuresContainer.item(feature.id, feature.id).replace({
+            ...feature,
+            vote_count: correctCount,
+            updated_at: new Date().toISOString(),
+          });
+          results.updated++;
+        } catch (err) {
+          results.errors.push({ featureId: feature.id, error: err.message });
+        }
+      } else {
+        results.skipped++;
+      }
+    }
+
+    return results;
   });
 
 }

@@ -34,6 +34,7 @@ const AdminFeatureFormPage = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, payload: null });
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -55,6 +56,8 @@ const AdminFeatureFormPage = () => {
   const [isDirty, setIsDirty] = useState(false);
   const initialLoadDone = useRef(false);
   const skipDirtyRef = useRef(false);
+  const abortedRef = useRef(false);
+  const formRef = useRef(null);
 
   // Mark dirty on any form change after initial load
   useEffect(() => {
@@ -95,6 +98,7 @@ const AdminFeatureFormPage = () => {
   }, [isDirty]);
 
   useEffect(() => {
+    abortedRef.current = false;
     const fetchData = async () => {
       const [cData, stData, tagData, ownerData, stakeholderData] = await Promise.all([
         getCategories(),
@@ -103,10 +107,15 @@ const AdminFeatureFormPage = () => {
         getFeatureOwners().catch(() => []),
         getFeatureStakeholders().catch(() => [])
       ]);
+      if (abortedRef.current) return;
       setCategories(cData);
+      if (abortedRef.current) return;
       setStages(stData);
+      if (abortedRef.current) return;
       setTagSuggestions(Array.isArray(tagData) ? tagData : []);
+      if (abortedRef.current) return;
       setOwnerSuggestions(Array.isArray(ownerData) ? ownerData : []);
+      if (abortedRef.current) return;
       setStakeholderSuggestions(Array.isArray(stakeholderData) ? stakeholderData : []);
 
       if (isEdit) {
@@ -115,9 +124,11 @@ const AdminFeatureFormPage = () => {
             getFeatureById(id),
             getFeatureRevisions(id).catch(() => [])
           ]);
+          if (abortedRef.current) return;
           setRevisions(Array.isArray(revRes) ? revRes : []);
 
           if (feature) {
+            if (abortedRef.current) return;
             setFormData({
               title: feature.title,
               description: feature.description,
@@ -126,7 +137,7 @@ const AdminFeatureFormPage = () => {
               status: feature.status,
               stage_id: feature.stage_id || '',
               pinned: feature.pinned,
-              tags: typeof feature.tags === 'string' ? JSON.parse(feature.tags) : feature.tags || [],
+              tags: typeof feature.tags === 'string' ? (() => { try { return JSON.parse(feature.tags); } catch { return []; } })() : feature.tags || [],
               impact: feature.impact || 1,
               effort: feature.effort || 1,
               owner: feature.owner || '',
@@ -145,13 +156,17 @@ const AdminFeatureFormPage = () => {
           setLoading(false);
           initialLoadDone.current = true;
         }
+      } else {
+        setLoading(false);
+        initialLoadDone.current = true;
       }
     };
     fetchData();
+    return () => { abortedRef.current = true; };
   }, [id, isEdit]);
 
   const handleActionClick = (action) => {
-    const form = document.getElementById('feature-form');
+    const form = formRef.current;
     if (form && form.reportValidity()) {
       requestSubmit(action);
     }
@@ -170,6 +185,7 @@ const AdminFeatureFormPage = () => {
   };
 
   const executeSubmit = async (isPublishAction) => {
+    setIsSaving(true);
     setConfirmDialog({ isOpen: false, type: null, payload: null });
     try {
       const payload = { ...formData, is_published: !!isPublishAction, dependencies: formData.dependencies.map(d => d.id) };
@@ -195,6 +211,8 @@ const AdminFeatureFormPage = () => {
       }
     } catch (err) {
       addToast(err.error || 'Failed to save feature', 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -307,7 +325,7 @@ const AdminFeatureFormPage = () => {
           </div>
 
         </header>
-        <form id="feature-form" onSubmit={(e) => e.preventDefault()} className={styles.form}>
+        <form id="feature-form" ref={formRef} onSubmit={(e) => e.preventDefault()} className={styles.form}>
 
 
           <div className={styles.field}>
@@ -346,7 +364,11 @@ const AdminFeatureFormPage = () => {
               <label className={styles.label}>Current Status</label>
               <select
                 value={formData.stage_id || formData.status}
-                onChange={(e) => setFormData(prev => ({ ...prev, stage_id: e.target.value }))}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const stage = stages.find(s => s.id === value);
+                  setFormData(prev => ({ ...prev, stage_id: value, status: stage?.slug || prev.status }));
+                }}
                 className={styles.select}
               >
                 {stages.map(s => (
@@ -546,11 +568,11 @@ const AdminFeatureFormPage = () => {
             )}
           </div>
           <div className={styles.formFooterActions}>
-            <button type="button" onClick={requestDiscard} className={styles.secondaryBtn}>Discard Changes</button>
-            <button type="button" onClick={() => handleActionClick(false)} className={styles.secondaryBtn}>
+            <button type="button" onClick={requestDiscard} className={styles.secondaryBtn} disabled={isSaving || loading}>Discard Changes</button>
+            <button type="button" onClick={() => handleActionClick(false)} className={styles.secondaryBtn} disabled={isSaving || loading || (isEdit && !isDirty)}>
               {isEdit && !formData.is_published ? 'Save Draft Updates' : 'Save as Draft'}
             </button>
-            <button type="button" onClick={() => handleActionClick(true)} className={styles.submitBtn}>
+            <button type="button" onClick={() => handleActionClick(true)} className={styles.submitBtn} disabled={isSaving || loading || (isEdit && !isDirty)}>
               {isEdit && formData.is_published ? 'Save Published Changes' : 'Publish Feature'}
             </button>
           </div>

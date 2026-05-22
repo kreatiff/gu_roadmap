@@ -58,7 +58,7 @@ server.register(rateLimit, {
 
 server.register(fastifyMultipart, {
   limits: {
-    fileSize: 50 * 1024 * 1024 // 50MB
+    fileSize: 10 * 1024 * 1024 // 10MB
   }
 });
 
@@ -100,13 +100,37 @@ server.setNotFoundHandler((request, reply) => {
 const start = async () => {
   try {
     // Ensure Cosmos DB database and containers exist before accepting requests
-    await initDb();
+    await initDb(server.log);
 
     // Bootstrap initial admin user if DB is empty
-    await bootstrapAdminIfEmpty();
+    await bootstrapAdminIfEmpty(server.log);
+
+    // Migrate existing users to sessionVersion schema
+    const { ensureSessionVersionForAllUsers } = await import('./lib/users.js');
+    const migrated = await ensureSessionVersionForAllUsers(server.log);
+    if (migrated > 0) server.log.info(`Migrated ${migrated} users to sessionVersion schema`);
+
+    if (!config.oidc.enabled) {
+      if (config.devAuthEnabled) {
+        server.log.warn('⚠️  DEV AUTH MODE ENABLED — This is insecure and must not be used in production!');
+      } else {
+        server.log.warn('⚠️  OIDC is not configured. Local password login is the only authentication method.');
+      }
+    }
+
+    if (config.isProd) {
+      if (!config.oidc.enabled) {
+        server.log.error('❌ Production requires OIDC_ISSUER to be configured. Local password auth is not allowed in production.');
+        process.exit(1);
+      }
+      if (config.devAuthEnabled) {
+        server.log.error('❌ DEV_AUTH_ENABLED must not be true in production.');
+        process.exit(1);
+      }
+    }
 
     await server.listen({ port: config.port, host: '0.0.0.0' });
-    console.log(`🚀 Server listening on http://localhost:${config.port}`);
+    server.log.info(`🚀 Server listening on http://localhost:${config.port}`);
   } catch (err) {
     server.log.error(err);
     process.exit(1);

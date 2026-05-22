@@ -8,6 +8,8 @@ import {
   listUsers,
   sanitiseUser
 } from '../lib/users.js';
+import { auditLog } from '../lib/auditLog.js';
+import { USER_ROLES, USER_STATUS } from '../constants.js';
 
 export default async function userRoutes(fastify, options) {
 
@@ -47,7 +49,7 @@ export default async function userRoutes(fastify, options) {
           email: { type: 'string', format: 'email' },
           name: { type: 'string' },
           password: { type: 'string', minLength: 8 },
-          role: { type: 'string', enum: ['admin', 'user'] }
+          role: { type: 'string', enum: USER_ROLES }
         }
       }
     },
@@ -67,6 +69,7 @@ export default async function userRoutes(fastify, options) {
         role,
         createdBy: request.user.sub
       });
+      await auditLog(fastify, { actor: request.user.sub, action: 'user.create', target: user.email, outcome: 'success' });
       return sanitiseUser(user);
     } catch (err) {
       if (err.statusCode === 409) {
@@ -84,8 +87,8 @@ export default async function userRoutes(fastify, options) {
         type: 'object',
         properties: {
           name: { type: 'string' },
-          role: { type: 'string', enum: ['admin', 'user'] },
-          status: { type: 'string', enum: ['active', 'inactive'] }
+          role: { type: 'string', enum: USER_ROLES },
+          status: { type: 'string', enum: USER_STATUS }
         }
       }
     },
@@ -132,6 +135,9 @@ export default async function userRoutes(fastify, options) {
       }
 
       const updatedUser = await updateUser(id, patch);
+      if (patch.role !== undefined) {
+        await auditLog(fastify, { actor: request.user.sub, action: 'user.role_change', target: id, outcome: 'success', metadata: { oldRole: userToUpdate.role, newRole: patch.role } });
+      }
       return sanitiseUser(updatedUser);
     } catch (err) {
       return reply.code(400).send({ error: err.message });
@@ -162,6 +168,7 @@ export default async function userRoutes(fastify, options) {
 
     try {
       const updatedUser = await resetUserPassword(id, newPassword);
+      await auditLog(fastify, { actor: request.user.sub, action: 'user.password_reset', target: id, outcome: 'success' });
       return sanitiseUser(updatedUser);
     } catch (err) {
       if (err.message.includes('not found')) {

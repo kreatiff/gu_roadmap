@@ -5,11 +5,13 @@ import styles from './LinkModal.module.css';
 
 const LinkModal = ({ isOpen, onClose, onSave, initialUrl = '' }) => {
   const [url, setUrl] = useState(initialUrl);
+  const [urlError, setUrlError] = useState('');
   const inputRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
       setUrl(initialUrl);
+      setUrlError('');
       setTimeout(() => {
         if (inputRef.current) {
           inputRef.current.focus();
@@ -22,7 +24,27 @@ const LinkModal = ({ isOpen, onClose, onSave, initialUrl = '' }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    onSave(url);
+
+    if (!url.trim()) {
+      setUrlError('');
+      onSave('');
+      return;
+    }
+
+    try {
+      const parsed = new URL(url);
+      const allowedProtocols = ['http:', 'https:', 'mailto:', 'tel:'];
+      if (!allowedProtocols.includes(parsed.protocol)) {
+        setUrlError(`Links must use ${allowedProtocols.join(', ').replace(/:/g, '')} protocol.`);
+        return;
+      }
+    } catch {
+      setUrlError('Please enter a valid URL (e.g. https://example.com)');
+      return;
+    }
+
+    setUrlError('');
+    onSave(url.trim());
   };
 
   const handleKeyDown = (e) => {
@@ -62,6 +84,9 @@ const LinkModal = ({ isOpen, onClose, onSave, initialUrl = '' }) => {
                 onChange={(e) => setUrl(e.target.value)}
                 autoComplete="off"
               />
+              {urlError && (
+                <p className={styles.error}>{urlError}</p>
+              )}
               <p className={styles.help}>Tip: Links will open in a new tab automatically.</p>
             </div>
 

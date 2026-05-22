@@ -19,7 +19,24 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
       }
     };
+
     checkSession();
+
+    // Poll every 5 minutes to detect role/session changes server-side
+    const interval = setInterval(() => {
+      checkSession();
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Listen for auth:logout events from api client on 401
+  useEffect(() => {
+    const handleLogout = () => {
+      setUser(null);
+    };
+    window.addEventListener('auth:logout', handleLogout);
+    return () => window.removeEventListener('auth:logout', handleLogout);
   }, []);
 
   // 2. Login: Local credentials authentication
@@ -51,8 +68,8 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin' || user?.isAdmin === true;
-  const isSuperAdmin = user?.role === 'super_admin' || user?.isSuperAdmin === true;
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const isSuperAdmin = user?.role === 'super_admin';
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout, navigateToLogin, isAuthenticated: !!user, isAdmin, isSuperAdmin }}>

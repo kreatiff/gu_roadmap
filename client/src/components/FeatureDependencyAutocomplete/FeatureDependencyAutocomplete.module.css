@@ -189,3 +189,9 @@
   background-color: #fee2e2;
   color: #ef4444;
 }
+
+.truncatedNote {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: var(--text-muted, #94a3b8);
+}

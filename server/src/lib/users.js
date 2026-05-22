@@ -2,6 +2,7 @@ import { v5 as uuidv5 } from 'uuid';
 import bcrypt from 'bcryptjs';
 import { config } from '../config.js';
 import { usersContainer } from '../db.js';
+import { BCRYPT_ROUNDS, USER_ROLES } from '../constants.js';
 
 // Deterministic UUID namespace for user IDs
 const NAMESPACE = '1b671a64-40d5-491e-99b0-da01ff1f3341';
@@ -59,9 +60,13 @@ export async function createUser({ email, name, password, role = 'user', created
   const normalisedEmail = email.trim().toLowerCase();
   const id = uuidv5(normalisedEmail, NAMESPACE);
 
+  if (!USER_ROLES.includes(role)) {
+    throw new Error(`Invalid role: ${role}. Must be one of: ${USER_ROLES.join(', ')}`);
+  }
+
   let passwordHash = null;
   if (password) {
-    passwordHash = await bcrypt.hash(password, 12);
+    passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
   }
 
   const userDoc = {
@@ -71,6 +76,7 @@ export async function createUser({ email, name, password, role = 'user', created
     passwordHash,
     role,
     status: 'active',
+    sessionVersion: 1,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     createdBy,
@@ -115,11 +121,18 @@ export async function resetUserPassword(id, newPassword) {
   const user = await findUserById(id);
   if (!user) throw new Error('User not found');
 
-  const passwordHash = await bcrypt.hash(newPassword, 12);
-  const operations = [
-    { op: 'replace', path: '/passwordHash', value: passwordHash },
-    { op: 'replace', path: '/updatedAt', value: new Date().toISOString() }
-  ];
+  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+  const operations = user.sessionVersion !== undefined
+    ? [
+        { op: 'replace', path: '/passwordHash', value: passwordHash },
+        { op: 'incr', path: '/sessionVersion', value: 1 },
+        { op: 'replace', path: '/updatedAt', value: new Date().toISOString() }
+      ]
+    : [
+        { op: 'replace', path: '/passwordHash', value: passwordHash },
+        { op: 'add', path: '/sessionVersion', value: 2 },
+        { op: 'replace', path: '/updatedAt', value: new Date().toISOString() }
+      ];
 
   const { resource } = await usersContainer.item(id, user.email).patch({ operations });
   return resource;
@@ -166,15 +179,36 @@ export async function listUsers({ search, continuationToken, pageSize }) {
 }
 
 /**
+ * One-time migration: add sessionVersion=1 to users that don't have it.
+ * @param {object} [logger=console] - Optional logger (e.g., fastify.log)
+ */
+export async function ensureSessionVersionForAllUsers(logger = console) {
+  const querySpec = { query: 'SELECT * FROM c WHERE NOT IS_DEFINED(c.sessionVersion)' };
+  const { resources } = await usersContainer.items.query(querySpec).fetchAll();
+  for (const user of resources) {
+    try {
+      await usersContainer.item(user.id, user.email).patch([
+        { op: 'add', path: '/sessionVersion', value: 1 }
+      ]);
+    } catch (err) {
+      logger.error(`Failed to migrate sessionVersion for user ${user.id}:`, err);
+      throw err;
+    }
+  }
+  return resources.length;
+}
+
+/**
  * Bootstrap the initial admin user if the users container is empty.
  * Idempotency is guaranteed structurally by using a deterministic UUID v5.
+ * @param {object} [logger=console] - Optional logger (e.g., fastify.log)
  */
-export async function bootstrapAdminIfEmpty() {
+export async function bootstrapAdminIfEmpty(logger = console) {
   const email = config.bootstrapAdmin.email;
   const password = config.bootstrapAdmin.password;
 
   if (!email || !password) {
-    console.log('ℹ️ Bootstrap admin credentials not fully configured, skipping bootstrap.');
+    logger.info('ℹ️ Bootstrap admin credentials not fully configured, skipping bootstrap.');
     return;
   }
 
@@ -182,11 +216,11 @@ export async function bootstrapAdminIfEmpty() {
     const { resources } = await usersContainer.items.query('SELECT VALUE COUNT(1) FROM c').fetchAll();
     const count = resources[0] || 0;
     if (count > 0) {
-      console.log('ℹ️ Users container is not empty. Skipping admin bootstrap.');
+      logger.info('ℹ️ Users container is not empty. Skipping admin bootstrap.');
       return;
     }
 
-    console.log(`🚀 Bootstrapping super admin user: ${email}`);
+    logger.info(`🚀 Bootstrapping super admin user: ${email}`);
     await createUser({
       email,
       name: 'System Admin',
@@ -194,12 +228,12 @@ export async function bootstrapAdminIfEmpty() {
       role: 'super_admin',
       createdBy: 'system'
     });
-    console.log('✅ Super admin user bootstrapped successfully.');
+    logger.info('✅ Super admin user bootstrapped successfully.');
   } catch (err) {
     if (err.statusCode === 409) {
-      console.log('ℹ️ Admin user already exists (409 Conflict), skipping bootstrap.');
+      logger.info('ℹ️ Admin user already exists (409 Conflict), skipping bootstrap.');
     } else {
-      console.error('❌ Error bootstrapping admin user:', err);
+      logger.error('❌ Error bootstrapping admin user:', err);
       throw err;
     }
   }

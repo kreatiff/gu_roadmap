@@ -10,6 +10,7 @@ import {
   updateUser,
   sanitiseUser
 } from '../lib/users.js';
+import { auditLog } from '../lib/auditLog.js';
 
 // Pre-compute dummy hash at startup for timing-safe user verification
 const DUMMY_HASH = bcrypt.hashSync('__dummy__', 12);
@@ -17,7 +18,14 @@ const DUMMY_HASH = bcrypt.hashSync('__dummy__', 12);
 export default async function authRoutes(fastify, options) {
 
   // 1. Redirect to OIDC provider (SSO login) - only if OIDC is enabled
-  fastify.get('/login', async (request, reply) => {
+  fastify.get('/login', {
+    config: {
+      rateLimit: {
+        max: 20,
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (request, reply) => {
     const strategy = getLoginStrategy();
     if (strategy.type !== 'oidc') {
       return reply.code(404).send({ error: 'SSO login is not enabled.' });
@@ -33,6 +41,8 @@ export default async function authRoutes(fastify, options) {
   });
 
   // 2. Credential Login (Local password flow)
+  // NOTE: Local password login is for development and bootstrap only.
+  // Production deployments MUST use OIDC (Microsoft Entra ID).
   fastify.post('/login', {
     schema: {
       body: {
@@ -60,8 +70,11 @@ export default async function authRoutes(fastify, options) {
     const match = await bcrypt.compare(password, candidateHash);
 
     if (!user || user.status !== 'active' || !match) {
+      await auditLog(fastify, { actor: normalisedEmail, action: 'login', outcome: 'failure', metadata: { reason: 'invalid_credentials' } });
       return reply.code(401).send({ error: 'Invalid credentials' });
     }
+
+    await auditLog(fastify, { actor: user.id, action: 'login', target: user.email, outcome: 'success' });
 
     // Sign JWT with full payload shape
     const token = await reply.jwtSign({
@@ -69,8 +82,7 @@ export default async function authRoutes(fastify, options) {
       email: user.email,
       name: user.name,
       role: user.role,
-      isAdmin: user.role === 'admin' || user.role === 'super_admin',
-      isSuperAdmin: user.role === 'super_admin'
+      sessionVersion: user.sessionVersion ?? 1
     }, {
       expiresIn: config.jwtExpiry
     });
@@ -90,10 +102,24 @@ export default async function authRoutes(fastify, options) {
   });
 
   // 3. Handle OIDC callback redirect
-  fastify.get('/callback', async (request, reply) => {
+  fastify.get('/callback', {
+    config: {
+      rateLimit: {
+        max: 20,
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (request, reply) => {
     const { state: returnedState } = request.query;
-    const storedState = request.unsignCookie(request.cookies.oidc_state ?? '').value;
-    const storedNonce = request.unsignCookie(request.cookies.oidc_nonce ?? '').value;
+    const stateCookie = request.unsignCookie(request.cookies.oidc_state ?? '');
+    const nonceCookie = request.unsignCookie(request.cookies.oidc_nonce ?? '');
+
+    if (!stateCookie.valid || !stateCookie.value || !nonceCookie.valid || !nonceCookie.value) {
+      return reply.code(400).send({ error: 'Auth failed: Invalid or tampered state cookie' });
+    }
+
+    const storedState = stateCookie.value;
+    const storedNonce = nonceCookie.value;
 
     // Validate state to prevent CSRF
     if (!returnedState || returnedState !== storedState) {
@@ -147,8 +173,7 @@ export default async function authRoutes(fastify, options) {
         email: user.email,
         name: user.name,
         role: user.role,
-        isAdmin: user.role === 'admin' || user.role === 'super_admin',
-        isSuperAdmin: user.role === 'super_admin'
+        sessionVersion: user.sessionVersion ?? 1
       }, {
         expiresIn: config.jwtExpiry
       });
@@ -177,6 +202,8 @@ export default async function authRoutes(fastify, options) {
 
   // 4. Clear session cookie on logout (guards against CSRF via authentication preHandler)
   fastify.post('/logout', { preHandler: [authenticate] }, async (request, reply) => {
+    await auditLog(fastify, { actor: request.user.sub, action: 'logout', outcome: 'success' });
+
     reply.clearCookie('roadmap_session', {
       path: '/',
       httpOnly: true,
@@ -195,7 +222,7 @@ export default async function authRoutes(fastify, options) {
       email: request.user.email,
       name: request.user.name,
       role: request.user.role,
-      isAdmin: request.user.role === 'admin' || request.user.isAdmin === true
+      isAdmin: request.user.role === 'admin' || request.user.role === 'super_admin'
     };
   });
 }

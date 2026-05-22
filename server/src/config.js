@@ -40,7 +40,7 @@ export const config = {
 
   jwtSecret,
   cookieSecret,
-  jwtExpiry: process.env.JWT_EXPIRY ?? '30d',
+  jwtExpiry: process.env.JWT_EXPIRY ?? '8h',
 
   clientOrigin: process.env.CLIENT_ORIGIN ?? 'http://localhost:5173',
 
@@ -59,4 +59,6 @@ export const config = {
     redirectUri: process.env.OIDC_REDIRECT_URI ?? 'http://localhost:3001/api/auth/callback',
     enabled: Boolean(process.env.OIDC_ISSUER),
   },
+
+  devAuthEnabled: process.env.DEV_AUTH_ENABLED === 'true',
 };

@@ -8,16 +8,18 @@ const FeatureDependencyAutocomplete = ({ selected = [], onChange, excludeId }) =
   const [showDropdown, setShowDropdown] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const [allFeatures, setAllFeatures] = useState([]);
+  const [truncated, setTruncated] = useState(false);
   const inputRef = useRef(null);
 
   useEffect(() => {
-    getFeatures({ limit: 1000 }).then(res => {
+    getFeatures({ limit: 200 }).then(res => {
       const features = (res.data || []);
       if (excludeId) {
         setAllFeatures(features.filter(f => f.id !== excludeId));
       } else {
         setAllFeatures(features);
       }
+      setTruncated(features.length >= 200);
     }).catch(() => setAllFeatures([]));
   }, [excludeId]);
 
@@ -95,6 +97,10 @@ const FeatureDependencyAutocomplete = ({ selected = [], onChange, excludeId }) =
           <span className={styles.countBadge}>{selected.length}</span>
         )}
       </div>
+
+      {truncated && (
+        <div className={styles.truncatedNote}>Showing top 200 features. Use the search to find others.</div>
+      )}
 
       {showDropdown && filteredSuggestions.length > 0 && (
         <div className={styles.dropdown}>

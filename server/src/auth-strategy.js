@@ -23,6 +23,9 @@ export const getLoginStrategy = () => {
 export const getOidcAuthUrl = async () => {
   // Dev fallback: no OIDC provider configured
   if (!config.oidc.enabled) {
+    if (!config.devAuthEnabled) {
+      throw new Error('OIDC is not configured and DEV_AUTH_ENABLED is not set.');
+    }
     const state = crypto.randomBytes(16).toString('hex');
     const nonce = crypto.randomBytes(16).toString('hex');
     return {
@@ -50,6 +53,9 @@ export const getOidcAuthUrl = async () => {
 export const exchangeCodeForUser = async ({ callbackUrl, storedState, storedNonce }) => {
   // Dev fallback
   if (!config.oidc.enabled) {
+    if (!config.devAuthEnabled) {
+      throw new Error('Dev auth is not enabled');
+    }
     const url = new URL(callbackUrl);
     if (url.searchParams.get('code') !== 'dev_code') {
       throw new Error('Invalid dev code');

@@ -9,6 +9,16 @@ export const authenticate = async (request, reply) => {
   try {
     // jwtVerify() reads the roadmap_session cookie, verifies the JWT, and populates request.user
     request.user = await request.jwtVerify();
+
+    // Validate sessionVersion if present in JWT
+    if (request.user.sessionVersion !== undefined) {
+      const { findUserById } = await import('./lib/users.js');
+      const user = await findUserById(request.user.sub);
+      if (!user || user.sessionVersion !== request.user.sessionVersion) {
+        request.log.warn('Session invalidated due to sessionVersion mismatch');
+        return reply.code(401).send({ error: 'Session invalidated. Please log in again.' });
+      }
+    }
   } catch (err) {
     request.log.warn({ err: err.message }, 'Authentication failed');
     return reply.code(401).send({ error: 'Unauthorized' });
@@ -33,10 +43,8 @@ export const requireAdmin = async (request, reply) => {
   await authenticate(request, reply);
   if (reply.sent) return;
 
-  // TODO [2026-06-20]: Remove isAdmin fallback once all JWTs have role field (after 30-day expiry window)
   const role = request.user?.role;
-  const isAdmin = role === 'admin' || role === 'super_admin' || request.user?.isAdmin === true;
-  if (!isAdmin) {
+  if (role !== 'admin' && role !== 'super_admin') {
     return reply.code(403).send({ error: 'Forbidden: admin access required' });
   }
 };

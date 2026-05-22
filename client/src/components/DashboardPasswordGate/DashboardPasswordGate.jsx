@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Lock } from 'lucide-react';
 import { unlockDashboard } from '../../api/dashboards';
+import { setDashboardToken } from '../../utils/dashboardTokens';
 import Navbar from '../Navbar';
 import styles from './DashboardPasswordGate.module.css';
 
@@ -15,7 +16,7 @@ const DashboardPasswordGate = ({ slug, onUnlocked }) => {
     setError('');
     try {
       const { token } = await unlockDashboard(slug, password);
-      sessionStorage.setItem(`dashboard_token_${slug}`, token);
+      setDashboardToken(slug, token);
       onUnlocked();
     } catch (err) {
       setError(err.error ?? 'Incorrect password');
