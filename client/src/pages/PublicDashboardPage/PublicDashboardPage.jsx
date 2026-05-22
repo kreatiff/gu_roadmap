@@ -97,6 +97,8 @@ const PublicDashboardPage = () => {
       dashboardName={dashboard.name}
       isDashboard
       scopedMeta={scopedMeta}
+      availableViews={dashboard.available_views}
+      dashboardSlug={slug}
     />
   );
 };

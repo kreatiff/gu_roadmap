@@ -385,6 +385,82 @@
   cursor: not-allowed;
 }
 
+/* ── View Options ──────────────────────────────────────────────────────────── */
+
+.viewOptions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+}
+
+@media (max-width: 520px) {
+  .viewOptions {
+    grid-template-columns: 1fr;
+  }
+}
+
+.viewOption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background-color: #ffffff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+  position: relative;
+}
+
+.viewOption:hover:not(.viewOptionDisabled) {
+  border-color: var(--gu-red);
+  box-shadow: 0 0 0 3px rgba(232, 52, 28, 0.08);
+}
+
+.viewOptionChecked {
+  border-color: var(--gu-red);
+  background-color: #fef2f2;
+  box-shadow: 0 0 0 1px var(--gu-red);
+}
+
+.viewOptionDisabled {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.viewCheckbox {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--gu-red);
+  cursor: pointer;
+}
+
+.viewOptionDisabled .viewCheckbox {
+  cursor: default;
+}
+
+.viewOptionIcon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.viewOptionLabel {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.viewOptionDesc {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  text-align: center;
+  line-height: 1.4;
+}
+
 /* ── Inline Spinner ──────────────────────────────────────────────────────── */
 .spinnerInline {
   width: 14px;

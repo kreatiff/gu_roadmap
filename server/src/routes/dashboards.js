@@ -22,6 +22,14 @@ export default async function dashboardRoutes(fastify, options) {
     return resources[0] ?? null;
   }
 
+  // ── Helper: validate available_views ──────────────────────────────────────
+  const ALLOWED_VIEWS = ['grid', 'swimlane', 'table'];
+  function normalizeAvailableViews(raw) {
+    if (!Array.isArray(raw)) return ['grid'];
+    const filtered = raw.filter(v => ALLOWED_VIEWS.includes(v));
+    return filtered.length > 0 ? filtered : ['grid'];
+  }
+
   // ── Helper: verify dashboard unlock token ─────────────────────────────────
   async function verifyDashboardToken(request, reply, doc) {
     if (!doc.is_protected) return true;
@@ -47,7 +55,7 @@ export default async function dashboardRoutes(fastify, options) {
   // ── GET / — Public: list all dashboards (no password_hash) ────────────────
   fastify.get('/', async (request, reply) => {
     const { resources } = await dashboardsContainer.items
-      .query('SELECT c.id, c.name, c.slug, c.filters, c.is_protected, c.created_by, c.created_at FROM c ORDER BY c.created_at DESC',
+      .query('SELECT c.id, c.name, c.slug, c.filters, c.is_protected, c.available_views, c.created_by, c.created_at FROM c ORDER BY c.created_at DESC',
              { enableCrossPartitionQuery: true })
       .fetchAll();
     return resources;
@@ -166,7 +174,7 @@ export default async function dashboardRoutes(fastify, options) {
 
   // ── POST / — Admin: create dashboard ─────────────────────────────────────
   fastify.post('/', { preHandler: [requireAdmin] }, async (request, reply) => {
-    const { name, filters = {}, password } = request.body;
+    const { name, filters = {}, password, available_views } = request.body;
     if (!name) return reply.code(400).send({ error: 'name is required' });
 
     const id   = uuidv4();
@@ -189,6 +197,7 @@ export default async function dashboardRoutes(fastify, options) {
       },
       is_protected,
       password_hash,
+      available_views: normalizeAvailableViews(available_views),
       created_by: request.user?.email ?? 'System',
       created_at: now,
     };
@@ -201,13 +210,13 @@ export default async function dashboardRoutes(fastify, options) {
       throw err;
     }
 
-    return reply.code(201).send({ id, slug, is_protected });
+    return reply.code(201).send({ id, slug, is_protected, available_views: doc.available_views });
   });
 
   // ── PUT /:id — Admin: update dashboard ───────────────────────────────────
   fastify.put('/:id', { preHandler: [requireAdmin] }, async (request, reply) => {
     const { id } = request.params;
-    const { name, filters, password } = request.body;
+    const { name, filters, password, available_views } = request.body;
 
     let existing;
     try {
@@ -246,6 +255,10 @@ export default async function dashboardRoutes(fastify, options) {
         updated.is_protected = false;
         updated.password_hash = null;
       }
+    }
+
+    if (available_views !== undefined) {
+      updated.available_views = normalizeAvailableViews(available_views);
     }
 
     updated.updated_at = new Date().toISOString();
