@@ -70,18 +70,24 @@ const PublicSwimlaneView = ({ features, stages, onFeatureClick }) => {
                     className={styles.card}
                     onClick={() => onFeatureClick(feat.id)}
                     type="button"
+                    style={{ '--category-color': feat.category_color || '#64748b' }}
                   >
                     <div className={styles.cardBody}>
                       <div className={styles.cardHeader}>
-                        <span className={styles.cardTag}>{feat.category_name || 'GENERAL'}</span>
+                        <span
+                          className={styles.cardTag}
+                          style={{
+                            color: feat.category_color || '#64748b',
+                            backgroundColor: feat.category_color ? `${feat.category_color}18` : '#f1f5f9'
+                          }}
+                        >
+                          {feat.category_name || 'GENERAL'}
+                        </span>
                         <div className={styles.cardHeaderRight}>
                           {feat.is_reviewed && <VerifiedBadge size={18} className={styles.reviewedBadge} />}
                         </div>
                       </div>
                       <h4 className={styles.cardTitle}>{feat.title}</h4>
-                      <p className={styles.cardDescription}>
-                        {getPlainTextFromRichText(feat.description) || 'No description provided.'}
-                      </p>
                       <div className={styles.cardFooter}>
                         <span className={styles.cardUpdatedDate}>
                           {new Date(feat.updated_at).toLocaleDateString('en-AU', { month: 'short', day: 'numeric', year: 'numeric' })}

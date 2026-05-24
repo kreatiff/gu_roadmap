@@ -176,17 +176,19 @@ const RoadmapPage = ({ initialFilters = {}, isDashboard = false, scopedMeta = nu
         </div>
       </header>
 
-      <main className={`container ${styles.main}`}>
+      <main className={styles.main}>
         {!isAuthenticated && !authLoading && !isDashboard ? (
-          <div className={styles.authWall}>
-            <div className={styles.authCard}>
-              <h2 className={styles.authTitle}>Join the Community</h2>
-              <p className={styles.authDesc}>Please log in with your Griffith credentials to view the full roadmap, participate in discussions, and help shape the future of our digital services.</p>
-              <button onClick={navigateToLogin} className={styles.loginBtn}>Login with GU SSO</button>
+          <div className="container">
+            <div className={styles.authWall}>
+              <div className={styles.authCard}>
+                <h2 className={styles.authTitle}>Join the Community</h2>
+                <p className={styles.authDesc}>Please log in with your Griffith credentials to view the full roadmap, participate in discussions, and help shape the future of our digital services.</p>
+                <button onClick={navigateToLogin} className={styles.loginBtn}>Login with GU SSO</button>
+              </div>
             </div>
           </div>
         ) : (
-          <>
+          <div className={styles.contentWrapper}>
             <FilterBar
               filter={filter}
               setFilter={setFilter}
@@ -234,43 +236,49 @@ const RoadmapPage = ({ initialFilters = {}, isDashboard = false, scopedMeta = nu
               </div>
             )}
 
-            {loading && features.length === 0 ? (
-              <div className={styles.infoMessage}>Loading modern roadmap...</div>
-            ) : features.length === 0 ? (
-              <EmptyState
-                title="No roadmap items found"
-                description="There are currently no features matching these criteria. Try removing some filters or searching for something else."
-              />
-            ) : viewMode === 'grid' ? (
+            {viewMode === 'grid' && (
               <>
-                <div className={`${styles.grid} ${loading ? styles.gridLoading : ''}`}>
-                  {features.map((f, index) => {
-                    const isLast = index === features.length - 1;
-                    return (
-                      <div ref={isLast ? lastFeatureElementRef : null} key={f.id}>
-                        <FeatureCard
-                          feature={f}
-                          onClick={() => {
-                            searchParams.set('feature', f.id);
-                            setSearchParams(searchParams);
-                          }}
-                        />
+                {loading && features.length === 0 ? (
+                  <div className={styles.infoMessage}>Loading modern roadmap...</div>
+                ) : features.length === 0 ? (
+                  <EmptyState
+                    title="No roadmap items found"
+                    description="There are currently no features matching these criteria. Try removing some filters or searching for something else."
+                  />
+                ) : (
+                  <>
+                    <div className={`${styles.grid} ${loading ? styles.gridLoading : ''}`}>
+                      {features.map((f, index) => {
+                        const isLast = index === features.length - 1;
+                        return (
+                          <div ref={isLast ? lastFeatureElementRef : null} key={f.id}>
+                            <FeatureCard
+                              feature={f}
+                              onClick={() => {
+                                searchParams.set('feature', f.id);
+                                setSearchParams(searchParams);
+                              }}
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {isFetchingMore && (
+                      <div className={styles.footerActions}>
+                        <p className={styles.showingText}>Loading more features...</p>
                       </div>
-                    );
-                  })}
-                </div>
-                {isFetchingMore && (
-                  <div className={styles.footerActions}>
-                    <p className={styles.showingText}>Loading more features...</p>
-                  </div>
-                )}
-                {!hasMore && features.length > 0 && (
-                  <div className={styles.footerActions}>
-                    <p className={styles.showingText}>You've reached the end — {features.length} requests shown.</p>
-                  </div>
+                    )}
+                    {!hasMore && features.length > 0 && (
+                      <div className={styles.footerActions}>
+                        <p className={styles.showingText}>You've reached the end — {features.length} requests shown.</p>
+                      </div>
+                    )}
+                  </>
                 )}
               </>
-            ) : viewMode === 'swimlane' ? (
+            )}
+
+            {viewMode === 'swimlane' && (
               <PublicSwimlaneView
                 features={features}
                 stages={isDashboard ? (scopedMeta?.stages ?? []) : stages}
@@ -279,7 +287,9 @@ const RoadmapPage = ({ initialFilters = {}, isDashboard = false, scopedMeta = nu
                   setSearchParams(searchParams);
                 }}
               />
-            ) : (
+            )}
+
+            {viewMode === 'table' && (
               <PublicTableView
                 features={features}
                 onFeatureClick={(id) => {
@@ -288,7 +298,7 @@ const RoadmapPage = ({ initialFilters = {}, isDashboard = false, scopedMeta = nu
                 }}
               />
             )}
-          </>
+          </div>
         )}
       </main>
 

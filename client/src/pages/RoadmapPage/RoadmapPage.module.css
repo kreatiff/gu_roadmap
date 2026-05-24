@@ -35,6 +35,13 @@
   padding-bottom: var(--space-16);
 }
 
+.contentWrapper {
+  width: 100%;
+  max-width: 1920px;
+  margin: 0 auto;
+  padding: 0 var(--space-6);
+}
+
 
 
 .dropdownWrapper {

@@ -17,7 +17,7 @@ const DUMMY_HASH = bcrypt.hashSync('__dummy__', 12);
 
 export default async function authRoutes(fastify, options) {
 
-  // 1. Redirect to OIDC provider (SSO login) - only if OIDC is enabled
+  // 1. Redirect to OIDC provider (SSO login) - only if OIDC or dev auth is enabled
   fastify.get('/login', {
     config: {
       rateLimit: {
@@ -27,7 +27,7 @@ export default async function authRoutes(fastify, options) {
     }
   }, async (request, reply) => {
     const strategy = getLoginStrategy();
-    if (strategy.type !== 'oidc') {
+    if (strategy.type !== 'oidc' && !config.devAuthEnabled) {
       return reply.code(404).send({ error: 'SSO login is not enabled.' });
     }
 
