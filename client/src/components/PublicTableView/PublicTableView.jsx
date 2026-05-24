@@ -105,7 +105,6 @@ const PublicTableView = ({ features, onFeatureClick }) => {
             <SortHeader label="Title" sortKey="title" width="30%" sortConfig={sortConfig} onSort={handleSort} />
             <SortHeader label="Stage" sortKey="stage_name" width="14%" sortConfig={sortConfig} onSort={handleSort} />
             <SortHeader label="Category" sortKey="category_name" width="18%" sortConfig={sortConfig} onSort={handleSort} />
-            <th className={styles.th} style={{ width: '18%' }}>Tags</th>
             <SortHeader label="Updated" sortKey="updated_at" width="10%" sortConfig={sortConfig} onSort={handleSort} />
             <SortHeader label="Gravity" sortKey="gravity_score" width="10%" textAlign="center" sortConfig={sortConfig} onSort={handleSort} />
           </tr>
@@ -148,17 +147,6 @@ const PublicTableView = ({ features, onFeatureClick }) => {
                 ) : (
                   <span className={styles.mutedText}>—</span>
                 )}
-              </td>
-              <td className={styles.td}>
-                <div className={styles.tagsWrapper}>
-                  {feat.tags?.length > 0 ? (
-                    feat.tags.map(tag => (
-                      <span key={tag} className={styles.tagPill}>{tag}</span>
-                    ))
-                  ) : (
-                    <span className={styles.mutedText}>—</span>
-                  )}
-                </div>
               </td>
               <td className={styles.td}>
                 <span className={styles.dateText}>
