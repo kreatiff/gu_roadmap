@@ -1,0 +1,215 @@
+/* ── Swimlane container ─────────────────────────────────────────────── */
+
+.swimlaneContainer {
+  overflow-x: auto;
+  padding-bottom: var(--space-6);
+}
+
+.board {
+  display: flex;
+  gap: var(--space-6);
+  width: 100%;
+}
+
+/* ── Column ─────────────────────────────────────────────────────────── */
+
+.column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  min-height: 400px;
+  min-width: 260px;
+  flex: 1;
+}
+
+.columnHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.columnTitleWrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.columnDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.columnTitle {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.columnCount {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background-color: rgba(0, 0, 0, 0.06);
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
+.columnCards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  flex: 1;
+}
+
+.emptyColumn {
+  text-align: center;
+  padding: var(--space-8) var(--space-4);
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* ── Card ───────────────────────────────────────────────────────────── */
+
+.card {
+  background: #ffffff;
+  border: 1px solid var(--border-color);
+  border-bottom: 4px solid var(--category-color, var(--border-color));
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  text-decoration: none;
+  display: block;
+  width: 100%;
+  text-align: left;
+  transition: box-shadow 0.15s, border-color 0.15s, transform 0.15s;
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-card-hover);
+  border-color: #d1d5db;
+  transform: translateY(-1px);
+}
+
+.card:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(232, 52, 28, 0.15);
+  border-color: var(--gu-red);
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.cardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.cardHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.cardTag {
+  font-size: 0.625rem;
+  font-weight: 700;
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  padding: 2px 7px;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+}
+
+.reviewedBadge {
+  color: #1d9bf0;
+  flex-shrink: 0;
+}
+
+.cardTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cardDescription {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.25rem;
+}
+
+.cardFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--space-2);
+  padding-top: var(--space-3);
+  border-top: 1px solid #f3f4f6;
+}
+
+.cardUpdatedDate {
+  font-size: 0.6875rem;
+  color: var(--text-tertiary);
+}
+
+/* ── Gravity badge ──────────────────────────────────────────────────── */
+
+.gravityBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.gravityIcon {
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.gravityHigh {
+  background-color: #d4edda;
+  color: #1a5f3f;
+  border-color: rgba(26, 95, 63, 0.2);
+}
+
+.gravityMid {
+  background-color: #fff3cd;
+  color: #9ca32b;
+  border-color: rgba(156, 163, 43, 0.2);
+}
+
+.gravityLow {
+  background-color: var(--bg-secondary);
+  color: var(--text-muted);
+  border-color: var(--border-color);
+}

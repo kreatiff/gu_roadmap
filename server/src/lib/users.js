@@ -122,17 +122,22 @@ export async function resetUserPassword(id, newPassword) {
   if (!user) throw new Error('User not found');
 
   const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
-  const operations = user.sessionVersion !== undefined
-    ? [
-        { op: 'replace', path: '/passwordHash', value: passwordHash },
-        { op: 'incr', path: '/sessionVersion', value: 1 },
-        { op: 'replace', path: '/updatedAt', value: new Date().toISOString() }
-      ]
-    : [
-        { op: 'replace', path: '/passwordHash', value: passwordHash },
-        { op: 'add', path: '/sessionVersion', value: 2 },
-        { op: 'replace', path: '/updatedAt', value: new Date().toISOString() }
-      ];
+  const operations = [];
+
+  // SSO-imported users may not have passwordHash field at all
+  if (user.passwordHash !== undefined) {
+    operations.push({ op: 'replace', path: '/passwordHash', value: passwordHash });
+  } else {
+    operations.push({ op: 'add', path: '/passwordHash', value: passwordHash });
+  }
+
+  if (user.sessionVersion !== undefined) {
+    operations.push({ op: 'incr', path: '/sessionVersion', value: 1 });
+  } else {
+    operations.push({ op: 'add', path: '/sessionVersion', value: 2 });
+  }
+
+  operations.push({ op: 'replace', path: '/updatedAt', value: new Date().toISOString() });
 
   const { resource } = await usersContainer.item(id, user.email).patch({ operations });
   return resource;

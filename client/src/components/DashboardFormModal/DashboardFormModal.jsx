@@ -14,6 +14,7 @@ const DashboardFormModal = ({ isOpen, onClose, onSubmit, dashboard = null, categ
     tags: [],
     category_ids: [],
     stage_slugs: [],
+    availableViews: ['grid'],
     password: '',
     passwordConfirm: ''
   });
@@ -34,6 +35,7 @@ const DashboardFormModal = ({ isOpen, onClose, onSubmit, dashboard = null, categ
           tags: dashboard.filters?.tags ?? [],
           category_ids: dashboard.filters?.category_ids ?? (dashboard.filters?.category_id ? [dashboard.filters.category_id] : []),
           stage_slugs: dashboard.filters?.stage_slugs ?? (dashboard.filters?.stage_slug ? [dashboard.filters.stage_slug] : []),
+          availableViews: dashboard.available_views ?? ['grid', 'swimlane', 'table'],
           password: '',
           passwordConfirm: ''
         });
@@ -45,6 +47,7 @@ const DashboardFormModal = ({ isOpen, onClose, onSubmit, dashboard = null, categ
           tags: [],
           category_ids: [],
           stage_slugs: [],
+          availableViews: ['grid'],
           password: '',
           passwordConfirm: ''
         });
@@ -134,6 +137,7 @@ const DashboardFormModal = ({ isOpen, onClose, onSubmit, dashboard = null, categ
         category_ids: form.category_ids.length > 0 ? form.category_ids : null,
         stage_slugs: form.stage_slugs.length > 0 ? form.stage_slugs : null
       },
+      available_views: form.availableViews,
       password: isEditing
         ? (passwordTouched ? form.password : undefined)
         : (form.password || undefined)
@@ -250,6 +254,44 @@ const DashboardFormModal = ({ isOpen, onClose, onSubmit, dashboard = null, categ
                   />
                 </div>
               </div>
+            </div>
+          </fieldset>
+
+          {/* Available Views Section */}
+          <fieldset className={styles.fieldset}>
+            <legend className={styles.legend}>Available Views</legend>
+            <p className={styles.fieldsetHelp}>Choose which views visitors can switch between on this dashboard.</p>
+            <div className={styles.viewOptions}>
+              {[
+                { key: 'grid', label: 'Grid', icon: '⊞', desc: 'Card grid layout' },
+                { key: 'swimlane', label: 'Swimlane', icon: '▦', desc: 'Kanban-style columns' },
+                { key: 'table', label: 'Table', icon: '☰', desc: 'Sortable list table' },
+              ].map(view => {
+                const isChecked = form.availableViews.includes(view.key);
+                const isDisabled = view.key === 'grid';
+                return (
+                  <label
+                    key={view.key}
+                    className={`${styles.viewOption} ${isChecked ? styles.viewOptionChecked : ''} ${isDisabled ? styles.viewOptionDisabled : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      disabled={isDisabled}
+                      onChange={(e) => {
+                        const next = e.target.checked
+                          ? [...form.availableViews, view.key]
+                          : form.availableViews.filter(v => v !== view.key);
+                        updateField('availableViews', next);
+                      }}
+                      className={styles.viewCheckbox}
+                    />
+                    <span className={styles.viewOptionIcon}>{view.icon}</span>
+                    <span className={styles.viewOptionLabel}>{view.label}</span>
+                    <span className={styles.viewOptionDesc}>{view.desc}</span>
+                  </label>
+                );
+              })}
             </div>
           </fieldset>
 
