@@ -37,6 +37,7 @@ export const getOidcAuthUrl = async () => {
     scope: 'openid email profile',
     state,
     nonce,
+    hd: 'griffith.edu.au', // Hint: only show Griffith Google Workspace accounts
   });
 
   const authUrl = client.buildAuthorizationUrl(cfg, params);
@@ -68,8 +69,8 @@ export const exchangeCodeForUser = async ({ callbackUrl, storedState, storedNonc
 
   return {
     sub: claims.sub,
-    // Microsoft may return email in `email` or `preferred_username`
-    email: claims.email ?? claims.preferred_username,
+    // Google returns email reliably in the `email` claim
+    email: claims.email,
     name: claims.name,
   };
 };
