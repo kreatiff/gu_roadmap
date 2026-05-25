@@ -57,7 +57,8 @@ export const config = {
     clientId: process.env.OIDC_CLIENT_ID ?? '',
     clientSecret: process.env.OIDC_CLIENT_SECRET ?? '',
     redirectUri: process.env.OIDC_REDIRECT_URI ?? 'http://localhost:3001/api/auth/callback',
-    enabled: Boolean(process.env.OIDC_ISSUER),
+    // All three must be present for OIDC to be active; a partial config fails silently otherwise
+    enabled: Boolean(process.env.OIDC_ISSUER && process.env.OIDC_CLIENT_ID && process.env.OIDC_CLIENT_SECRET),
   },
 
   devAuthEnabled: process.env.DEV_AUTH_ENABLED === 'true',

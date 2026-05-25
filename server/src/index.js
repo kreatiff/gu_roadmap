@@ -26,9 +26,6 @@ import { errorHandler } from './errorHandler.js';
 
 const server = fastify({
   logger: {
-    transport: {
-      target: 'pino-pretty'
-    },
     redact: [
       'req.body.password',
       'req.body.passwordHash',
