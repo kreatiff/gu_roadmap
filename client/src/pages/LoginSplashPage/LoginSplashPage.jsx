@@ -1,6 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import styles from './LoginSplashPage.module.css';
+
+const SSO_ERROR_MESSAGES = {
+  domain_restricted: 'This Google account is not authorised. Please sign in with your @griffith.edu.au account.',
+  inactive: 'Your account is inactive. Please contact an administrator.',
+  no_email: 'Google did not return an email address. Please try again.',
+  auth_failed: 'Sign-in failed. Please try again.',
+  server_error: 'Something went wrong. Please try again.',
+};
 
 const GoogleIcon = () => (
   <svg className={styles.icon} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -32,10 +41,19 @@ const Spinner = () => (
 
 const LoginSplashPage = () => {
   const { login, navigateToLogin } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const errorCode = searchParams.get('error');
+    if (errorCode) {
+      setLoginError(SSO_ERROR_MESSAGES[errorCode] ?? 'Sign-in failed. Please try again.');
+      setSearchParams({}, { replace: true });
+    }
+  }, []);
 
   const handleEmailChange = (e) => {
     setEmail(e.target.value);
