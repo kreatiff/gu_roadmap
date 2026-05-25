@@ -34,15 +34,15 @@ export default async function authRoutes(fastify, options) {
     const { url, state, nonce } = await getOidcAuthUrl();
 
     // Store state/nonce in signed cookies to prevent CSRF during token exchange
-    reply.setCookie('oidc_state', state, { httpOnly: true, signed: true, path: '/' });
-    reply.setCookie('oidc_nonce', nonce, { httpOnly: true, signed: true, path: '/' });
+    reply.setCookie('oidc_state', state, { httpOnly: true, signed: true, path: '/', secure: config.isProd, sameSite: 'lax' });
+    reply.setCookie('oidc_nonce', nonce, { httpOnly: true, signed: true, path: '/', secure: config.isProd, sameSite: 'lax' });
 
     return reply.redirect(url);
   });
 
   // 2. Credential Login (Local password flow)
   // NOTE: Local password login is for development and bootstrap only.
-  // Production deployments MUST use OIDC (Microsoft Entra ID).
+  // Production deployments MUST use OIDC (Google OIDC).
   fastify.post('/login', {
     schema: {
       body: {
