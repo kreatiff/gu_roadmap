@@ -34,15 +34,15 @@ export default async function authRoutes(fastify, options) {
     const { url, state, nonce } = await getOidcAuthUrl();
 
     // Store state/nonce in signed cookies to prevent CSRF during token exchange
-    reply.setCookie('oidc_state', state, { httpOnly: true, signed: true, path: '/' });
-    reply.setCookie('oidc_nonce', nonce, { httpOnly: true, signed: true, path: '/' });
+    reply.setCookie('oidc_state', state, { httpOnly: true, signed: true, path: '/', secure: config.isProd, sameSite: 'lax' });
+    reply.setCookie('oidc_nonce', nonce, { httpOnly: true, signed: true, path: '/', secure: config.isProd, sameSite: 'lax' });
 
     return reply.redirect(url);
   });
 
   // 2. Credential Login (Local password flow)
   // NOTE: Local password login is for development and bootstrap only.
-  // Production deployments MUST use OIDC (Microsoft Entra ID).
+  // Production deployments MUST use OIDC (Google OIDC).
   fastify.post('/login', {
     schema: {
       body: {
@@ -115,7 +115,7 @@ export default async function authRoutes(fastify, options) {
     const nonceCookie = request.unsignCookie(request.cookies.oidc_nonce ?? '');
 
     if (!stateCookie.valid || !stateCookie.value || !nonceCookie.valid || !nonceCookie.value) {
-      return reply.code(400).send({ error: 'Auth failed: Invalid or tampered state cookie' });
+      return reply.redirect(`${config.clientOrigin}/login?error=auth_failed`);
     }
 
     const storedState = stateCookie.value;
@@ -123,7 +123,7 @@ export default async function authRoutes(fastify, options) {
 
     // Validate state to prevent CSRF
     if (!returnedState || returnedState !== storedState) {
-      return reply.code(400).send({ error: 'Auth failed: Invalid state' });
+      return reply.redirect(`${config.clientOrigin}/login?error=auth_failed`);
     }
 
     try {
@@ -135,12 +135,12 @@ export default async function authRoutes(fastify, options) {
       const email = oidcUser.email?.toLowerCase();
 
       if (!email) {
-        return reply.code(403).send({ error: 'No email returned from identity provider.' });
+        return reply.redirect(`${config.clientOrigin}/login?error=no_email`);
       }
 
       // Restrict access to Griffith University accounts
       if (!email.endsWith('@griffith.edu.au')) {
-         return reply.code(403).send({ error: 'Access restricted to Griffith University accounts (@griffith.edu.au).' });
+        return reply.redirect(`${config.clientOrigin}/login?error=domain_restricted`);
       }
 
       // Hash the 'sub' to prevent storage of real student IDs
@@ -164,7 +164,7 @@ export default async function authRoutes(fastify, options) {
 
       // Check user status
       if (user.status !== 'active') {
-        return reply.code(401).send({ error: 'Account is inactive' });
+        return reply.redirect(`${config.clientOrigin}/login?error=inactive`);
       }
 
       // Sign JWT with full user payload details
@@ -196,7 +196,7 @@ export default async function authRoutes(fastify, options) {
       return reply.redirect(config.clientOrigin);
     } catch (err) {
       fastify.log.error(err);
-      return reply.code(500).send({ error: 'Internal server error during auth' });
+      return reply.redirect(`${config.clientOrigin}/login?error=server_error`);
     }
   });
 

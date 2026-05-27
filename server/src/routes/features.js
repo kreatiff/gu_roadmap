@@ -4,6 +4,15 @@ import slugify from 'slugify';
 import { requireAdmin, requireSuperAdmin, optionalAuthenticate, authenticate } from '../auth.js';
 import { recalculateAllGravityScores } from '../lib/gravityUtils.js';
 
+const LOCK_TTL_MS = 60_000;
+const editLocks = new Map(); // featureId → { userId, email, name, acquiredAt, expiresAt }
+function isLockExpired(lock) { return Date.now() > lock.expiresAt; }
+function cleanExpiredLocks() {
+  for (const [id, lock] of editLocks.entries()) {
+    if (isLockExpired(lock)) editLocks.delete(id);
+  }
+}
+
 export default async function featureRoutes(fastify, options) {
 
   async function validateDependencyIds(dependencyIds) {
@@ -813,6 +822,42 @@ export default async function featureRoutes(fastify, options) {
     }
 
     return results;
+  });
+
+  // ── Edit-lock endpoints ────────────────────────────────────────────────────
+
+  fastify.post('/:id/edit-lock', { preHandler: [requireAdmin] }, async (request, reply) => {
+    cleanExpiredLocks();
+    const { id } = request.params;
+    const { sub: userId, email, name } = request.user;
+    const existing = editLocks.get(id);
+
+    if (!existing || isLockExpired(existing) || existing.userId === userId) {
+      editLocks.set(id, {
+        userId,
+        email,
+        name,
+        acquiredAt: existing?.userId === userId ? existing.acquiredAt : Date.now(),
+        expiresAt: Date.now() + LOCK_TTL_MS,
+      });
+      return { currentEditor: null };
+    }
+
+    return {
+      currentEditor: {
+        email: existing.email,
+        name: existing.name,
+        since: new Date(existing.acquiredAt).toISOString(),
+      },
+    };
+  });
+
+  fastify.delete('/:id/edit-lock', { preHandler: [requireAdmin] }, async (request, reply) => {
+    const { id } = request.params;
+    if (editLocks.get(id)?.userId === request.user.sub) {
+      editLocks.delete(id);
+    }
+    return reply.code(204).send();
   });
 
 }
