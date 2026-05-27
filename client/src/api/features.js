@@ -48,3 +48,9 @@ export const updateStageSortOrders = (items) => {
     body: JSON.stringify({ items }),
   });
 };
+
+export const acquireEditLock = (featureId) =>
+  api(`/api/features/${featureId}/edit-lock`, { method: 'POST' });
+
+export const releaseEditLock = (featureId) =>
+  api(`/api/features/${featureId}/edit-lock`, { method: 'DELETE' });

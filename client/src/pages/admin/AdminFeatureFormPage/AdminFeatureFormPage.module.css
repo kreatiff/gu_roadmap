@@ -449,3 +449,20 @@
   color: #475569;
   border-color: #cbd5e130;
 }
+
+.editLockBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px var(--space-8);
+  background-color: #fffbeb;
+  border-bottom: 1px solid #fcd34d;
+  color: #92400e;
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.editLockBanner svg {
+  flex-shrink: 0;
+  color: #d97706;
+}

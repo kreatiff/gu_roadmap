@@ -14,7 +14,8 @@ import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { calculateGravityScore } from '@shared/lib/gravityScore.js';
 import { useToast } from '../../../contexts/ToastContext';
-import { Eye, Clock } from 'lucide-react';
+import { Eye, Clock, AlertTriangle } from 'lucide-react';
+import { useEditLock } from './useEditLock';
 import VerifiedBadge from '../../../components/VerifiedBadge';
 import styles from './AdminFeatureFormPage.module.css';
 
@@ -58,6 +59,7 @@ const AdminFeatureFormPage = () => {
   const skipDirtyRef = useRef(false);
   const abortedRef = useRef(false);
   const formRef = useRef(null);
+  const { otherEditor } = useEditLock(isEdit ? id : null);
 
   // Mark dirty on any form change after initial load
   useEffect(() => {
@@ -194,11 +196,7 @@ const AdminFeatureFormPage = () => {
         addToast(isPublishAction ? 'Feature published' : 'Draft saved', 'success');
         skipDirtyRef.current = true;
         setIsDirty(false);
-        // Refresh revisions since a save happened
-        const revRes = await getFeatureRevisions(id).catch(() => []);
-        setRevisions(Array.isArray(revRes) ? revRes : []);
-        // Update local state to reflect current published status
-        setFormData(prev => ({ ...prev, is_published: payload.is_published }));
+        navigate('/admin');
       } else {
         const result = await createFeature(payload);
         addToast(isPublishAction ? 'Feature published' : 'Draft created', 'success');
@@ -303,6 +301,16 @@ const AdminFeatureFormPage = () => {
           onConfirm={executeDiscard}
           onCancel={() => setConfirmDialog({ isOpen: false, type: null })}
         />
+      )}
+
+      {otherEditor && (
+        <div className={styles.editLockBanner}>
+          <AlertTriangle size={16} strokeWidth={2.5} />
+          <span>
+            <strong>{otherEditor.name || otherEditor.email}</strong> is also editing this feature.
+            Your save may overwrite their changes.
+          </span>
+        </div>
       )}
 
       <div className={styles.content}>
