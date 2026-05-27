@@ -80,9 +80,12 @@ export default async function featureRoutes(fastify, options) {
     }
 
     if (search) {
+      // Note: CONTAINS(str, str, true) (case-insensitive flag) and LOWER() both
+      // crash the vnext-preview Cosmos emulator at query-plan time. Plain 2-arg
+      // CONTAINS works in both emulator and production but is case-sensitive.
       const searchFields = isAdmin
-        ? '(CONTAINS(c.title, @search, true) OR CONTAINS(c.description, @search, true) OR CONTAINS(c.internal_notes, @search, true))'
-        : '(CONTAINS(c.title, @search, true) OR CONTAINS(c.description, @search, true))';
+        ? '(CONTAINS(c.title, @search) OR CONTAINS(c.description, @search) OR CONTAINS(c.internal_notes, @search))'
+        : '(CONTAINS(c.title, @search) OR CONTAINS(c.description, @search))';
       conditions.push(searchFields);
       parameters.push({ name: '@search', value: search });
     }
