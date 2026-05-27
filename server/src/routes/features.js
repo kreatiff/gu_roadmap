@@ -79,16 +79,8 @@ export default async function featureRoutes(fastify, options) {
       }
     }
 
-    if (search) {
-      // Note: CONTAINS(str, str, true) (case-insensitive flag) and LOWER() both
-      // crash the vnext-preview Cosmos emulator at query-plan time. Plain 2-arg
-      // CONTAINS works in both emulator and production but is case-sensitive.
-      const searchFields = isAdmin
-        ? '(CONTAINS(c.title, @search) OR CONTAINS(c.description, @search) OR CONTAINS(c.internal_notes, @search))'
-        : '(CONTAINS(c.title, @search) OR CONTAINS(c.description, @search))';
-      conditions.push(searchFields);
-      parameters.push({ name: '@search', value: search });
-    }
+    // search is applied in JS after the DB fetch (see below) — the Cosmos emulator
+    // does not support CONTAINS(str, str, true) or LOWER() in cross-partition queries.
 
     if (tags) {
       // Comma-separated: "vle,canvas" → ARRAY_CONTAINS for each
@@ -124,26 +116,43 @@ export default async function featureRoutes(fastify, options) {
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const orderClause = 'ORDER BY c.pinned DESC, c.stage_sort_order ASC, c.vote_count DESC, c.created_at DESC';
 
-    const querySpec = {
-      query: `
-        SELECT *
-        FROM c
-        ${whereClause}
-        ORDER BY c.pinned DESC, c.stage_sort_order ASC, c.vote_count DESC, c.created_at DESC
-        OFFSET ${offsetNum} LIMIT ${limitNum}
-      `,
-      parameters,
-    };
+    // When search is present, fetch all results matching the other filters and
+    // apply case-insensitive text filtering in JS. This sidesteps the Cosmos
+    // emulator's lack of support for CONTAINS(str, str, true) and LOWER().
+    let rawFeatures;
+    let hasMore;
 
-    const { resources: features } = await featuresContainer.items
-      .query(querySpec, { enableCrossPartitionQuery: true })
-      .fetchAll();
+    if (search) {
+      const { resources: all } = await featuresContainer.items
+        .query({ query: `SELECT * FROM c ${whereClause} ${orderClause}`, parameters }, { enableCrossPartitionQuery: true })
+        .fetchAll();
+
+      const q = search.toLowerCase();
+      const filtered = all.filter(f =>
+        (f.title || '').toLowerCase().includes(q) ||
+        (f.description || '').toLowerCase().includes(q) ||
+        (isAdmin && (f.internal_notes || '').toLowerCase().includes(q))
+      );
+
+      hasMore = offsetNum + limitNum < filtered.length;
+      rawFeatures = filtered.slice(offsetNum, offsetNum + limitNum);
+    } else {
+      const { resources } = await featuresContainer.items
+        .query({
+          query: `SELECT * FROM c ${whereClause} ${orderClause} OFFSET ${offsetNum} LIMIT ${limitNum}`,
+          parameters,
+        }, { enableCrossPartitionQuery: true })
+        .fetchAll();
+      rawFeatures = resources;
+      hasMore = resources.length === limitNum;
+    }
 
     // Resolve user_voted for each feature in a single batch query.
     let votedFeatureIds = new Set();
-    if (userId && features.length > 0) {
-      const featureIds = features.map((f) => f.id);
+    if (userId && rawFeatures.length > 0) {
+      const featureIds = rawFeatures.map((f) => f.id);
       // Query votes partitioned by featureId — needs cross-partition since we
       // span many featureId partitions.  For this dataset size it is acceptable.
       const voteQuerySpec = {
@@ -159,7 +168,7 @@ export default async function featureRoutes(fastify, options) {
       votedFeatureIds = new Set(voted.map((v) => v.featureId));
     }
 
-    const data = features.map((f) => {
+    const data = rawFeatures.map((f) => {
       const featureData = {
         ...f,
         user_voted: votedFeatureIds.has(f.id),
@@ -174,7 +183,7 @@ export default async function featureRoutes(fastify, options) {
 
     return {
       data,
-      meta: { page: pageNum, limit: limitNum, hasMore: data.length === limitNum },
+      meta: { page: pageNum, limit: limitNum, hasMore },
     };
   });
 
