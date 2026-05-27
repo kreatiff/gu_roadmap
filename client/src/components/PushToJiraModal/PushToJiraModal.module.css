@@ -1,0 +1,321 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.dialog {
+  background-color: var(--bg-surface, #ffffff);
+  border-radius: var(--radius-lg, 12px);
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 680px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg, 0 10px 15px -3px rgb(0 0 0 / 0.1));
+  border: 1px solid var(--border-color, #e5e7eb);
+  animation: slideUp 0.3s ease-out;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.closeBtn:hover {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+}
+
+.body {
+  flex: 1;
+  margin-bottom: 1.5rem;
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.cancelBtn,
+.primaryBtn {
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: var(--radius-md, 6px);
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.cancelBtn {
+  background-color: var(--bg-base, #f3f4f6);
+  color: var(--text-primary, #111827);
+  border: 1px solid var(--border-color, #e5e7eb);
+}
+.cancelBtn:hover {
+  background-color: var(--border-color, #d1d5db);
+}
+
+.primaryBtn {
+  background-color: var(--gu-red);
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.primaryBtn:hover:not(:disabled) {
+  background-color: #c72512;
+}
+.primaryBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Form Styles */
+.field {
+  margin-bottom: 1.25rem;
+}
+
+.label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.radioGroup {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.radioLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9375rem;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  margin-top: 1rem;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 0.9375rem;
+  font-family: inherit;
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: var(--gu-red);
+  box-shadow: 0 0 0 1px var(--gu-red);
+}
+
+/* Tasks specific */
+.tasksHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 1.5rem 0 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.addTaskBtn {
+  background: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 0.375rem 0.75rem;
+  border-radius: var(--radius-md);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.addTaskBtn:hover {
+  background-color: var(--bg-base);
+}
+
+.taskCard {
+  background-color: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.taskHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.taskSummary {
+  flex: 1;
+  margin-right: 1rem;
+}
+
+.removeTaskBtn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+}
+.removeTaskBtn:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.twoCols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+/* Success Step */
+.successStep {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.successIcon {
+  color: #10b981;
+  margin-bottom: 1rem;
+}
+
+.successTitle {
+  font-size: 1.5rem;
+  margin: 0 0 0.5rem;
+}
+
+.successMessage {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+.jiraLinks {
+  text-align: left;
+  background-color: var(--bg-base);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  margin-bottom: 2rem;
+}
+
+.jiraLinkItem {
+  margin-bottom: 0.5rem;
+}
+
+.jiraLinkItem:last-child {
+  margin-bottom: 0;
+}
+
+.jiraLinkItem a {
+  color: #0052cc; /* Standard Jira blue */
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.jiraLinkItem a:hover {
+  text-decoration: underline;
+}
+
+/* Tags Input pseudo-element for labels */
+.labelsInput {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.labelBadge {
+  background-color: var(--bg-base);
+  border: 1px solid var(--border-color);
+  padding: 0.125rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.removeLabelBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  padding: 0;
+}
+.removeLabelBtn:hover {
+  color: #ef4444;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

@@ -14,10 +14,25 @@ import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { calculateGravityScore } from '@shared/lib/gravityScore.js';
 import { useToast } from '../../../contexts/ToastContext';
-import { Eye, Clock, AlertTriangle } from 'lucide-react';
+import { Eye, Clock, AlertTriangle, ExternalLink } from 'lucide-react';
 import { useEditLock } from './useEditLock';
+import PushToJiraModal from '../../../components/PushToJiraModal/PushToJiraModal';
+import { fetchJiraConfig } from '../../../api/jira';
 import VerifiedBadge from '../../../components/VerifiedBadge';
 import styles from './AdminFeatureFormPage.module.css';
+
+const JiraLogo = ({ size = 16, className }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    className={className}
+    style={{ display: 'inline-block', verticalAlign: 'middle' }}
+  >
+    <path fill="var(--tile-color,#1868db)" d="M0 6a6 6 0 0 1 6-6h12a6 6 0 0 1 6 6v12a6 6 0 0 1-6 6H6a6 6 0 0 1-6-6z" />
+    <path fill="var(--icon-color, white)" d="M9.051 15.434H7.734c-1.988 0-3.413-1.218-3.413-3h7.085c.367 0 .605.26.605.63v7.13c-1.772 0-2.96-1.435-2.96-3.434zm3.5-3.543h-1.318c-1.987 0-3.413-1.196-3.413-2.978h7.085c.367 0 .627.239.627.608v7.13c-1.772 0-2.981-1.435-2.981-3.434zm3.52-3.522h-1.317c-1.987 0-3.413-1.217-3.413-3h7.085c.367 0 .605.262.605.61v7.129c-1.771 0-2.96-1.435-2.96-3.434z" />
+  </svg>
+);
 
 const AdminFeatureFormPage = () => {
   const { id } = useParams();
@@ -34,6 +49,8 @@ const AdminFeatureFormPage = () => {
   const [loading, setLoading] = useState(isEdit);
   const [showPreview, setShowPreview] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showJiraModal, setShowJiraModal] = useState(false);
+  const [jiraBaseUrl, setJiraBaseUrl] = useState('');
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, payload: null });
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -52,7 +69,9 @@ const AdminFeatureFormPage = () => {
     priority: 'Medium',
     is_published: true,
     is_reviewed: false,
-    dependencies: []
+    dependencies: [],
+    jira_issue_key: '',
+    jira_child_keys: []
   });
   const [isDirty, setIsDirty] = useState(false);
   const initialLoadDone = useRef(false);
@@ -102,12 +121,13 @@ const AdminFeatureFormPage = () => {
   useEffect(() => {
     abortedRef.current = false;
     const fetchData = async () => {
-      const [cData, stData, tagData, ownerData, stakeholderData] = await Promise.all([
+      const [cData, stData, tagData, ownerData, stakeholderData, jiraConf] = await Promise.all([
         getCategories(),
         getStages(),
         getFeatureTags().catch(() => []),
         getFeatureOwners().catch(() => []),
-        getFeatureStakeholders().catch(() => [])
+        getFeatureStakeholders().catch(() => []),
+        fetchJiraConfig().catch(() => null)
       ]);
       if (abortedRef.current) return;
       setCategories(cData);
@@ -119,6 +139,9 @@ const AdminFeatureFormPage = () => {
       setOwnerSuggestions(Array.isArray(ownerData) ? ownerData : []);
       if (abortedRef.current) return;
       setStakeholderSuggestions(Array.isArray(stakeholderData) ? stakeholderData : []);
+      if (jiraConf && /^https:\/\//i.test(jiraConf.baseUrl)) {
+        setJiraBaseUrl(jiraConf.baseUrl);
+      }
 
       if (isEdit) {
         try {
@@ -147,6 +170,8 @@ const AdminFeatureFormPage = () => {
               priority: feature.priority || 'Medium',
               is_published: feature.is_published ?? true,
               is_reviewed: feature.is_reviewed ?? false,
+              jira_issue_key: feature.jira_issue_key || '',
+              jira_child_keys: Array.isArray(feature.jira_child_keys) ? feature.jira_child_keys : [],
               dependencies: (feature.dependency_details || feature.dependencies || []).map(d =>
                 typeof d === 'string' ? { id: d, title: d, stage_name: '--', stage_color: '#94a3b8', owner: '', key_stakeholder: '', gravity_score: 0 } : { id: d.id, title: d.title, stage_name: d.stage_name || '--', stage_color: d.stage_color || '#94a3b8', owner: d.owner || '', key_stakeholder: d.key_stakeholder || '', gravity_score: d.gravity_score || 0 }
               )
@@ -267,6 +292,18 @@ const AdminFeatureFormPage = () => {
 
   return (
     <AdminLayout>
+      {showJiraModal && (
+        <PushToJiraModal
+          feature={formData}
+          featureId={id}
+          jiraBaseUrl={jiraBaseUrl}
+          onClose={() => setShowJiraModal(false)}
+          onPushSuccess={(key, childKeys) => {
+            setFormData(prev => ({ ...prev, jira_issue_key: key, jira_child_keys: Array.isArray(childKeys) ? childKeys : [] }));
+          }}
+        />
+      )}
+      
       {showPreview && (
         <FeatureDetailModal
           feature={previewFeature}
@@ -324,6 +361,11 @@ const AdminFeatureFormPage = () => {
                   )}
                   {formData.is_reviewed && (
                     <VerifiedBadge size={23} className={styles.headerReviewedBadge} />
+                  )}
+                  {formData.jira_issue_key && (
+                    <a href={jiraBaseUrl ? `${jiraBaseUrl.replace(/\/$/, '')}/browse/${formData.jira_issue_key}` : `/browse/${formData.jira_issue_key}`} target="_blank" rel="noreferrer" className={styles.publishedBadgeBadge} style={{ backgroundColor: '#0052cc', color: 'white', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <ExternalLink size={12} /> {formData.jira_issue_key}
+                    </a>
                   )}
                 </div>
               )}
@@ -543,6 +585,50 @@ const AdminFeatureFormPage = () => {
           />
 
         </form>
+
+        {isEdit && (
+          <div className={styles.jiraCard}>
+            <h3 className={styles.jiraCardTitle}>Jira Integration</h3>
+            <div className={styles.jiraSection}>
+              {formData.jira_issue_key || (formData.jira_child_keys && formData.jira_child_keys.length > 0) ? (
+                <>
+                  <p className={styles.fieldHint}>The following Jira issues are linked to this feature:</p>
+                  <ul className={styles.jiraList}>
+                    {formData.jira_issue_key && (
+                      <li className={styles.jiraItem}>
+                        <span className={styles.jiraBadgeEpic}>Primary Epic/Task</span>
+                        <a href={jiraBaseUrl ? `${jiraBaseUrl.replace(/\/$/, '')}/browse/${formData.jira_issue_key}` : `/browse/${formData.jira_issue_key}`} target="_blank" rel="noreferrer" className={styles.jiraLink}>
+                          <ExternalLink size={14} /> {formData.jira_issue_key}
+                        </a>
+                      </li>
+                    )}
+                    {formData.jira_child_keys && formData.jira_child_keys.map(key => (
+                      <li key={key} className={styles.jiraItem}>
+                        <span className={styles.jiraBadgeChild}>Child Task</span>
+                        <a href={jiraBaseUrl ? `${jiraBaseUrl.replace(/\/$/, '')}/browse/${key}` : `/browse/${key}`} target="_blank" rel="noreferrer" className={styles.jiraLink}>
+                          <ExternalLink size={14} /> {key}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p className={styles.fieldHint}>This feature has not been linked to Jira yet.</p>
+              )}
+              
+              <div style={{ marginTop: '12px' }}>
+                <button
+                  type="button"
+                  className={styles.jiraBtn}
+                  onClick={() => setShowJiraModal(true)}
+                >
+                  <JiraLogo size={20} className={styles.jiraBtnIcon} />
+                  <span>{formData.jira_issue_key ? 'Push to Jira / Update Issues' : 'Push to Jira'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {isEdit && (
           <div className={styles.deleteSection}>
