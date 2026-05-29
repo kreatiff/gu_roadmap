@@ -480,13 +480,56 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
 }
 
 .jiraItem {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
+  padding: 8px 12px;
+}
+
+.jiraItem:nth-child(odd) {
+  background: var(--bg-base, #f9fafb);
+}
+
+.jiraItem:nth-child(even) {
+  background: #ffffff;
+}
+
+.jiraItemLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.jiraRowUnlinkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  background: #fff;
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: var(--radius-sm, 6px);
+  color: var(--text-muted, #64748b);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.jiraRowUnlinkBtn:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #ef4444;
 }
 
 .jiraBadgeEpic {
@@ -529,6 +572,68 @@
   text-decoration: underline;
 }
 
+/* ── Issue type icons — matches EpicIcon / TaskIcon in PushToJiraModal ────── */
+
+.jiraTypeIconEpic {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: #8b5cf6;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  font-style: normal;
+}
+
+.jiraTypeIconTask {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: #3b82f6;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  font-style: normal;
+}
+
+/* Monospace key link — replaces old .jiraLink in the issue list */
+
+.jiraItemKeyLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: monospace;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #1d4ed8;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.jiraItemKeyLink:hover {
+  text-decoration: underline;
+}
+
+/* Issue summary / name — truncated, muted */
+
+.jiraItemName {
+  font-size: 0.8125rem;
+  color: var(--text-secondary, #374151);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
 .jiraBtn {
   display: inline-flex;
   align-items: center;
@@ -554,6 +659,34 @@
 .jiraBtnIcon {
   color: #ffffff;
   flex-shrink: 0;
+}
+
+.jiraUnlinkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: transparent;
+  color: var(--text-secondary, #64748b);
+  border: 1px solid var(--border-color);
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.jiraUnlinkBtn:hover {
+  background-color: #fef2f2;
+  color: #ef4444;
+  border-color: #fca5a5;
+}
+
+.draftBadge {
+  font-size: 0.75rem;
+  font-weight: 500;
+  opacity: 0.8;
+  margin-left: 2px;
 }
 
 .jiraCard {

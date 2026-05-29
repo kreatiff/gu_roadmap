@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import AdminLayout from '../../../components/AdminLayout';
 import ConfirmDialog from '../../../components/ConfirmDialog';
-import { getMetadata, renameMetadata, deleteMetadata } from '../../../api/metadata';
+import { getMetadata, renameMetadata, deleteMetadata, getMetadataConfigs, upsertMetadataConfig, fetchUserEmails } from '../../../api/metadata';
+import StringAutocomplete from '../../../components/StringAutocomplete/StringAutocomplete';
 import { useToast } from '../../../contexts/ToastContext';
 import styles from './AdminMetadataPage.module.css';
 
@@ -18,12 +19,21 @@ const AdminMetadataPage = () => {
   const [loading, setLoading] = useState(true);
   const [renameModal, setRenameModal] = useState({ isOpen: false, item: null, newValue: '' });
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, item: null });
+  const [configs, setConfigs] = useState([]);
+  const [editingConfig, setEditingConfig] = useState({ value: null, email: '' });
+  const [userEmails, setUserEmails] = useState([]);
 
   const fetchItems = async () => {
     setLoading(true);
     try {
       const data = await getMetadata(activeTab);
       setItems(Array.isArray(data) ? data : []);
+      if (activeTab === 'owners') {
+        const configData = await getMetadataConfigs().catch(() => []);
+        setConfigs(configData || []);
+        const emails = await fetchUserEmails().catch(() => []);
+        setUserEmails(emails || []);
+      }
     } catch (err) {
       addToast(err.error || `Failed to load ${activeTab}`, 'error');
       setItems([]);
@@ -38,8 +48,16 @@ const AdminMetadataPage = () => {
       setLoading(true);
       try {
         const data = await getMetadata(activeTab);
+        let configData = [];
+        let emails = [];
+        if (activeTab === 'owners' && !cancelled) {
+          configData = await getMetadataConfigs().catch(() => []);
+          emails = await fetchUserEmails().catch(() => []);
+        }
         if (!cancelled) {
           setItems(Array.isArray(data) ? data : []);
+          setConfigs(configData || []);
+          setUserEmails(emails || []);
         }
       } catch (err) {
         if (!cancelled) {
@@ -55,6 +73,17 @@ const AdminMetadataPage = () => {
     run();
     return () => { cancelled = true; };
   }, [activeTab]);
+
+  const handleSaveReporterEmail = async (value, email) => {
+    try {
+      await upsertMetadataConfig(value, email);
+      addToast(`Jira Reporter email updated for "${value}"`, 'success');
+      setEditingConfig({ value: null, email: '' });
+      await fetchItems();
+    } catch (err) {
+      addToast(err.error || 'Failed to update Jira Reporter email', 'error');
+    }
+  };
 
   const handleRename = async (e) => {
     e.preventDefault();
@@ -150,25 +179,75 @@ const AdminMetadataPage = () => {
                 <thead>
                   <tr>
                     <th>Value</th>
+                    {activeTab === 'owners' && <th>Jira Reporter Email</th>}
                     <th>Usage</th>
                     <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map(item => (
-                    <tr key={item.value}>
-                      <td className={styles.valueCell} title={item.value}>{item.value}</td>
-                      <td className={styles.countCell}>{item.usageCount}</td>
-                      <td className={styles.actionsCell}>
-                        <button className={styles.btnRename} onClick={() => openRename(item)}>
-                          Rename
-                        </button>
-                        <button className={styles.btnDelete} onClick={() => openDelete(item)}>
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {items.map(item => {
+                    const matchedConfig = configs.find(c => c.value === item.value);
+                    const mappedEmail = matchedConfig?.jira_reporter_email || '';
+                    const isEditing = editingConfig.value === item.value;
+
+                    return (
+                      <tr key={item.value}>
+                        <td className={styles.valueCell} title={item.value}>{item.value}</td>
+                        {activeTab === 'owners' && (
+                          <td className={styles.emailCell}>
+                            {isEditing ? (
+                              <div className={styles.inlineEditGroup}>
+                                <div className={styles.inlineAutocompleteWrapper}>
+                                  <StringAutocomplete
+                                    value={editingConfig.email}
+                                    onChange={(val) => setEditingConfig({ ...editingConfig, email: val })}
+                                    suggestions={userEmails}
+                                    placeholder="lead@company.com"
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  className={styles.inlineSaveBtn}
+                                  onClick={() => handleSaveReporterEmail(item.value, editingConfig.email)}
+                                >
+                                  Save
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.inlineCancelBtn}
+                                  onClick={() => setEditingConfig({ value: null, email: '' })}
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <div className={styles.emailView}>
+                                <span className={mappedEmail ? styles.emailText : styles.noEmailText}>
+                                  {mappedEmail || 'Not configured'}
+                                </span>
+                                <button
+                                  type="button"
+                                  className={styles.inlineEditLink}
+                                  onClick={() => setEditingConfig({ value: item.value, email: mappedEmail })}
+                                >
+                                  Edit
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        )}
+                        <td className={styles.countCell}>{item.usageCount}</td>
+                        <td className={styles.actionsCell}>
+                          <button className={styles.btnRename} onClick={() => openRename(item)}>
+                            Rename
+                          </button>
+                          <button className={styles.btnDelete} onClick={() => openDelete(item)}>
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

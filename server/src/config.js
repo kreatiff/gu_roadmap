@@ -69,6 +69,9 @@ export const config = {
     email: process.env.JIRA_EMAIL ?? '',
     apiToken: process.env.JIRA_API_TOKEN ?? '',
     projectKey: process.env.JIRA_PROJECT_KEY ?? '',
+    // Optional: custom field ID for Story Points (e.g. "customfield_10016").
+    // Verify via GET /rest/api/3/field on your Jira instance. Leave unset to omit story points from push payloads.
+    storyPointsFieldId: process.env.JIRA_STORY_POINTS_FIELD_ID || null,
     configured: Boolean(
       process.env.JIRA_BASE_URL &&
       process.env.JIRA_EMAIL &&

@@ -1,4 +1,4 @@
-import { featuresContainer, categoriesContainer, stagesContainer, revisionsContainer, votesContainer } from '../db.js';
+import { featuresContainer, categoriesContainer, stagesContainer, revisionsContainer, votesContainer, jiraDraftsContainer } from '../db.js';
 import { v4 as uuidv4 } from 'uuid';
 import slugify from 'slugify';
 import { requireAdmin, requireSuperAdmin, optionalAuthenticate, authenticate } from '../auth.js';
@@ -652,6 +652,16 @@ export default async function featureRoutes(fastify, options) {
         request.log.error({ err }, `Failed to cascade-delete revision ${r.id} for feature ${id}`);
       }
     }));
+
+    // Cascade-delete any saved Jira draft for this feature (direct delete — ID is deterministic)
+    try {
+      await jiraDraftsContainer.item(`draft::${id}`, id).delete();
+    } catch (err) {
+      if (err.code !== 404) {
+        cascadeErrors.push({ type: 'jira_draft', id: `draft::${id}`, error: err.message });
+        request.log.error({ err }, `Failed to cascade-delete Jira draft for feature ${id}`);
+      }
+    }
 
     return { ok: true, cascadeWarnings: cascadeErrors.length > 0 ? cascadeErrors : undefined };
   });

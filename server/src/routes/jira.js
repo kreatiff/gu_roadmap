@@ -1,6 +1,6 @@
 import { requireAdmin } from '../auth.js';
 import { config } from '../config.js';
-import { featuresContainer, revisionsContainer } from '../db.js';
+import { featuresContainer, revisionsContainer, metadataConfigsContainer, jiraDraftsContainer } from '../db.js';
 import { v4 as uuidv4 } from 'uuid';
 
 export default async function jiraRoutes(fastify, options) {
@@ -22,7 +22,7 @@ You are an Agile Epic Creation Agent.
 Your responsibility is to create high-quality Jira Epics that are clear, value-driven, and suitable for use by delivery teams, Product Owners, and leadership.
 
 Given the roadmap feature details, generate a structured Jira Epic.
-You MUST structure the description field using the following sections in order, using markdown headings (e.g. h3 or h4) and bullet points:
+You MUST structure the description field using the following sections in order. Use ## for section headings, - for bullet points, and **bold** for emphasis within paragraphs. Do NOT use tables, nested lists, or code blocks.
 1. **Description**: A clear description of the epic.
 2. **Value**: The business and user value this epic delivers.
 3. **T-Shirt Size**: Suggested size (S, M, L, XL) with brief justification.
@@ -31,6 +31,8 @@ You MUST structure the description field using the following sections in order, 
 6. **Delivery Date**: Suggested timeframe or target release if applicable.
 7. **Compliance Label**: Any compliance labels or considerations.
 8. **Dependencies**: Any known dependencies or blockers.
+
+Do NOT use em-dashes (—) anywhere in the output. Use a colon, comma, or rewrite the sentence instead.
 
 You MUST return a valid JSON object only with this exact shape (do NOT wrap the JSON in markdown code blocks like \`\`\`json):
 {
@@ -42,17 +44,32 @@ You MUST return a valid JSON object only with this exact shape (do NOT wrap the 
 
   const STANDALONE_TASK_SYSTEM_PROMPT = `You are a Jira Technical Lead.
 Given the roadmap feature details, generate a single, high-quality standalone Jira Task.
+Do NOT use em-dashes (—) anywhere in the output. Use a colon, comma, or rewrite the sentence instead.
 Return a valid JSON object only with this exact shape (do NOT wrap the JSON in markdown code blocks like \`\`\`json):
 {
   "summary": "Clear, concise title for the Task",
-  "description": "Detailed description of the task requirements and technical steps in plain text or simple markdown",
+  "description": "Detailed description of the task requirements and technical steps. Use ## for section headings, - for bullet points, and **bold** for key terms.",
   "labels": ["array of labels, including category and tags"],
   "priority": "Highest" | "High" | "Medium" | "Low" | "Lowest"
 }`;
 
-  const CHILD_TASK_SYSTEM_PROMPT = `You are a Jira Technical Lead.
+  // Build child task system prompt dynamically based on granularity and acceptance criteria preferences
+  function buildChildTaskSystemPrompt(granularity, acceptanceCriteria) {
+    const granularityHints = {
+      high:     'Generate 3–5 high-level tasks that cover the major work areas.',
+      balanced: 'Generate around 7–9 well-balanced tasks that cover the epic thoroughly.',
+      detailed: 'Generate 10–15 detailed, granular tasks that break down the work precisely.'
+    };
+    const hint = granularityHints[granularity] || granularityHints.balanced;
+    const acLine = acceptanceCriteria
+      ? '\nFor each task, include a brief set of acceptance criteria at the end of its description.'
+      : '';
+
+    return `You are a Jira Technical Lead.
 Given the details of a roadmap feature and the generated Jira Epic summary and description, generate a list of child Tasks required to implement the feature.
 Do not generate stories or sub-tasks, only standard Tasks. Provide brief technical descriptions for each task so delivery teams understand the work required.
+Do NOT use em-dashes (—) anywhere in the output. Use a colon, comma, or rewrite the sentence instead.
+${hint}${acLine}
 
 You MUST return a valid JSON object only with this exact shape (do NOT wrap the JSON in markdown code blocks like \`\`\`json):
 {
@@ -63,12 +80,13 @@ You MUST return a valid JSON object only with this exact shape (do NOT wrap the 
     }
   ]
 }`;
+  }
 
   // Helper to call Azure OpenAI Chat Completions endpoint
   async function callAzureOpenAI(systemPrompt, userMessage, request) {
     const { endpoint, apiKey, deployment } = config.ai;
     const base = endpoint.replace(/\/$/, '');
-    
+
     // Construct standard v1 chat completions endpoint matching the curl format
     let url = '';
     if (base.includes('/openai/v1/chat/completions')) {
@@ -129,15 +147,21 @@ You MUST return a valid JSON object only with this exact shape (do NOT wrap the 
       body: {
         type: 'object',
         properties: {
-          featureId: { type: 'string' },
-          jiraType: { type: 'string', enum: ['epic', 'task'] },
-          generateChildTasks: { type: 'boolean' }
+          featureId:          { type: 'string' },
+          jiraType:           { type: 'string', enum: ['epic', 'task'] },
+          generateChildTasks: { type: 'boolean' },
+          granularity:        { type: 'string', enum: ['high', 'balanced', 'detailed'] },
+          extraContext:       { type: 'string', maxLength: 2000 },
+          acceptanceCriteria: { type: 'boolean' }
         },
         required: ['featureId', 'jiraType']
       }
     }
   }, async (request, reply) => {
-    const { featureId, jiraType, generateChildTasks } = request.body;
+    const {
+      featureId, jiraType, generateChildTasks,
+      granularity, extraContext, acceptanceCriteria
+    } = request.body;
 
     let feature;
     try {
@@ -166,8 +190,12 @@ Category: ${feature.category_name || 'None'}
 
         // Generate Child Tasks if requested
         if (generateChildTasks) {
-          const taskPrompt = `Feature Details:\n${featureText}\n\nGenerated Epic Summary: ${epicResult.summary}\nGenerated Epic Description: ${epicResult.description}`;
-          const taskData = await callAzureOpenAI(CHILD_TASK_SYSTEM_PROMPT, taskPrompt, request);
+          const taskUserMsg = `Feature Details:\n${featureText}\n\nGenerated Epic Summary: ${epicResult.summary}\nGenerated Epic Description: ${epicResult.description}${extraContext ? '\n\nAdditional Context:\n' + extraContext : ''}`;
+          const taskData = await callAzureOpenAI(
+            buildChildTaskSystemPrompt(granularity, acceptanceCriteria !== false),
+            taskUserMsg,
+            request
+          );
           childTasks = taskData.childTasks || [];
         }
       } else {
@@ -219,15 +247,52 @@ Category: ${feature.category_name || 'None'}
     };
   });
 
+  // ── GET /labels — Fetch available Jira labels ──────────────────────────────
+  fastify.get('/labels', {
+    preHandler: [requireAdmin, checkConfigured]
+  }, async (request, reply) => {
+    try {
+      const data = await callJiraAPI('/rest/api/3/label?maxResults=1000&startAt=0');
+      return { labels: data.values || [] };
+    } catch (err) {
+      request.log.error(err, 'Error fetching Jira labels');
+      return reply.code(500).send({ error: 'Failed to fetch labels from Jira' });
+    }
+  });
+
+  // ── GET /issues — Fetch Jira issue summaries by key list ─────────────────
+  fastify.get('/issues', {
+    preHandler: [requireAdmin, checkConfigured]
+  }, async (request, reply) => {
+    const { keys } = request.query;
+    if (!keys) return { issues: [] };
+
+    const keyList = String(keys).split(',').map(k => k.trim()).filter(Boolean).slice(0, 30);
+    if (!keyList.length) return { issues: [] };
+
+    try {
+      const jql = encodeURIComponent(`issuekey in (${keyList.join(',')}) ORDER BY issuekey ASC`);
+      const data = await callJiraAPI(`/rest/api/3/search/jql?jql=${jql}&fields=summary&maxResults=30`);
+      return {
+        issues: (data.issues || []).map(i => ({
+          key: i.key,
+          summary: i.fields?.summary || ''
+        }))
+      };
+    } catch (err) {
+      request.log.error(err, 'Error fetching Jira issue summaries');
+      return reply.code(500).send({ error: 'Failed to fetch issues from Jira' });
+    }
+  });
+
   // ── 2. GET /epics — Fetch Jira Epics ───────────────────────────────────────
   fastify.get('/epics', {
     preHandler: [requireAdmin, checkConfigured]
   }, async (request, reply) => {
     try {
       const jql = encodeURIComponent(`issuetype = Epic AND project = "${config.jira.projectKey}" ORDER BY created DESC`);
-      // Jira migrated /search to /search/jql
       const data = await callJiraAPI(`/rest/api/3/search/jql?jql=${jql}&maxResults=50&fields=summary,issuetype`);
-      
+
       return data.issues.map(i => ({
         key: i.key,
         summary: i.fields.summary
@@ -238,10 +303,11 @@ Category: ${feature.category_name || 'None'}
     }
   });
 
-  // Helper: map our priority string to Jira priority ID (best effort, Jira instances vary)
+  // Helper: map our priority string to Jira priority ID
   // Usually: Highest (1), High (2), Medium (3), Low (4), Lowest (5)
+  // NOTE: Verify these IDs against your Jira instance via GET /rest/api/3/priority
   const mapPriority = (priorityName) => {
-    const p = priorityName.toLowerCase();
+    const p = (priorityName || '').toLowerCase();
     if (p === 'highest' || p === 'critical') return '1';
     if (p === 'high') return '2';
     if (p === 'medium') return '3';
@@ -250,40 +316,39 @@ Category: ${feature.category_name || 'None'}
     return '3'; // default medium
   };
 
-  // Helper: parse inline markdown elements like **bold** into ADF text nodes
+  // Helper: parse inline markdown into ADF text nodes.
+  // Handles: ***bold italic***, **bold**, *italic*, _italic_, `code`
   const parseInline = (text) => {
+    // Split on inline patterns (capturing group keeps delimiters in array)
+    const regex = /(\*\*\*[^*]+\*\*\*|\*\*[^*]+\*\*|\*[^*\n]+\*|_[^_\n]+_|`[^`]+`)/g;
+    const rawParts = text.split(regex);
     const parts = [];
-    const regex = /\*\*([^*]+)\*\*/g;
-    let lastIndex = 0;
-    let match;
-    while ((match = regex.exec(text)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push({
-          type: "text",
-          text: text.substring(lastIndex, match.index)
-        });
+
+    for (const part of rawParts) {
+      if (!part) continue;
+      if (part.startsWith('***') && part.endsWith('***') && part.length > 6) {
+        parts.push({ type: 'text', text: part.slice(3, -3), marks: [{ type: 'strong' }, { type: 'em' }] });
+      } else if (part.startsWith('**') && part.endsWith('**') && part.length > 4) {
+        parts.push({ type: 'text', text: part.slice(2, -2), marks: [{ type: 'strong' }] });
+      } else if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
+        parts.push({ type: 'text', text: part.slice(1, -1), marks: [{ type: 'em' }] });
+      } else if (part.startsWith('_') && part.endsWith('_') && part.length > 2) {
+        parts.push({ type: 'text', text: part.slice(1, -1), marks: [{ type: 'em' }] });
+      } else if (part.startsWith('`') && part.endsWith('`') && part.length > 2) {
+        parts.push({ type: 'text', text: part.slice(1, -1), marks: [{ type: 'code' }] });
+      } else {
+        parts.push({ type: 'text', text: part });
       }
-      parts.push({
-        type: "text",
-        text: match[1],
-        marks: [{ type: "strong" }]
-      });
-      lastIndex = regex.lastIndex;
     }
-    if (lastIndex < text.length) {
-      parts.push({
-        type: "text",
-        text: text.substring(lastIndex)
-      });
-    }
-    return parts.length > 0 ? parts : [{ type: "text", text }];
+
+    return parts.length > 0 ? parts : [{ type: 'text', text }];
   };
 
   // Helper: build ADF (Atlassian Document Format) for Jira v3 descriptions
   const buildADF = (text) => {
     const content = [];
     const lines = text.split('\n');
-    
+
     let currentList = null; // { type: 'bulletList' | 'orderedList', items: [] }
 
     const closeList = () => {
@@ -307,12 +372,10 @@ Category: ${feature.category_name || 'None'}
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       if (!line) {
-        // Empty line closes any open list
         closeList();
         continue;
       }
 
-      // Check for Headings: e.g. ### Title
       const headingMatch = line.match(/^(#{1,6})\s+(.*)$/);
       if (headingMatch) {
         closeList();
@@ -326,36 +389,31 @@ Category: ${feature.category_name || 'None'}
         continue;
       }
 
-      // Check for bullet list items: e.g. - Item, * Item, or • Item
+      // Horizontal rule: --- / *** / ___
+      if (line === '---' || line === '***' || line === '___') {
+        closeList();
+        content.push({ type: 'rule' });
+        continue;
+      }
+
       const bulletMatch = line.match(/^[-*•]\s+(.*)$/);
       if (bulletMatch) {
-        if (currentList && currentList.type !== 'bulletList') {
-          closeList();
-        }
-        if (!currentList) {
-          currentList = { type: 'bulletList', items: [] };
-        }
+        if (currentList && currentList.type !== 'bulletList') closeList();
+        if (!currentList) currentList = { type: 'bulletList', items: [] };
         currentList.items.push(bulletMatch[1]);
         continue;
       }
 
-      // Check for ordered list items: e.g. 1. Item
       const orderedMatch = line.match(/^(\d+)\.\s+(.*)$/);
       if (orderedMatch) {
-        if (currentList && currentList.type !== 'orderedList') {
-          closeList();
-        }
-        if (!currentList) {
-          currentList = { type: 'orderedList', items: [] };
-        }
+        if (currentList && currentList.type !== 'orderedList') closeList();
+        if (!currentList) currentList = { type: 'orderedList', items: [] };
         currentList.items.push(orderedMatch[2]);
         continue;
       }
 
-      // Regular paragraph line
       closeList();
-      
-      // Merge consecutive text lines into one paragraph block
+
       let paragraphText = line;
       while (i + 1 < lines.length && lines[i + 1].trim() !== '') {
         const nextLine = lines[i + 1].trim();
@@ -396,16 +454,16 @@ Category: ${feature.category_name || 'None'}
       body: {
         type: 'object',
         properties: {
-          featureId: { type: 'string' },
-          jiraType: { type: 'string', enum: ['epic', 'task'] },
-          parentEpicKey: { type: 'string' }, // Optional, if jiraType === 'task'
+          featureId:    { type: 'string' },
+          jiraType:     { type: 'string', enum: ['epic', 'task'] },
+          parentEpicKey: { type: 'string' },
           epic: {
             type: 'object',
             properties: {
-              summary: { type: 'string', maxLength: 500 },
+              summary:     { type: 'string', maxLength: 500 },
               description: { type: 'string', maxLength: 32000 },
-              labels: { type: 'array', maxItems: 50, items: { type: 'string', maxLength: 100 } },
-              priority: { type: 'string' }
+              labels:      { type: 'array', maxItems: 50, items: { type: 'string', maxLength: 100 } },
+              priority:    { type: 'string' }
             },
             required: ['summary']
           },
@@ -415,8 +473,11 @@ Category: ${feature.category_name || 'None'}
             items: {
               type: 'object',
               properties: {
-                summary: { type: 'string', maxLength: 500 },
-                description: { type: 'string', maxLength: 32000 }
+                summary:     { type: 'string', maxLength: 500 },
+                description: { type: 'string', maxLength: 32000 },
+                pts:         { type: 'integer', minimum: 0, maximum: 100 },
+                priority:    { type: 'string' },
+                labels:      { type: 'array', items: { type: 'string', maxLength: 100 } }
               }
             }
           }
@@ -428,48 +489,84 @@ Category: ${feature.category_name || 'None'}
     const { featureId, jiraType, epic, childTasks, parentEpicKey } = request.body;
 
     try {
+      // 0. Read the Feature from Cosmos DB to get the owner/team
+      const { resource: feature } = await featuresContainer.item(featureId, featureId).read();
+      if (!feature) {
+        return reply.code(404).send({ error: 'Feature not found' });
+      }
+
+      // Resolve Jira reporter based on owner mapping
+      let reporterAccountId = null;
+      if (feature.owner) {
+        try {
+          const configId = `owner:${feature.owner.trim()}`;
+          const { resource: mapping } = await metadataConfigsContainer.item(configId, configId).read();
+          if (mapping && mapping.jira_reporter_email) {
+            const email = mapping.jira_reporter_email.trim();
+            const users = await callJiraAPI(`/rest/api/3/user/search?query=${encodeURIComponent(email)}`);
+            if (Array.isArray(users) && users.length > 0) {
+              const match = users.find(u => u.emailAddress?.toLowerCase() === email.toLowerCase()) || users[0];
+              reporterAccountId = match.accountId;
+              request.log.info({ email, accountId: reporterAccountId }, 'Found Jira user for reporter mapping');
+            } else {
+              request.log.warn({ email }, 'Jira user search returned no results for email');
+            }
+          }
+        } catch (e) {
+          if (e.statusCode !== 404 && e.code !== 404) {
+            request.log.error(e, 'Failed to fetch Jira reporter mapping');
+          }
+        }
+      }
+
       // 1. Create the main Epic or Task
       const issuePayload = {
         fields: {
-          project: { key: config.jira.projectKey },
-          summary: epic.summary,
+          project:     { key: config.jira.projectKey },
+          summary:     epic.summary,
           description: buildADF(epic.description || ''),
-          issuetype: { name: jiraType === 'epic' ? 'Epic' : 'Task' },
-          priority: { id: mapPriority(epic.priority || 'Medium') },
-          labels: epic.labels || []
+          issuetype:   { name: jiraType === 'epic' ? 'Epic' : 'Task' },
+          priority:    { id: mapPriority(epic.priority || 'Medium') },
+          labels:      epic.labels || []
         }
       };
 
-      // If it's a task and has a parent epic, link it
+      if (reporterAccountId) {
+        issuePayload.fields.reporter = { id: reporterAccountId };
+      }
+
       if (jiraType === 'task' && parentEpicKey) {
-        // In Jira Cloud, the standard way to link a child to an epic is the "parent" field.
-        // Some older instances use "customfield_10014" (Epic Link), but "parent" is the modern v3 way.
         issuePayload.fields.parent = { key: parentEpicKey };
       }
 
-      // If it's an Epic, sometimes Jira requires a custom field for "Epic Name". 
-      // In newer Jira Cloud, "Summary" is used and Epic Name is deprecated, but just in case, we'll try without it first.
-      
       const mainIssueRes = await callJiraAPI('/rest/api/3/issue', {
         method: 'POST',
         body: JSON.stringify(issuePayload)
       });
-      
+
       const mainIssueKey = mainIssueRes.key;
       let createdChildKeys = [];
 
       // 2. Create child tasks (if epic)
       if (jiraType === 'epic' && Array.isArray(childTasks) && childTasks.length > 0) {
         const bulkPayload = {
-          issueUpdates: childTasks.map(task => ({
-            fields: {
-              project: { key: config.jira.projectKey },
-              summary: task.summary,
+          issueUpdates: childTasks.map(task => {
+            const fields = {
+              project:     { key: config.jira.projectKey },
+              summary:     task.summary,
               description: buildADF(task.description || ''),
-              issuetype: { name: 'Task' },
-              parent: { key: mainIssueKey }
+              issuetype:   { name: 'Task' },
+              parent:      { key: mainIssueKey }
+            };
+            if (reporterAccountId) fields.reporter = { id: reporterAccountId };
+            if (task.priority) fields.priority = { id: mapPriority(task.priority) };
+            if (Array.isArray(task.labels) && task.labels.length > 0) fields.labels = task.labels;
+            // Only include story points if the custom field ID is configured via env var
+            if (config.jira.storyPointsFieldId && task.pts != null) {
+              fields[config.jira.storyPointsFieldId] = task.pts;
             }
-          }))
+            return { fields };
+          })
         };
 
         const bulkRes = await callJiraAPI('/rest/api/3/issue/bulk', {
@@ -483,21 +580,14 @@ Category: ${feature.category_name || 'None'}
       }
 
       // 3. Update the Cosmos DB feature to save the Jira Issue Key, child keys, and write revision
-      const { resource: feature } = await featuresContainer.item(featureId, featureId).read();
       const now = new Date().toISOString();
-      
+
       const patchOps = [
         { op: 'set', path: '/jira_issue_key', value: mainIssueKey },
-        { op: 'set', path: '/updated_at', value: now }
+        { op: 'set', path: '/updated_at', value: now },
+        { op: 'set', path: '/jira_child_keys', value: createdChildKeys || [] }
       ];
 
-      if (createdChildKeys && createdChildKeys.length > 0) {
-        patchOps.push({ op: 'set', path: '/jira_child_keys', value: createdChildKeys });
-      } else {
-        // If pushing as a single task or no children, clear the child keys field
-        patchOps.push({ op: 'set', path: '/jira_child_keys', value: [] });
-      }
-      
       await featuresContainer.item(featureId, featureId).patch(patchOps);
 
       await revisionsContainer.items.create({
@@ -518,6 +608,13 @@ Category: ${feature.category_name || 'None'}
         created_at: now
       });
 
+      // 4. Clear any saved draft for this feature (non-critical — swallow errors)
+      try {
+        await jiraDraftsContainer.item(`draft::${featureId}`, featureId).delete();
+      } catch (err) {
+        if (err.code !== 404) request.log.warn(err, 'Failed to clear Jira draft after push');
+      }
+
       return {
         issueKey: mainIssueKey,
         childKeys: createdChildKeys
@@ -527,6 +624,182 @@ Category: ${feature.category_name || 'None'}
       request.log.error(err, 'Error pushing to Jira');
       return reply.code(500).send({ error: 'Failed to push to Jira. Check server logs for details.' });
     }
+  });
+
+  // ── 4. POST /draft — Save a Jira draft ────────────────────────────────────
+  fastify.post('/draft', {
+    preHandler: [requireAdmin],
+    config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          featureId:  { type: 'string' },
+          epicData:   { type: 'object' },
+          childTasks: { type: 'array' },
+          config:     { type: 'object' }
+        },
+        required: ['featureId']
+      }
+    }
+  }, async (request, reply) => {
+    const { featureId, epicData, childTasks, config: generationConfig } = request.body;
+
+    // Verify the feature exists before saving a draft for it
+    try {
+      await featuresContainer.item(featureId, featureId).read();
+    } catch (err) {
+      if (err.code === 404) return reply.code(404).send({ error: 'Feature not found' });
+      throw err;
+    }
+
+    const now = new Date().toISOString();
+    const doc = {
+      id:         `draft::${featureId}`,
+      featureId,
+      epicData:   epicData || {},
+      childTasks: Array.isArray(childTasks) ? childTasks : [],
+      config:     generationConfig || {},
+      createdAt:  now,
+      updatedAt:  now
+    };
+    try {
+      await jiraDraftsContainer.items.upsert(doc);
+      return { ok: true, savedAt: now };
+    } catch (err) {
+      request.log.error(err, 'Error saving Jira draft');
+      return reply.code(500).send({ error: 'Failed to save draft' });
+    }
+  });
+
+  // ── 5. GET /draft/:featureId — Fetch a saved Jira draft ───────────────────
+  fastify.get('/draft/:featureId', {
+    preHandler: [requireAdmin]
+  }, async (request, reply) => {
+    const { featureId } = request.params;
+    try {
+      const { resource } = await jiraDraftsContainer
+        .item(`draft::${featureId}`, featureId).read();
+      return resource;
+    } catch (err) {
+      if (err.code === 404) return reply.code(404).send({ error: 'Draft not found' });
+      throw err;
+    }
+  });
+
+  // ── 6. DELETE /draft/:featureId — Discard a saved Jira draft ─────────────
+  fastify.delete('/draft/:featureId', {
+    preHandler: [requireAdmin]
+  }, async (request, reply) => {
+    const { featureId } = request.params;
+    try {
+      await jiraDraftsContainer.item(`draft::${featureId}`, featureId).delete();
+      return { ok: true };
+    } catch (err) {
+      if (err.code === 404) return { ok: true }; // Idempotent
+      throw err;
+    }
+  });
+
+  // ── 7. DELETE /link/:featureId — Unlink Jira issues from a feature ──────
+  fastify.delete('/link/:featureId', {
+    preHandler: [requireAdmin]
+  }, async (request, reply) => {
+    const { featureId } = request.params;
+    const { issueKey } = request.query;
+
+    let feature;
+    try {
+      const { resource } = await featuresContainer.item(featureId, featureId).read();
+      feature = resource;
+    } catch (err) {
+      if (err.code === 404) return reply.code(404).send({ error: 'Feature not found' });
+      throw err;
+    }
+
+    const now = new Date().toISOString();
+
+    // If a specific issueKey is provided, remove only that key
+    if (issueKey) {
+      const trimmedKey = issueKey.trim();
+
+      // Unlinking the parent epic also removes all child keys (they depend on it)
+      if (feature.jira_issue_key === trimmedKey) {
+        const patchOps = [
+          { op: 'set', path: '/jira_issue_key', value: '' },
+          { op: 'set', path: '/jira_child_keys', value: [] },
+          { op: 'set', path: '/updated_at', value: now }
+        ];
+        await featuresContainer.item(featureId, featureId).patch(patchOps);
+
+        await revisionsContainer.items.create({
+          id: uuidv4(),
+          feature_id: featureId,
+          action: 'updated',
+          changes: {
+            jira_issue_key: { old: feature.jira_issue_key, new: null },
+            jira_child_keys: { old: feature.jira_child_keys || [], new: [] }
+          },
+          user_id: request.user?.email || 'admin',
+          created_at: now
+        });
+
+        return { ok: true, removed: [trimmedKey, ...(feature.jira_child_keys || [])] };
+      }
+
+      // Unlink a specific child task
+      const childKeys = Array.isArray(feature.jira_child_keys) ? feature.jira_child_keys : [];
+      if (childKeys.includes(trimmedKey)) {
+        const newChildren = childKeys.filter(k => k !== trimmedKey);
+        const patchOps = [
+          { op: 'set', path: '/jira_child_keys', value: newChildren },
+          { op: 'set', path: '/updated_at', value: now }
+        ];
+        await featuresContainer.item(featureId, featureId).patch(patchOps);
+
+        await revisionsContainer.items.create({
+          id: uuidv4(),
+          feature_id: featureId,
+          action: 'updated',
+          changes: {
+            jira_child_keys: { old: childKeys, new: newChildren }
+          },
+          user_id: request.user?.email || 'admin',
+          created_at: now
+        });
+
+        return { ok: true, removed: [trimmedKey] };
+      }
+
+      return reply.code(400).send({ error: 'Issue key is not linked to this feature' });
+    }
+
+    // No specific key — unlink everything
+    if (!feature.jira_issue_key && (!feature.jira_child_keys || feature.jira_child_keys.length === 0)) {
+      return { ok: true, message: 'No Jira links to remove' };
+    }
+
+    const patchOps = [
+      { op: 'set', path: '/jira_issue_key', value: '' },
+      { op: 'set', path: '/jira_child_keys', value: [] },
+      { op: 'set', path: '/updated_at', value: now }
+    ];
+
+    await featuresContainer.item(featureId, featureId).patch(patchOps);
+
+    await revisionsContainer.items.create({
+      id: uuidv4(),
+      feature_id: featureId,
+      action: 'updated',
+      changes: {
+        jira_issue_key: { old: feature.jira_issue_key || null, new: null },
+        jira_child_keys: { old: feature.jira_child_keys || [], new: [] }
+      },
+      user_id: request.user?.email || 'admin',
+      created_at: now
+    });
+
+    return { ok: true };
   });
 
 }

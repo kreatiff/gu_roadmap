@@ -14,10 +14,10 @@ import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { calculateGravityScore } from '@shared/lib/gravityScore.js';
 import { useToast } from '../../../contexts/ToastContext';
-import { Eye, Clock, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Eye, Clock, AlertTriangle, ExternalLink, Unlink, Zap } from 'lucide-react';
 import { useEditLock } from './useEditLock';
 import PushToJiraModal from '../../../components/PushToJiraModal/PushToJiraModal';
-import { fetchJiraConfig } from '../../../api/jira';
+import { fetchJiraConfig, fetchJiraDraft, unlinkJiraFeature, fetchJiraIssues } from '../../../api/jira';
 import VerifiedBadge from '../../../components/VerifiedBadge';
 import styles from './AdminFeatureFormPage.module.css';
 
@@ -51,6 +51,8 @@ const AdminFeatureFormPage = () => {
   const [showHistory, setShowHistory] = useState(false);
   const [showJiraModal, setShowJiraModal] = useState(false);
   const [jiraBaseUrl, setJiraBaseUrl] = useState('');
+  const [jiraDraft, setJiraDraft] = useState(null);
+  const [jiraIssueSummaries, setJiraIssueSummaries] = useState({});
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, payload: null });
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -99,7 +101,27 @@ const AdminFeatureFormPage = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isDirty]);
 
-  // Warn on in-app navigation (link clicks)
+  // Fetch Jira issue names for all linked keys whenever they change
+  const linkedJiraKeys = useMemo(() => {
+    const keys = [
+      ...(formData.jira_issue_key ? [formData.jira_issue_key] : []),
+      ...(formData.jira_child_keys || [])
+    ].filter(Boolean);
+    return keys.join(',');
+  }, [formData.jira_issue_key, formData.jira_child_keys]);
+
+  useEffect(() => {
+    if (!linkedJiraKeys || !jiraBaseUrl) return;
+    fetchJiraIssues(linkedJiraKeys.split(','))
+      .then(data => {
+        const map = {};
+        (data?.issues || []).forEach(issue => { map[issue.key] = issue.summary; });
+        setJiraIssueSummaries(map);
+      })
+      .catch(() => {}); // non-critical — page works without summaries
+  }, [linkedJiraKeys, jiraBaseUrl]);
+
+  // Warn on in-app navigation (link clicks) — uses app ConfirmDialog, not window.confirm
   useEffect(() => {
     const handleClick = (e) => {
       if (!isDirty) return;
@@ -108,11 +130,13 @@ const AdminFeatureFormPage = () => {
       const href = link.getAttribute('href');
       if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
       if (href === window.location.pathname) return;
-      const confirmed = window.confirm('You have unsaved changes. Are you sure you want to leave this page?');
-      if (!confirmed) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
+      // Allow external links and new-tab links to pass through untouched
+      if (link.target === '_blank') return;
+      if (href.startsWith('http://') || href.startsWith('https://')) return;
+      // Intercept: show app dialog instead of browser confirm
+      e.preventDefault();
+      e.stopPropagation();
+      setConfirmDialog({ isOpen: true, type: 'navGuard', payload: href });
     };
     document.addEventListener('click', handleClick, true);
     return () => document.removeEventListener('click', handleClick, true);
@@ -121,13 +145,14 @@ const AdminFeatureFormPage = () => {
   useEffect(() => {
     abortedRef.current = false;
     const fetchData = async () => {
-      const [cData, stData, tagData, ownerData, stakeholderData, jiraConf] = await Promise.all([
+      const [cData, stData, tagData, ownerData, stakeholderData, jiraConf, draftRes] = await Promise.all([
         getCategories(),
         getStages(),
         getFeatureTags().catch(() => []),
         getFeatureOwners().catch(() => []),
         getFeatureStakeholders().catch(() => []),
-        fetchJiraConfig().catch(() => null)
+        fetchJiraConfig().catch(() => null),
+        isEdit ? fetchJiraDraft(id).catch(() => null) : Promise.resolve(null)
       ]);
       if (abortedRef.current) return;
       setCategories(cData);
@@ -141,6 +166,9 @@ const AdminFeatureFormPage = () => {
       setStakeholderSuggestions(Array.isArray(stakeholderData) ? stakeholderData : []);
       if (jiraConf && /^https:\/\//i.test(jiraConf.baseUrl)) {
         setJiraBaseUrl(jiraConf.baseUrl);
+      }
+      if (draftRes?.featureId) {
+        setJiraDraft(draftRes);
       }
 
       if (isEdit) {
@@ -261,6 +289,42 @@ const AdminFeatureFormPage = () => {
     navigate('/admin');
   };
 
+  const executeNavGuard = () => {
+    const href = confirmDialog.payload;
+    setConfirmDialog({ isOpen: false, type: null, payload: null });
+    navigate(href);
+  };
+
+  const executeUnlinkJira = async () => {
+    const issueKey = confirmDialog.payload;
+    setConfirmDialog({ isOpen: false, type: null, payload: null });
+
+    try {
+      await unlinkJiraFeature(id, issueKey);
+      if (issueKey) {
+        // Targeted unlink — refresh local state precisely
+        setFormData(prev => {
+          if (prev.jira_issue_key === issueKey) {
+            // Unlinked the parent epic → all children go too
+            return { ...prev, jira_issue_key: '', jira_child_keys: [] };
+          }
+          // Unlinked a single child
+          return {
+            ...prev,
+            jira_child_keys: prev.jira_child_keys.filter(k => k !== issueKey)
+          };
+        });
+        addToast(`Unlinked ${issueKey}`, 'success');
+      } else {
+        // Unlink all
+        setFormData(prev => ({ ...prev, jira_issue_key: '', jira_child_keys: [] }));
+        addToast('Jira links removed from this feature', 'success');
+      }
+    } catch (err) {
+      addToast(err.error || 'Failed to unlink Jira issue', 'error');
+    }
+  };
+
   const calculatedScore = useMemo(() => {
     return calculateGravityScore(formData.impact, formData.effort, formData.priority);
   }, [formData.impact, formData.effort, formData.priority]);
@@ -297,9 +361,14 @@ const AdminFeatureFormPage = () => {
           feature={formData}
           featureId={id}
           jiraBaseUrl={jiraBaseUrl}
+          initialDraft={jiraDraft}
           onClose={() => setShowJiraModal(false)}
           onPushSuccess={(key, childKeys) => {
             setFormData(prev => ({ ...prev, jira_issue_key: key, jira_child_keys: Array.isArray(childKeys) ? childKeys : [] }));
+            setJiraDraft(null);
+          }}
+          onDraftChange={(draft) => {
+            setJiraDraft(draft); // null = discarded; object = saved
           }}
         />
       )}
@@ -337,6 +406,26 @@ const AdminFeatureFormPage = () => {
           confirmText="Discard Changes"
           onConfirm={executeDiscard}
           onCancel={() => setConfirmDialog({ isOpen: false, type: null })}
+        />
+      )}
+      {confirmDialog.isOpen && confirmDialog.type === 'navGuard' && (
+        <ConfirmDialog
+          title="Leave without saving?"
+          message="You have unsaved changes that will be lost if you navigate away. Are you sure you want to leave?"
+          confirmText="Leave page"
+          cancelText="Stay"
+          variant="primary"
+          onConfirm={executeNavGuard}
+          onCancel={() => setConfirmDialog({ isOpen: false, type: null, payload: null })}
+        />
+      )}
+      {confirmDialog.isOpen && confirmDialog.type === 'unlinkJira' && (
+        <ConfirmDialog
+          title="Unlink Jira Issue?"
+          message={`Unlink ${confirmDialog.payload} from this feature? The issue in Jira will NOT be deleted.`}
+          confirmText="Unlink"
+          onConfirm={executeUnlinkJira}
+          onCancel={() => setConfirmDialog({ isOpen: false, type: null, payload: null })}
         />
       )}
 
@@ -487,7 +576,7 @@ const AdminFeatureFormPage = () => {
               }`}>
               <div className={styles.gravityPreviewLabel}>Estimated Gravity Score</div>
               <div className={styles.gravityPreviewValue}>
-                <span className={styles.gravityIcon}>⚡</span>
+                <Zap size={20} className={styles.gravityIcon} />
                 {calculatedScore}
                 <span className={styles.gravityMax}>/ 100</span>
               </div>
@@ -596,18 +685,62 @@ const AdminFeatureFormPage = () => {
                   <ul className={styles.jiraList}>
                     {formData.jira_issue_key && (
                       <li className={styles.jiraItem}>
-                        <span className={styles.jiraBadgeEpic}>Primary Epic/Task</span>
-                        <a href={jiraBaseUrl ? `${jiraBaseUrl.replace(/\/$/, '')}/browse/${formData.jira_issue_key}` : `/browse/${formData.jira_issue_key}`} target="_blank" rel="noreferrer" className={styles.jiraLink}>
-                          <ExternalLink size={14} /> {formData.jira_issue_key}
-                        </a>
+                        <div className={styles.jiraItemLeft}>
+                          <span className={styles.jiraTypeIconEpic}>E</span>
+                          <a
+                            href={jiraBaseUrl ? `${jiraBaseUrl.replace(/\/$/, '')}/browse/${formData.jira_issue_key}` : `/browse/${formData.jira_issue_key}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={styles.jiraItemKeyLink}
+                          >
+                            {formData.jira_issue_key}
+                            <ExternalLink size={10} />
+                          </a>
+                          {jiraIssueSummaries[formData.jira_issue_key] && (
+                            <span className={styles.jiraItemName}>
+                              {jiraIssueSummaries[formData.jira_issue_key]}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.jiraRowUnlinkBtn}
+                          onClick={() => setConfirmDialog({ isOpen: true, type: 'unlinkJira', payload: formData.jira_issue_key })}
+                          title="Unlink this issue"
+                        >
+                          <Unlink size={13} />
+                          <span>Unlink</span>
+                        </button>
                       </li>
                     )}
                     {formData.jira_child_keys && formData.jira_child_keys.map(key => (
                       <li key={key} className={styles.jiraItem}>
-                        <span className={styles.jiraBadgeChild}>Child Task</span>
-                        <a href={jiraBaseUrl ? `${jiraBaseUrl.replace(/\/$/, '')}/browse/${key}` : `/browse/${key}`} target="_blank" rel="noreferrer" className={styles.jiraLink}>
-                          <ExternalLink size={14} /> {key}
-                        </a>
+                        <div className={styles.jiraItemLeft}>
+                          <span className={styles.jiraTypeIconTask}>T</span>
+                          <a
+                            href={jiraBaseUrl ? `${jiraBaseUrl.replace(/\/$/, '')}/browse/${key}` : `/browse/${key}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className={styles.jiraItemKeyLink}
+                          >
+                            {key}
+                            <ExternalLink size={10} />
+                          </a>
+                          {jiraIssueSummaries[key] && (
+                            <span className={styles.jiraItemName}>
+                              {jiraIssueSummaries[key]}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.jiraRowUnlinkBtn}
+                          onClick={() => setConfirmDialog({ isOpen: true, type: 'unlinkJira', payload: key })}
+                          title="Unlink this issue"
+                        >
+                          <Unlink size={13} />
+                          <span>Unlink</span>
+                        </button>
                       </li>
                     ))}
                   </ul>
@@ -624,6 +757,7 @@ const AdminFeatureFormPage = () => {
                 >
                   <JiraLogo size={20} className={styles.jiraBtnIcon} />
                   <span>{formData.jira_issue_key ? 'Push to Jira / Update Issues' : 'Push to Jira'}</span>
+                  {jiraDraft && <span className={styles.draftBadge}>· Draft saved</span>}
                 </button>
               </div>
             </div>
