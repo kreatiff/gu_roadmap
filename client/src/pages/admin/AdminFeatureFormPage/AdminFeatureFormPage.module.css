@@ -634,6 +634,120 @@
   min-width: 0;
 }
 
+/* ── Link existing issue section ─────────────────────────────────────────── */
+
+.linkIssueSection {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+}
+
+.linkIssueSectionHeader {
+  margin-bottom: 10px;
+}
+
+.linkIssueSectionTitle {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-primary, #111827);
+  margin-bottom: 3px;
+}
+
+.linkIssueSectionHint {
+  font-size: 0.75rem;
+  color: var(--text-muted, #6b7280);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.linkIssueForm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.linkIssueInput {
+  height: 32px;
+  padding: 0 10px;
+  font-size: 0.8125rem;
+  font-family: monospace;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text-primary);
+  outline: none;
+  width: 110px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  box-sizing: border-box;
+}
+
+.linkIssueInput:focus {
+  border-color: var(--gu-red);
+  box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.1);
+}
+
+.linkIssueInput:disabled {
+  background: var(--bg-base);
+  opacity: 0.6;
+}
+
+.roleToggle {
+  display: flex;
+  background: var(--bg-base);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.roleBtn {
+  height: 26px;
+  padding: 0 9px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s, color 0.1s;
+  font-family: inherit;
+}
+
+.roleBtn.active {
+  background: white;
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.linkIssueBtn {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: inherit;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.linkIssueBtn:hover:not(:disabled) {
+  background: var(--bg-base);
+}
+
+.linkIssueBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .jiraBtn {
   display: inline-flex;
   align-items: center;

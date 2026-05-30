@@ -17,7 +17,7 @@ import { useToast } from '../../../contexts/ToastContext';
 import { Eye, Clock, AlertTriangle, ExternalLink, Unlink, Zap } from 'lucide-react';
 import { useEditLock } from './useEditLock';
 import PushToJiraModal from '../../../components/PushToJiraModal/PushToJiraModal';
-import { fetchJiraConfig, fetchJiraDraft, unlinkJiraFeature, fetchJiraIssues } from '../../../api/jira';
+import { fetchJiraConfig, fetchJiraDraft, unlinkJiraFeature, fetchJiraIssues, linkJiraIssue } from '../../../api/jira';
 import VerifiedBadge from '../../../components/VerifiedBadge';
 import styles from './AdminFeatureFormPage.module.css';
 
@@ -53,6 +53,9 @@ const AdminFeatureFormPage = () => {
   const [jiraBaseUrl, setJiraBaseUrl] = useState('');
   const [jiraDraft, setJiraDraft] = useState(null);
   const [jiraIssueSummaries, setJiraIssueSummaries] = useState({});
+  const [linkInput,  setLinkInput]  = useState('');
+  const [linkRole,   setLinkRole]   = useState('primary');
+  const [isLinking,  setIsLinking]  = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, payload: null });
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -120,6 +123,11 @@ const AdminFeatureFormPage = () => {
       })
       .catch(() => {}); // non-critical — page works without summaries
   }, [linkedJiraKeys, jiraBaseUrl]);
+
+  // Keep linkRole in sync: default to Primary when no primary exists, Child otherwise
+  useEffect(() => {
+    setLinkRole(formData.jira_issue_key ? 'child' : 'primary');
+  }, [formData.jira_issue_key]);
 
   // Warn on in-app navigation (link clicks) — uses app ConfirmDialog, not window.confirm
   useEffect(() => {
@@ -289,6 +297,41 @@ const AdminFeatureFormPage = () => {
     navigate('/admin');
   };
 
+  const handleLinkIssue = async () => {
+    const key = linkInput.trim().toUpperCase();
+    if (!key) return;
+    // Replacing an existing primary requires confirmation
+    if (linkRole === 'primary' && formData.jira_issue_key) {
+      setConfirmDialog({ isOpen: true, type: 'replacePrimary', payload: key });
+      return;
+    }
+    await executeLinkIssue(key, linkRole);
+  };
+
+  const executeLinkIssue = async (key, role) => {
+    setIsLinking(true);
+    try {
+      const res = await linkJiraIssue(id, { issueKey: key, role });
+      if (role === 'primary') {
+        setFormData(prev => ({
+          ...prev,
+          jira_issue_key:   res.issueKey,
+          jira_child_keys:  res.childKeys || []
+        }));
+      } else {
+        // Use authoritative array from server to prevent client/server drift
+        setFormData(prev => ({ ...prev, jira_child_keys: res.childKeys || [] }));
+      }
+      setLinkInput('');
+      const childMsg = res.childKeys?.length ? ` and ${res.childKeys.length} child task${res.childKeys.length !== 1 ? 's' : ''}` : '';
+      addToast(`Linked ${res.issueKey}${childMsg}`, 'success');
+    } catch (err) {
+      addToast(err?.error || 'Could not link issue. Check the key and try again.', 'error');
+    } finally {
+      setIsLinking(false);
+    }
+  };
+
   const executeNavGuard = () => {
     const href = confirmDialog.payload;
     setConfirmDialog({ isOpen: false, type: null, payload: null });
@@ -406,6 +449,19 @@ const AdminFeatureFormPage = () => {
           confirmText="Discard Changes"
           onConfirm={executeDiscard}
           onCancel={() => setConfirmDialog({ isOpen: false, type: null })}
+        />
+      )}
+      {confirmDialog.isOpen && confirmDialog.type === 'replacePrimary' && (
+        <ConfirmDialog
+          title="Replace primary issue?"
+          message={`This will replace ${formData.jira_issue_key} as the primary and re-link its child tasks. The existing link data will be overwritten.`}
+          confirmText="Replace"
+          onConfirm={() => {
+            const key = confirmDialog.payload;
+            setConfirmDialog({ isOpen: false, type: null, payload: null });
+            executeLinkIssue(key, 'primary');
+          }}
+          onCancel={() => setConfirmDialog({ isOpen: false, type: null, payload: null })}
         />
       )}
       {confirmDialog.isOpen && confirmDialog.type === 'navGuard' && (
@@ -749,6 +805,47 @@ const AdminFeatureFormPage = () => {
                 <p className={styles.fieldHint}>This feature has not been linked to Jira yet.</p>
               )}
               
+              <div className={styles.linkIssueSection}>
+                <div className={styles.linkIssueSectionHeader}>
+                  <span className={styles.linkIssueSectionTitle}>Link an existing issue</span>
+                  <p className={styles.linkIssueSectionHint}>
+                    Associate an existing Jira epic or task with this feature. Linking an epic will automatically include its child tasks.
+                  </p>
+                </div>
+                <div className={styles.linkIssueForm}>
+                  <input
+                    className={styles.linkIssueInput}
+                    value={linkInput}
+                    onChange={e => setLinkInput(e.target.value.toUpperCase())}
+                    onKeyDown={e => e.key === 'Enter' && handleLinkIssue()}
+                    placeholder="e.g. LTD-42"
+                    disabled={isLinking}
+                    maxLength={20}
+                    autoComplete="off"
+                  />
+                  <div className={styles.roleToggle}>
+                    <button
+                      type="button"
+                      className={`${styles.roleBtn}${linkRole === 'primary' ? ' ' + styles.active : ''}`}
+                      onClick={() => setLinkRole('primary')}
+                    >Primary</button>
+                    <button
+                      type="button"
+                      className={`${styles.roleBtn}${linkRole === 'child' ? ' ' + styles.active : ''}`}
+                      onClick={() => setLinkRole('child')}
+                    >Child task</button>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.linkIssueBtn}
+                    onClick={handleLinkIssue}
+                    disabled={isLinking || !linkInput.trim()}
+                  >
+                    {isLinking ? 'Linking…' : 'Link'}
+                  </button>
+                </div>
+              </div>
+
               <div style={{ marginTop: '12px' }}>
                 <button
                   type="button"

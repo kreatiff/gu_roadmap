@@ -28,6 +28,9 @@ export const fetchJiraLabels = () =>
 export const fetchJiraIssues = (keys) =>
   api(`/api/jira/issues?keys=${Array.isArray(keys) ? keys.join(',') : keys}`);
 
+export const linkJiraIssue = (featureId, data) =>
+  api(`/api/jira/link/${featureId}`, { method: 'POST', body: JSON.stringify(data) });
+
 export const saveJiraDraft = (data) =>
   api('/api/jira/draft', { method: 'POST', body: JSON.stringify(data) });
 

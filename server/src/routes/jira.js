@@ -701,7 +701,109 @@ Category: ${feature.category_name || 'None'}
     }
   });
 
-  // ── 7. DELETE /link/:featureId — Unlink Jira issues from a feature ──────
+  // ── 7. POST /link/:featureId — Link an existing Jira issue to a feature ──
+  fastify.post('/link/:featureId', {
+    preHandler: [requireAdmin, checkConfigured],
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          issueKey: { type: 'string' },
+          role:     { type: 'string', enum: ['primary', 'child'] }
+        },
+        required: ['issueKey', 'role']
+      }
+    }
+  }, async (request, reply) => {
+    const { featureId } = request.params;
+    const { issueKey, role } = request.body;
+
+    // 1. Validate the issue exists in Jira
+    let issueData;
+    try {
+      issueData = await callJiraAPI(`/rest/api/3/issue/${issueKey}?fields=summary,issuetype`);
+    } catch (err) {
+      if (err.message?.includes('404')) {
+        return reply.code(404).send({ error: 'Issue not found in Jira' });
+      }
+      throw err;
+    }
+
+    // 2. If linking as primary epic, fetch its children
+    let childKeys = [];
+    if (role === 'primary' && issueData.fields?.issuetype?.name === 'Epic') {
+      try {
+        const jql = encodeURIComponent(`parent = "${issueKey}"`);
+        const childData = await callJiraAPI(
+          `/rest/api/3/search/jql?jql=${jql}&fields=summary&maxResults=50`
+        );
+        childKeys = (childData.issues || []).map(i => i.key);
+      } catch (err) {
+        request.log.warn(err, 'Failed to fetch child tasks for linked epic — continuing without them');
+      }
+    }
+
+    // 3. Read the current feature
+    let feature;
+    try {
+      const { resource } = await featuresContainer.item(featureId, featureId).read();
+      feature = resource;
+    } catch (err) {
+      if (err.code === 404) return reply.code(404).send({ error: 'Feature not found' });
+      throw err;
+    }
+
+    // 4. Guard: a child key cannot be the same as the current primary
+    if (role === 'child' && feature.jira_issue_key === issueKey) {
+      return reply.code(400).send({ error: 'Key is already the primary issue' });
+    }
+
+    // 5. Build patch ops
+    const now = new Date().toISOString();
+    const patchOps = [{ op: 'set', path: '/updated_at', value: now }];
+    let responseChildKeys;
+
+    if (role === 'primary') {
+      patchOps.push({ op: 'set', path: '/jira_issue_key',   value: issueKey });
+      patchOps.push({ op: 'set', path: '/jira_child_keys',  value: childKeys });
+      responseChildKeys = childKeys;
+    } else {
+      const existing = Array.isArray(feature.jira_child_keys) ? feature.jira_child_keys : [];
+      if (existing.includes(issueKey)) {
+        // Already linked — idempotent return, no patch needed
+        return { ok: true, issueKey, role, summary: issueData.fields?.summary || '', childKeys: existing };
+      }
+      const newChildren = [...existing, issueKey];
+      patchOps.push({ op: 'set', path: '/jira_child_keys', value: newChildren });
+      responseChildKeys = newChildren;
+    }
+
+    await featuresContainer.item(featureId, featureId).patch(patchOps);
+
+    // 6. Write revision
+    await revisionsContainer.items.create({
+      id: uuidv4(),
+      feature_id: featureId,
+      action: 'updated',
+      changes: {
+        jira_issue_key: {
+          old: feature.jira_issue_key || null,
+          new: role === 'primary' ? issueKey : (feature.jira_issue_key || null)
+        },
+        jira_child_keys: {
+          old: feature.jira_child_keys || [],
+          new: responseChildKeys
+        }
+      },
+      user_id: request.user?.email || 'admin',
+      created_at: now
+    });
+
+    return { ok: true, issueKey, role, summary: issueData.fields?.summary || '', childKeys: responseChildKeys };
+  });
+
+  // ── 8. DELETE /link/:featureId — Unlink Jira issues from a feature ──────
   fastify.delete('/link/:featureId', {
     preHandler: [requireAdmin]
   }, async (request, reply) => {
