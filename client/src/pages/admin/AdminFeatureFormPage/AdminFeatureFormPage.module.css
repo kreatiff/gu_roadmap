@@ -667,20 +667,36 @@
   gap: 8px;
 }
 
+.linkInputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 140px;
+}
+
+.linkInputIcon {
+  position: absolute;
+  left: 10px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
 .linkIssueInput {
-  height: 32px;
-  padding: 0 10px;
+  height: 36px;
+  padding: 0 10px 0 30px;
   font-size: 0.8125rem;
   font-family: monospace;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: #fff;
   color: var(--text-primary);
   outline: none;
-  width: 110px;
+  width: 100%;
   flex-shrink: 0;
   text-transform: uppercase;
   box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .linkIssueInput:focus {
@@ -695,27 +711,33 @@
 
 .roleToggle {
   display: flex;
-  background: var(--bg-base);
+  background: #f1f5f9;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   padding: 2px;
   gap: 2px;
   flex-shrink: 0;
+  height: 36px;
+  align-items: center;
+  box-sizing: border-box;
 }
 
 .roleBtn {
-  height: 26px;
-  padding: 0 9px;
-  font-size: 0.6875rem;
+  height: 30px;
+  padding: 0 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-muted);
+  color: #64748b;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.1s, color 0.1s;
+  transition: all 0.15s ease;
   font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .roleBtn.active {
@@ -725,27 +747,55 @@
 }
 
 .linkIssueBtn {
-  height: 32px;
-  padding: 0 12px;
+  height: 36px;
+  padding: 0 16px;
   font-size: 0.8125rem;
-  font-weight: 600;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: #fff;
-  color: var(--text-primary);
+  font-weight: 700;
+  border: none;
+  border-radius: var(--radius-md);
+  background: #0f172a;
+  color: #fff;
   cursor: pointer;
   flex-shrink: 0;
   font-family: inherit;
-  transition: background 0.12s, border-color 0.12s;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .linkIssueBtn:hover:not(:disabled) {
-  background: var(--bg-base);
+  background: #1e293b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 .linkIssueBtn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .linkIssueForm {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .linkInputWrapper {
+    width: 100%;
+  }
+  .roleToggle {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .roleBtn {
+    flex: 1;
+  }
+  .linkIssueBtn {
+    width: 100%;
+  }
 }
 
 .jiraBtn {
@@ -825,4 +875,37 @@
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--border-color);
   margin-bottom: var(--space-2);
+}
+
+.jiraPushContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-2) 0 var(--space-6) 0;
+  gap: var(--space-4);
+}
+
+.jiraPushInstructions {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #475569);
+  max-width: 500px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.jiraLinkedSection {
+  margin-bottom: var(--space-6);
+}
+
+.jiraNoLinksContainer {
+  text-align: center;
+  padding: var(--space-4) 0;
+  margin-bottom: var(--space-6);
+}
+
+.jiraNoLinksText {
+  font-size: 0.8125rem;
+  color: var(--text-muted, #94a3b8);
+  margin: 0;
 }
