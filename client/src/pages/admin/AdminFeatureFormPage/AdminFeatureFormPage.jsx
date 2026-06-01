@@ -14,7 +14,7 @@ import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { calculateGravityScore } from '@shared/lib/gravityScore.js';
 import { useToast } from '../../../contexts/ToastContext';
-import { Eye, Clock, AlertTriangle, ExternalLink, Unlink, Zap } from 'lucide-react';
+import { Eye, Clock, AlertTriangle, ExternalLink, Unlink, Zap, Link2, Plus } from 'lucide-react';
 import { useEditLock } from './useEditLock';
 import PushToJiraModal from '../../../components/PushToJiraModal/PushToJiraModal';
 import { fetchJiraConfig, fetchJiraDraft, unlinkJiraFeature, fetchJiraIssues, linkJiraIssue } from '../../../api/jira';
@@ -735,9 +735,27 @@ const AdminFeatureFormPage = () => {
           <div className={styles.jiraCard}>
             <h3 className={styles.jiraCardTitle}>Jira Integration</h3>
             <div className={styles.jiraSection}>
-              {formData.jira_issue_key || (formData.jira_child_keys && formData.jira_child_keys.length > 0) ? (
-                <>
-                  <p className={styles.fieldHint}>The following Jira issues are linked to this feature:</p>
+              
+              {/* Upper Section: Centered Push Button and AI Instructions */}
+              <div className={styles.jiraPushContainer}>
+                <p className={styles.jiraPushInstructions}>
+                  Generate a structured Epic and its corresponding child Tasks in Jira using AI, or update the issues if they have already been generated.
+                </p>
+                <button
+                  type="button"
+                  className={styles.jiraBtn}
+                  onClick={() => setShowJiraModal(true)}
+                >
+                  <JiraLogo size={20} className={styles.jiraBtnIcon} />
+                  <span>{formData.jira_issue_key ? 'Generate / Update Jira Issues' : 'Generate Jira Issues'}</span>
+                  {jiraDraft && <span className={styles.draftBadge}>· Draft saved</span>}
+                </button>
+              </div>
+
+              {/* Middle Section: Linked Issues */}
+              {Boolean(formData.jira_issue_key || (formData.jira_child_keys && formData.jira_child_keys.length > 0)) && (
+                <div className={styles.jiraLinkedSection}>
+                  <p className={styles.fieldHint}>Linked Jira Issues</p>
                   <ul className={styles.jiraList}>
                     {formData.jira_issue_key && (
                       <li className={styles.jiraItem}>
@@ -800,11 +818,10 @@ const AdminFeatureFormPage = () => {
                       </li>
                     ))}
                   </ul>
-                </>
-              ) : (
-                <p className={styles.fieldHint}>This feature has not been linked to Jira yet.</p>
+                </div>
               )}
-              
+
+              {/* Bottom Section: Link Existing Issue */}
               <div className={styles.linkIssueSection}>
                 <div className={styles.linkIssueSectionHeader}>
                   <span className={styles.linkIssueSectionTitle}>Link an existing issue</span>
@@ -813,27 +830,34 @@ const AdminFeatureFormPage = () => {
                   </p>
                 </div>
                 <div className={styles.linkIssueForm}>
-                  <input
-                    className={styles.linkIssueInput}
-                    value={linkInput}
-                    onChange={e => setLinkInput(e.target.value.toUpperCase())}
-                    onKeyDown={e => e.key === 'Enter' && handleLinkIssue()}
-                    placeholder="e.g. LTD-42"
-                    disabled={isLinking}
-                    maxLength={20}
-                    autoComplete="off"
-                  />
+                  <div className={styles.linkInputWrapper}>
+                    <Link2 size={14} className={styles.linkInputIcon} />
+                    <input
+                      className={styles.linkIssueInput}
+                      value={linkInput}
+                      onChange={e => setLinkInput(e.target.value.toUpperCase())}
+                      onKeyDown={e => e.key === 'Enter' && handleLinkIssue()}
+                      placeholder="e.g. LTD-42"
+                      disabled={isLinking}
+                      maxLength={20}
+                      autoComplete="off"
+                    />
+                  </div>
                   <div className={styles.roleToggle}>
                     <button
                       type="button"
                       className={`${styles.roleBtn}${linkRole === 'primary' ? ' ' + styles.active : ''}`}
                       onClick={() => setLinkRole('primary')}
-                    >Primary</button>
+                    >
+                      Primary Epic
+                    </button>
                     <button
                       type="button"
                       className={`${styles.roleBtn}${linkRole === 'child' ? ' ' + styles.active : ''}`}
                       onClick={() => setLinkRole('child')}
-                    >Child task</button>
+                    >
+                      Child Task
+                    </button>
                   </div>
                   <button
                     type="button"
@@ -841,21 +865,16 @@ const AdminFeatureFormPage = () => {
                     onClick={handleLinkIssue}
                     disabled={isLinking || !linkInput.trim()}
                   >
-                    {isLinking ? 'Linking…' : 'Link'}
+                    {isLinking ? (
+                      'Linking…'
+                    ) : (
+                      <>
+                        <Plus size={14} />
+                        <span>Link Issue</span>
+                      </>
+                    )}
                   </button>
                 </div>
-              </div>
-
-              <div style={{ marginTop: '12px' }}>
-                <button
-                  type="button"
-                  className={styles.jiraBtn}
-                  onClick={() => setShowJiraModal(true)}
-                >
-                  <JiraLogo size={20} className={styles.jiraBtnIcon} />
-                  <span>{formData.jira_issue_key ? 'Push to Jira / Update Issues' : 'Push to Jira'}</span>
-                  {jiraDraft && <span className={styles.draftBadge}>· Draft saved</span>}
-                </button>
               </div>
             </div>
           </div>
