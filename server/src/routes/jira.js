@@ -85,7 +85,12 @@ You MUST return a valid JSON object only with this exact shape (do NOT wrap the 
   // Helper to call Azure OpenAI Chat Completions endpoint
   async function callAzureOpenAI(systemPrompt, userMessage, request) {
     const { endpoint, apiKey, deployment } = config.ai;
-    const base = endpoint.replace(/\/$/, '');
+    let base = endpoint.replace(/\/$/, '');
+
+    // If the endpoint is configured using the Responses API URL, strip the /responses suffix to route to chat completions
+    if (base.endsWith('/responses')) {
+      base = base.slice(0, -'/responses'.length);
+    }
 
     // Construct standard v1 chat completions endpoint matching the curl format
     let url = '';
@@ -99,7 +104,8 @@ You MUST return a valid JSON object only with this exact shape (do NOT wrap the 
 
     const headers = {
       'Content-Type': 'application/json',
-      'api-key': apiKey
+      'api-key': apiKey,
+      'Authorization': `Bearer ${apiKey}`
     };
 
     const body = {
