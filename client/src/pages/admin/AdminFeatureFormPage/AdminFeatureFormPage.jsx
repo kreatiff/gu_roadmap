@@ -747,7 +747,7 @@ const AdminFeatureFormPage = () => {
                   onClick={() => setShowJiraModal(true)}
                 >
                   <JiraLogo size={20} className={styles.jiraBtnIcon} />
-                  <span>{formData.jira_issue_key ? 'Generate / Update Jira Issues' : 'Generate Jira Issues'}</span>
+                  <span>{formData.jira_issue_key ? 'Re-generate Jira Issues' : 'Generate Jira Issues'}</span>
                   {jiraDraft && <span className={styles.draftBadge}>· Draft saved</span>}
                 </button>
               </div>
