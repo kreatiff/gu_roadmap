@@ -52,7 +52,7 @@
   background: var(--bg-secondary);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-color);
-  overflow: hidden;
+  overflow: visible;
 }
 
 .sectionHeader {
@@ -76,7 +76,7 @@
 }
 
 .tableWrapper {
-  overflow-x: auto;
+  overflow: visible;
 }
 
 .table {
@@ -106,6 +106,19 @@
 
 .table tr:last-child td {
   border-bottom: none;
+}
+
+.table tr:first-child th:first-child {
+  border-top-left-radius: var(--radius-lg);
+}
+.table tr:first-child th:last-child {
+  border-top-right-radius: var(--radius-lg);
+}
+.table tr:last-child td:first-child {
+  border-bottom-left-radius: var(--radius-lg);
+}
+.table tr:last-child td:last-child {
+  border-bottom-right-radius: var(--radius-lg);
 }
 
 .table tr:hover td {
@@ -302,4 +315,113 @@
 .btnDanger {
   composes: btnPrimary;
   background: var(--error-color);
+}
+
+.emailCell {
+  min-width: 350px;
+}
+
+.emailView {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.emailText {
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.noEmailText {
+  font-style: italic;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.inlineEditLink {
+  background: none;
+  border: none;
+  color: #1868db;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.inlineEditLink:hover {
+  text-decoration: underline;
+}
+
+.inlineEditGroup {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inlineInput {
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  outline: none;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  width: 180px;
+}
+
+.inlineInput:focus {
+  border-color: #1868db;
+}
+
+.inlineAutocompleteWrapper {
+  position: relative;
+  width: 220px;
+}
+
+.inlineAutocompleteWrapper input {
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  outline: none;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.inlineAutocompleteWrapper input:focus {
+  border-color: #1868db;
+}
+
+
+.inlineSaveBtn {
+  padding: 6px 12px;
+  background-color: #1868db;
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inlineSaveBtn:hover {
+  opacity: 0.9;
+}
+
+.inlineCancelBtn {
+  padding: 6px 12px;
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.inlineCancelBtn:hover {
+  background-color: var(--bg-secondary);
 }

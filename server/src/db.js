@@ -28,6 +28,8 @@ export const revisionsContainer = database.container("feature_revisions");
 export const dashboardsContainer = database.container("dashboards");
 export const usersContainer = database.container("users");
 export const auditLogContainer = database.container("audit_log");
+export const metadataConfigsContainer = database.container("metadata_configs");
+export const jiraDraftsContainer = database.container("jira_drafts");
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 // Creates the database and all containers if they don't already exist.
@@ -96,6 +98,19 @@ export async function initDb(logger = console) {
     db.containers.createIfNotExists({
       id: "audit_log",
       partitionKey: { paths: ["/action"] },
+    }),
+
+    // Metadata configurations: partition by id for fast point lookups
+    db.containers.createIfNotExists({
+      id: "metadata_configs",
+      partitionKey: { paths: ["/id"] },
+    }),
+
+    // Jira drafts: ephemeral draft state for the Push-to-Jira wizard,
+    // partitioned by featureId so drafts can be fetched/deleted by feature
+    db.containers.createIfNotExists({
+      id: "jira_drafts",
+      partitionKey: { paths: ["/featureId"] },
     }),
   ]);
 

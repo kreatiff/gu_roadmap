@@ -107,12 +107,27 @@ describe('StringAutocomplete', () => {
     render(
       <div>
         <StringAutocomplete value="Sarah Miller" onChange={vi.fn()} suggestions={suggestions} />
-        <button>Outside</button>
+        <div data-testid="outside">Outside</div>
       </div>
     );
     const input = screen.getByRole('textbox');
     fireEvent.change(input, { target: { value: 'james' } });
-    fireEvent.mouseDown(screen.getByText('Outside'));
+    fireEvent.mouseDown(screen.getByTestId('outside'));
     expect(input).toHaveValue('Sarah Miller');
+  });
+
+  it('does not reset input value and calls onChange when clicking outside on a button', () => {
+    const onChange = vi.fn();
+    render(
+      <div>
+        <StringAutocomplete value="Sarah Miller" onChange={onChange} suggestions={suggestions} />
+        <button data-testid="outside-btn">Save Button</button>
+      </div>
+    );
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: 'james' } });
+    fireEvent.mouseDown(screen.getByTestId('outside-btn'));
+    expect(input).toHaveValue('james');
+    expect(onChange).toHaveBeenCalledWith('james');
   });
 });

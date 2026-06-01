@@ -10,6 +10,7 @@ import rateLimit from '@fastify/rate-limit';
 import { config } from './config.js';
 
 import { initDb } from './db.js';
+import { requireAdmin } from './auth.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import featureRoutes from './routes/features.js';
@@ -18,6 +19,7 @@ import stageRoutes from './routes/stages.js';
 import dashboardRoutes from './routes/dashboards.js';
 import metadataRoutes from './routes/metadata.js';
 import dataRoutes from './routes/data.js';
+import jiraRoutes from './routes/jira.js';
 import fastifyMultipart from '@fastify/multipart';
 import { bootstrapAdminIfEmpty } from './lib/users.js';
 
@@ -82,6 +84,19 @@ server.register(stageRoutes, { prefix: '/api/stages' });
 server.register(dashboardRoutes, { prefix: '/api/dashboards' });
 server.register(metadataRoutes, { prefix: '/api/metadata' });
 server.register(dataRoutes, { prefix: '/api/admin/data' });
+server.register(jiraRoutes, { prefix: '/api/jira' });
+
+// Dynamic redirection for Jira issues (admin-only; key format enforced to prevent open redirect)
+server.get('/browse/:key', { preHandler: [requireAdmin] }, async (request, reply) => {
+  if (!config.jira.baseUrl) {
+    return reply.code(400).send({ error: 'Jira base URL is not configured' });
+  }
+  if (!/^[A-Z]+-\d+$/.test(request.params.key)) {
+    return reply.code(400).send({ error: 'Invalid Jira issue key format' });
+  }
+  const url = `${config.jira.baseUrl.replace(/\/$/, '')}/browse/${request.params.key}`;
+  return reply.redirect(url);
+});
 
 // 4. Fallback for React Router (SPA)
 server.setNotFoundHandler((request, reply) => {
