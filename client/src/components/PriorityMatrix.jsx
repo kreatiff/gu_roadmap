@@ -1,4 +1,5 @@
 import { useMemo, useCallback } from 'react';
+import { ChevronUp, ChevronDown, ChevronsUp, Minus } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import styles from './PriorityMatrix.module.css';
 
@@ -54,34 +55,11 @@ const PriorityMatrix = ({ features, onFeatureClick, onFeatureMove, selectedFeatu
     const { color: priorityColor, icon: priorityIcon } = priorityConfig[f.priority] || priorityConfig.Low;
 
     const renderPriorityIcon = () => {
-      if (priorityIcon === 'double-up') {
-        return (
-          <svg className={styles.priorityChevron} viewBox="0 0 24 24" fill="none" stroke={priorityColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="18 15 12 9 6 15" />
-            <polyline points="18 21 12 15 6 21" />
-          </svg>
-        );
-      }
-      if (priorityIcon === 'up') {
-        return (
-          <svg className={styles.priorityChevron} viewBox="0 0 24 24" fill="none" stroke={priorityColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="18 15 12 9 6 15" />
-          </svg>
-        );
-      }
-      if (priorityIcon === 'dash') {
-        return (
-          <svg className={styles.priorityChevron} viewBox="0 0 24 24" fill="none" stroke={priorityColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-        );
-      }
-      // down
-      return (
-        <svg className={styles.priorityChevron} viewBox="0 0 24 24" fill="none" stroke={priorityColor} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="6 9 12 15 18 9" />
-        </svg>
-      );
+      const iconProps = { size: 20, strokeWidth: 3, color: priorityColor, className: styles.priorityChevron };
+      if (priorityIcon === 'double-up') return <ChevronsUp {...iconProps} />;
+      if (priorityIcon === 'up') return <ChevronUp {...iconProps} />;
+      if (priorityIcon === 'dash') return <Minus {...iconProps} />;
+      return <ChevronDown {...iconProps} />;
     };
 
     return (

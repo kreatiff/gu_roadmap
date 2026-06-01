@@ -11,19 +11,12 @@
   margin-bottom: var(--space-10);
 }
 
-.breadcrumb {
-  font-size: 0.625rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  letter-spacing: 0.1em;
-  margin-bottom: var(--space-2);
-}
 
 .h1 {
   font-size: 2.25rem;
   font-weight: 800;
   color: var(--text-primary);
-  letter-spacing: -0.04em;
+  /*letter-spacing: -0.04em; */
 }
 
 .headerActions {
@@ -48,6 +41,7 @@
 
 .newFeatureBtn:hover {
   background-color: var(--gu-red-hover);
+  color: #ffffff;
   box-shadow: 0 3px 8px rgba(232, 52, 28, 0.35);
   opacity: 1;
 }
@@ -117,6 +111,29 @@
 .searchInput:focus {
   border-color: var(--gu-red);
   box-shadow: 0 0 0 3px rgba(232, 52, 28, 0.08);
+}
+
+.searchClearBtn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.searchClearBtn:hover {
+  background-color: #e5e7eb;
+  color: var(--text-primary);
 }
 
 /* ── Filter actions (right side of bar) ───────────────────────────── */
@@ -212,6 +229,40 @@
   font-weight: 500;
   white-space: nowrap;
   padding: 0 var(--space-1);
+}
+
+/* ── Single-select dropdown options ────────────────────────────────── */
+
+.selectList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.selectOption {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+  font-family: inherit;
+}
+
+.selectOption:hover {
+  background-color: #f1f5f9;
+}
+
+.selectOptionActive {
+  background-color: rgba(232, 52, 28, 0.08);
+  color: var(--gu-red);
+  font-weight: 600;
 }
 
 /* ── Active filter chips ──────────────────────────────────────────── */
@@ -425,6 +476,12 @@
   border: 1px solid var(--border-color);
 }
 
+.reviewedBadge {
+  color: #1d9bf0;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
 /* Priority badge — soft fill, coloured text (see priority classes below) */
 .priorityBadge {
   font-size: 0.5625rem;
@@ -473,19 +530,6 @@
   gap: var(--space-2);
 }
 
-.voteBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #2563eb;
-  background-color: #eff6ff;
-  padding: 3px 8px;
-  border-radius: 6px;
-  border: 1px solid #bfdbfe;
-}
-
 .gravityBadge {
   display: inline-flex;
   align-items: center;
@@ -520,11 +564,6 @@
   line-height: 1;
 }
 
-.voteIcon {
-  width: 11px;
-  height: 11px;
-}
-
 .cardUpdatedDate {
   font-size: 0.6875rem;
   color: var(--text-tertiary);
@@ -539,10 +578,25 @@
 }
 
 /* Priority colour system — soft bg + accessible coloured text */
-.priorityCritical { background-color: #fee2e2; color: #dc2626; }
-.priorityHigh     { background-color: #ffedd5; color: #c2410c; }
-.priorityMedium   { background-color: #fef3c7; color: #92400e; }
-.priorityLow      { background-color: var(--bg-primary); color: #475569; }
+.priorityCritical {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+.priorityHigh {
+  background-color: #ffedd5;
+  color: #c2410c;
+}
+
+.priorityMedium {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.priorityLow {
+  background-color: var(--bg-primary);
+  color: #475569;
+}
 
 /* ── Empty / loading states ───────────────────────────────────────── */
 

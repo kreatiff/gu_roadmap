@@ -1,6 +1,7 @@
 .content {
   padding: var(--space-8);
-  padding-bottom: 120px; /* Space for the fixed footer at the bottom */
+  padding-bottom: 120px;
+  /* Space for the fixed footer at the bottom */
   max-width: 1000px;
   margin: 0 auto;
 }
@@ -47,19 +48,12 @@
   color: #64748b;
 }
 
-.breadcrumb {
-  font-size: 0.625rem;
-  font-weight: 800;
-  color: var(--text-muted);
-  letter-spacing: 0.1em;
-  margin-bottom: var(--space-2);
-}
 
 .h1 {
   font-size: 2.25rem;
   font-weight: 800;
   color: var(--text-primary);
-  letter-spacing: -0.04em;
+  /*letter-spacing: -0.04em; */
 }
 
 .form {
@@ -72,6 +66,58 @@
   flex-direction: column;
   gap: var(--space-8);
   max-width: 900px;
+  position: relative;
+  z-index: 1;
+  margin-top: -14px;
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background-color: #ffffff;
+  color: #64748b;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.iconBtn:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.iconBtn .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.deleteSection {
+  max-width: 900px;
+  margin-top: var(--space-6);
+  padding: var(--space-6);
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.deleteSection::before {
+  content: 'Danger Zone';
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #ef4444;
 }
 
 .field {
@@ -89,6 +135,13 @@
   letter-spacing: 0.04em;
 }
 
+.fieldHint {
+  font-size: 0.8125rem;
+  color: var(--text-muted, #94a3b8);
+  margin: 0 0 4px 0;
+  line-height: 1.4;
+}
+
 .input {
   padding: 12px 14px;
   border: 1px solid var(--border-color);
@@ -104,19 +157,27 @@
 }
 
 .select {
-  padding: 12px 14px;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
+  padding: 10px 36px 10px 12px;
+  border: 2px solid #eee;
+  border-radius: 8px;
   font-size: 1rem;
+  font-family: inherit;
   background-color: #fff;
   color: var(--text-primary);
   cursor: pointer;
   outline: none;
   transition: border-color 0.2s;
+  min-height: 46px;
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
 }
 
 .select:focus {
-  border-color: var(--gu-red);
+  border-color: #e8341c;
 }
 
 .row {
@@ -148,6 +209,26 @@
   font-weight: 600;
   color: var(--text-primary);
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reviewedIcon {
+  color: #1d9bf0;
+  flex-shrink: 0;
+}
+
+.headerBadges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.headerReviewedBadge {
+  color: #1d9bf0;
+  filter: drop-shadow(0 1px 2px rgba(29, 155, 240, 0.3));
 }
 
 .publishedBadgeBadge {
@@ -160,7 +241,6 @@
   font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
-  margin-left: 12px;
   vertical-align: middle;
   border: 1px solid rgba(16, 185, 129, 0.2);
 }
@@ -168,7 +248,8 @@
 .stickyFooterArea {
   position: fixed;
   bottom: 0;
-  left: 260px; /* Default sidebar width */
+  left: 260px;
+  /* Default sidebar width */
   right: 0;
   background-color: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(12px);
@@ -180,7 +261,8 @@
 }
 
 .stickyFooterInner {
-  max-width: 1000px; /* Aligns with form width */
+  max-width: 1000px;
+  /* Aligns with form width */
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -201,6 +283,8 @@
 
 .leftActions {
   display: flex;
+  align-items: center;
+  gap: var(--space-3);
 }
 
 .formFooterActions {
@@ -366,11 +450,379 @@
   border-color: #cbd5e130;
 }
 
-.gravityHelpText {
+.editLockBanner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px var(--space-8);
+  background-color: #fffbeb;
+  border-bottom: 1px solid #fcd34d;
+  color: #92400e;
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.editLockBanner svg {
+  flex-shrink: 0;
+  color: #d97706;
+}
+
+.jiraSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.jiraList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
+}
+
+.jiraItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+}
+
+.jiraItem:nth-child(odd) {
+  background: var(--bg-base, #f9fafb);
+}
+
+.jiraItem:nth-child(even) {
+  background: #ffffff;
+}
+
+.jiraItemLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.jiraRowUnlinkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  background: #fff;
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: var(--radius-sm, 6px);
+  color: var(--text-muted, #64748b);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.jiraRowUnlinkBtn:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #ef4444;
+}
+
+.jiraBadgeEpic {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  background-color: rgba(0, 82, 204, 0.1);
+  color: #0052cc;
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  border: 1px solid rgba(0, 82, 204, 0.2);
+}
+
+.jiraBadgeChild {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  background-color: rgba(101, 84, 192, 0.1);
+  color: #6554c0;
+  border-radius: var(--radius-sm);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  border: 1px solid rgba(101, 84, 192, 0.2);
+}
+
+.jiraLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #0052cc;
+  font-weight: 700;
+  text-decoration: none;
+  font-size: 0.9375rem;
+}
+
+.jiraLink:hover {
+  text-decoration: underline;
+}
+
+/* ── Issue type icons — matches EpicIcon / TaskIcon in PushToJiraModal ────── */
+
+.jiraTypeIconEpic {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: #8b5cf6;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  font-style: normal;
+}
+
+.jiraTypeIconTask {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: #3b82f6;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  font-style: normal;
+}
+
+/* Monospace key link — replaces old .jiraLink in the issue list */
+
+.jiraItemKeyLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: monospace;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #1d4ed8;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.jiraItemKeyLink:hover {
+  text-decoration: underline;
+}
+
+/* Issue summary / name — truncated, muted */
+
+.jiraItemName {
+  font-size: 0.8125rem;
+  color: var(--text-secondary, #374151);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Link existing issue section ─────────────────────────────────────────── */
+
+.linkIssueSection {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+}
+
+.linkIssueSectionHeader {
+  margin-bottom: 10px;
+}
+
+.linkIssueSectionTitle {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-primary, #111827);
+  margin-bottom: 3px;
+}
+
+.linkIssueSectionHint {
+  font-size: 0.75rem;
+  color: var(--text-muted, #6b7280);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.linkIssueForm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.linkIssueInput {
+  height: 32px;
+  padding: 0 10px;
+  font-size: 0.8125rem;
+  font-family: monospace;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text-primary);
+  outline: none;
+  width: 110px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  box-sizing: border-box;
+}
+
+.linkIssueInput:focus {
+  border-color: var(--gu-red);
+  box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.1);
+}
+
+.linkIssueInput:disabled {
+  background: var(--bg-base);
+  opacity: 0.6;
+}
+
+.roleToggle {
+  display: flex;
+  background: var(--bg-base);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.roleBtn {
+  height: 26px;
+  padding: 0 9px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.1s, color 0.1s;
+  font-family: inherit;
+}
+
+.roleBtn.active {
+  background: white;
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.linkIssueBtn {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  color: var(--text-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: inherit;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.linkIssueBtn:hover:not(:disabled) {
+  background: var(--bg-base);
+}
+
+.linkIssueBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.jiraBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #1868db;
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.jiraBtn:hover {
+  background-color: #3884f5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.jiraBtnIcon {
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.jiraUnlinkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: transparent;
+  color: var(--text-secondary, #64748b);
+  border: 1px solid var(--border-color);
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.jiraUnlinkBtn:hover {
+  background-color: #fef2f2;
+  color: #ef4444;
+  border-color: #fca5a5;
+}
+
+.draftBadge {
   font-size: 0.75rem;
   font-weight: 500;
-  color: var(--text-muted);
-  max-width: 500px;
-  line-height: 1.5;
-  margin: 0;
+  opacity: 0.8;
+  margin-left: 2px;
+}
+
+.jiraCard {
+  background-color: #ffffff;
+  border: 1px solid var(--border-color);
+  padding: var(--space-10) var(--space-8);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 900px;
+  margin-top: var(--space-6);
+}
+
+.jiraCardTitle {
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: var(--space-2);
 }

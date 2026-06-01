@@ -12,6 +12,7 @@ import AdminMetadataPage from './pages/admin/AdminMetadataPage/AdminMetadataPage
 import AdminDataManagementPage from './pages/admin/AdminDataManagementPage/AdminDataManagementPage';
 import PublicDashboardPage from './pages/PublicDashboardPage/PublicDashboardPage';
 import LoginSplashPage from './pages/LoginSplashPage/LoginSplashPage';
+import AdminUsersPage from './pages/admin/AdminUsersPage/AdminUsersPage';
 import styles from './AppRouter.module.css';
 
 // Pages
@@ -23,12 +24,13 @@ const NotFound = () => (
   </div>
 );
 
-const ProtectedRoute = ({ children, adminOnly = false }) => {
-  const { isAdmin } = useAuth();
+const ProtectedRoute = ({ children, adminOnly = false, superAdminOnly = false }) => {
+  const { isAuthenticated, isAdmin, isSuperAdmin, loading } = useAuth();
   
-  if (adminOnly && !isAdmin) {
-    return <Navigate to="/" replace />;
-  }
+  if (loading) return null;
+  if (!isAuthenticated) return <Navigate to="/" replace />;
+  if (superAdminOnly && !isSuperAdmin) return <Navigate to="/admin" replace />;
+  if (adminOnly && !isAdmin) return <Navigate to="/" replace />;
 
   return children;
 };
@@ -48,21 +50,26 @@ const AppRouter = () => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* ── Public dashboard routes — NO login required ── */}
+        {/* ── Public dashboard routes — NO login required, NO password gate ── */}
         <Route path="/d/:slug" element={<PublicDashboardPage />} />
 
-        {/* ── Authenticated routes ── */}
+        {/* ── All other routes require authentication ── */}
         {!isAuthenticated ? (
-          // Redirect everything else to the login splash
           <Route path="*" element={<LoginSplashPage />} />
         ) : (
           <>
             <Route path="/" element={<RoadmapPage />} />
-            
+
             {/* Admin Routes */}
             <Route path="/admin" element={
               <ProtectedRoute adminOnly>
                 <AdminDashboardPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin/users" element={
+              <ProtectedRoute superAdminOnly>
+                <AdminUsersPage />
               </ProtectedRoute>
             } />
 
@@ -71,7 +78,7 @@ const AppRouter = () => {
                 <AdminMatrixPage />
               </ProtectedRoute>
             } />
-            
+
             <Route path="/admin/features/new" element={
               <ProtectedRoute adminOnly>
                 <AdminFeatureFormPage />
@@ -109,7 +116,7 @@ const AppRouter = () => {
             } />
 
             <Route path="/admin/data" element={
-              <ProtectedRoute adminOnly>
+              <ProtectedRoute superAdminOnly>
                 <AdminDataManagementPage />
               </ProtectedRoute>
             } />

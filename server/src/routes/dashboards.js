@@ -3,6 +3,10 @@ import { requireAdmin } from '../auth.js';
 import { v4 as uuidv4 } from 'uuid';
 import slugify from 'slugify';
 import bcrypt from 'bcryptjs';
+import { BCRYPT_ROUNDS } from '../constants.js';
+
+// Pre-compute dummy hash for timing-safe dashboard verification
+const DUMMY_HASH = bcrypt.hashSync('__dummy__', BCRYPT_ROUNDS);
 
 export default async function dashboardRoutes(fastify, options) {
 
@@ -16,6 +20,14 @@ export default async function dashboardRoutes(fastify, options) {
       )
       .fetchAll();
     return resources[0] ?? null;
+  }
+
+  // ── Helper: validate available_views ──────────────────────────────────────
+  const ALLOWED_VIEWS = ['grid', 'swimlane', 'table'];
+  function normalizeAvailableViews(raw) {
+    if (!Array.isArray(raw)) return ['grid'];
+    const filtered = raw.filter(v => ALLOWED_VIEWS.includes(v));
+    return filtered.length > 0 ? filtered : ['grid'];
   }
 
   // ── Helper: verify dashboard unlock token ─────────────────────────────────
@@ -43,7 +55,7 @@ export default async function dashboardRoutes(fastify, options) {
   // ── GET / — Public: list all dashboards (no password_hash) ────────────────
   fastify.get('/', async (request, reply) => {
     const { resources } = await dashboardsContainer.items
-      .query('SELECT c.id, c.name, c.slug, c.filters, c.is_protected, c.created_by, c.created_at FROM c ORDER BY c.created_at DESC',
+      .query('SELECT c.id, c.name, c.slug, c.filters, c.is_protected, c.available_views, c.created_by, c.created_at FROM c ORDER BY c.created_at DESC',
              { enableCrossPartitionQuery: true })
       .fetchAll();
     return resources;
@@ -65,13 +77,17 @@ export default async function dashboardRoutes(fastify, options) {
   // Returns { ok: true, token } on success; client stores token in sessionStorage.
   fastify.post('/:slug/unlock', async (request, reply) => {
     const doc = await findBySlug(request.params.slug);
-    if (!doc) return reply.code(404).send({ error: 'Dashboard not found' });
-    if (!doc.is_protected) return { ok: true }; // unprotected — always ok
 
     const { password } = request.body ?? {};
     if (!password) return reply.code(400).send({ error: 'password required' });
 
-    const match = await bcrypt.compare(password, doc.password_hash);
+    // Always perform bcrypt.compare to prevent timing attacks that reveal
+    // whether a dashboard exists or is password-protected.
+    const candidateHash = doc?.password_hash ?? DUMMY_HASH;
+    const match = await bcrypt.compare(password, candidateHash);
+
+    if (!doc) return reply.code(404).send({ error: 'Dashboard not found' });
+    if (!doc.is_protected) return { ok: true }; // unprotected — always ok
     if (!match) return reply.code(403).send({ error: 'Incorrect password' });
 
     // Issue a short-lived signed token the client stores in sessionStorage
@@ -158,7 +174,7 @@ export default async function dashboardRoutes(fastify, options) {
 
   // ── POST / — Admin: create dashboard ─────────────────────────────────────
   fastify.post('/', { preHandler: [requireAdmin] }, async (request, reply) => {
-    const { name, filters = {}, password } = request.body;
+    const { name, filters = {}, password, available_views } = request.body;
     if (!name) return reply.code(400).send({ error: 'name is required' });
 
     const id   = uuidv4();
@@ -167,7 +183,7 @@ export default async function dashboardRoutes(fastify, options) {
 
     const is_protected = typeof password === 'string' && password.length > 0;
     const password_hash = is_protected
-      ? await bcrypt.hash(password, 10)
+      ? await bcrypt.hash(password, BCRYPT_ROUNDS)
       : null;
 
     const doc = {
@@ -181,6 +197,7 @@ export default async function dashboardRoutes(fastify, options) {
       },
       is_protected,
       password_hash,
+      available_views: normalizeAvailableViews(available_views),
       created_by: request.user?.email ?? 'System',
       created_at: now,
     };
@@ -193,13 +210,13 @@ export default async function dashboardRoutes(fastify, options) {
       throw err;
     }
 
-    return reply.code(201).send({ id, slug, is_protected });
+    return reply.code(201).send({ id, slug, is_protected, available_views: doc.available_views });
   });
 
   // ── PUT /:id — Admin: update dashboard ───────────────────────────────────
   fastify.put('/:id', { preHandler: [requireAdmin] }, async (request, reply) => {
     const { id } = request.params;
-    const { name, filters, password } = request.body;
+    const { name, filters, password, available_views } = request.body;
 
     let existing;
     try {
@@ -233,11 +250,15 @@ export default async function dashboardRoutes(fastify, options) {
       const hasPassword = typeof password === 'string' && password.length > 0;
       if (hasPassword) {
         updated.is_protected = true;
-        updated.password_hash = await bcrypt.hash(password, 10);
+        updated.password_hash = await bcrypt.hash(password, BCRYPT_ROUNDS);
       } else {
         updated.is_protected = false;
         updated.password_hash = null;
       }
+    }
+
+    if (available_views !== undefined) {
+      updated.available_views = normalizeAvailableViews(available_views);
     }
 
     updated.updated_at = new Date().toISOString();

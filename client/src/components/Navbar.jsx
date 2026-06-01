@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import styles from './Navbar.module.css';
 
 const Navbar = () => {
-  const { user, login, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
 
   return (
     <nav className={styles.nav}>
@@ -26,9 +26,9 @@ const Navbar = () => {
               </button>
             </div>
           ) : (
-            <button onClick={login} className={styles.loginBtn}>
+            <Link to="/" className={styles.loginBtn}>
               SIGN IN
-            </button>
+            </Link>
           )}
         </div>
       </div>

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { generateHTML } from '@tiptap/html';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
+import DOMPurify from 'dompurify';
 import styles from './RichTextViewer.module.css';
 
 const RichTextViewer = ({ content, className = '' }) => {
@@ -14,26 +15,37 @@ const RichTextViewer = ({ content, className = '' }) => {
       
       // Basic check for Tiptap JSON structure
       if (json && json.type === 'doc') {
-        return generateHTML(json, [
+        const rawHtml = generateHTML(json, [
           StarterKit.configure({
             heading: {
               levels: [3, 4],
             },
+            link: false,
           }),
           Link.configure({
             HTMLAttributes: {
               target: '_blank',
               rel: 'noopener noreferrer nofollow',
             },
+            validate: (href) => /^https?:\/\//i.test(href),
           }),
         ]);
+        return DOMPurify.sanitize(rawHtml, {
+          ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'h3', 'h4', 'ul', 'ol', 'li', 'a', 'code', 'pre'],
+          ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+        });
       }
     } catch (e) {
       // Not a valid JSON or not Tiptap JSON, handle as plain text
     }
 
     // Default: Plain text with line breaks
-    return content.replace(/\n/g, '<br />');
+    return content
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/\n/g, '<br />');
   }, [content]);
 
   const isHtml = html !== content && html.includes('<');

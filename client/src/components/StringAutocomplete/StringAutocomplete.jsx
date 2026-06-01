@@ -57,16 +57,25 @@ const StringAutocomplete = ({ value = '', onChange, suggestions = [], placeholde
     }
   };
 
+  const inputValueRef = useRef(inputValue);
+  useEffect(() => {
+    inputValueRef.current = inputValue;
+  }, [inputValue]);
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         setShowDropdown(false);
-        setInputValue(value);
+        if (e.target.closest('button')) {
+          onChange?.(inputValueRef.current.trim());
+        } else {
+          setInputValue(value);
+        }
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [value]);
+  }, [value, onChange]);
 
   return (
     <div className={styles.container} ref={containerRef}>
@@ -81,6 +90,9 @@ const StringAutocomplete = ({ value = '', onChange, suggestions = [], placeholde
         }}
         onKeyDown={handleKeyDown}
         onFocus={() => setShowDropdown(true)}
+        onBlur={() => {
+          setTimeout(() => setShowDropdown(false), 150);
+        }}
         className={styles.input}
         placeholder={placeholder}
       />

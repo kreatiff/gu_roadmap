@@ -59,24 +59,6 @@
   align-items: flex-start;
 }
 
-.voteIndicator {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  background-color: var(--bg-muted);
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: var(--text-secondary);
-}
-
-.voteIcon {
-  width: 14px;
-  height: 14px;
-  color: var(--gu-red);
-}
-
 .gravityIndicator {
   display: flex;
   align-items: center;
@@ -106,6 +88,15 @@
   line-height: 1.3;
   margin-bottom: var(--space-2);
   letter-spacing: -0.02em;
+}
+
+.reviewedBadge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: #1d9bf0;
+  filter: drop-shadow(0 2px 3px rgba(29, 155, 240, 0.35));
+  z-index: 2;
 }
 
 .description {

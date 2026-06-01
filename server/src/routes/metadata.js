@@ -1,4 +1,4 @@
-import { featuresContainer } from '../db.js';
+import { featuresContainer, metadataConfigsContainer, usersContainer } from '../db.js';
 import { requireAdmin } from '../auth.js';
 
 const META_CONFIG = {
@@ -51,6 +51,73 @@ function buildResponse(reply, updatedCount, failures) {
 }
 
 export default async function metadataRoutes(fastify, options) {
+  // ── GET /users/emails — Fetch active user emails for autocomplete ────────────
+  fastify.get('/users/emails', { preHandler: [requireAdmin] }, async (request, reply) => {
+    try {
+      const { resources } = await usersContainer.items
+        .query({
+          query: "SELECT DISTINCT VALUE c.email FROM c WHERE c.status = 'active'"
+        }, { enableCrossPartitionQuery: true })
+        .fetchAll();
+      return resources.filter(Boolean);
+    } catch (err) {
+      request.log.error(err, 'Failed to fetch active user emails');
+      return reply.code(500).send({ error: 'Failed to fetch user emails' });
+    }
+  });
+
+  // ── GET /configs — Get all metadata configurations (mappings) ───────────────
+  fastify.get('/configs', { preHandler: [requireAdmin] }, async (request, reply) => {
+    try {
+      const { resources } = await metadataConfigsContainer.items
+        .query({
+          query: 'SELECT * FROM c WHERE c.type = @type',
+          parameters: [{ name: '@type', value: 'owner' }]
+        }, { enableCrossPartitionQuery: true })
+        .fetchAll();
+      return resources;
+    } catch (err) {
+      request.log.error(err, 'Failed to fetch metadata configs');
+      return reply.code(500).send({ error: 'Failed to fetch configurations' });
+    }
+  });
+
+  // ── POST /configs — Upsert a metadata configuration mapping ─────────────────
+  fastify.post('/configs', {
+    preHandler: [requireAdmin],
+    schema: {
+      body: {
+        type: 'object',
+        properties: {
+          value: { type: 'string' },
+          jira_reporter_email: { type: 'string' }
+        },
+        required: ['value']
+      }
+    }
+  }, async (request, reply) => {
+    const { value, jira_reporter_email } = request.body;
+    const trimmedVal = value.trim();
+    const trimmedEmail = jira_reporter_email?.trim() || '';
+    const id = `owner:${trimmedVal}`;
+
+    try {
+      const doc = {
+        id,
+        type: 'owner',
+        value: trimmedVal,
+        jira_reporter_email: trimmedEmail,
+        updated_at: new Date().toISOString()
+      };
+
+      await metadataConfigsContainer.items.upsert(doc);
+      return { success: true, doc };
+    } catch (err) {
+      request.log.error(err, 'Failed to save metadata config');
+      return reply.code(500).send({ error: 'Failed to save configuration' });
+    }
+  });
+
   // ── 1. GET /:type — List all metadata values with usage counts ──────────────
   fastify.get('/:type', { preHandler: [requireAdmin] }, async (request, reply) => {
     const { type } = request.params;
@@ -118,6 +185,28 @@ export default async function metadataRoutes(fastify, options) {
       .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
       .filter(r => r.status === 'rejected');
 
+    if (type === 'owners' && updatedCount > 0) {
+      const oldId = `owner:${trimmedOld}`;
+      const newId = `owner:${trimmedNew}`;
+      try {
+        const { resource: existing } = await metadataConfigsContainer.item(oldId, oldId).read();
+        if (existing) {
+          await metadataConfigsContainer.item(oldId, oldId).delete();
+          const newDoc = {
+            ...existing,
+            id: newId,
+            value: trimmedNew,
+            updated_at: new Date().toISOString()
+          };
+          await metadataConfigsContainer.items.create(newDoc);
+        }
+      } catch (e) {
+        if (e.statusCode !== 404 && e.code !== 404) {
+          request.log.error(e, 'Failed to update metadata config during rename');
+        }
+      }
+    }
+
     return buildResponse(reply, updatedCount, failures);
   });
 
@@ -147,6 +236,17 @@ export default async function metadataRoutes(fastify, options) {
     const failures = results
       .map((r, i) => ({ status: r.status, id: resources[i].id, reason: r.reason?.message }))
       .filter(r => r.status === 'rejected');
+
+    if (type === 'owners' && updatedCount > 0) {
+      const configId = `owner:${trimmedValue}`;
+      try {
+        await metadataConfigsContainer.item(configId, configId).delete();
+      } catch (e) {
+        if (e.statusCode !== 404 && e.code !== 404) {
+          request.log.error(e, 'Failed to delete metadata config during delete');
+        }
+      }
+    }
 
     return buildResponse(reply, updatedCount, failures);
   });

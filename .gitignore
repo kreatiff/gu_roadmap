@@ -144,3 +144,6 @@ server/data/*.sqlite-shm
 server/data/*.sqlite-wal
 .env.example
 /docs
+
+.agents
+.agents/*

@@ -1,5 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { ChevronRight, GripVertical } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import VerifiedBadge from '../../../components/VerifiedBadge';
+import { updateStageSortOrders } from '../../../api/features';
 import styles from './FeaturesTable.module.css';
 
 const DotScale = ({ value, color }) => {
@@ -99,10 +103,12 @@ const SortHeader = ({ label, sortKey, width, textAlign = 'left', sortConfig, onS
   );
 };
 
-const FeaturesTable = ({ features, stages, onUpdateFeatureField, groupBy = 'category' }) => {
+const FeaturesTable = ({ features, stages, onUpdateFeatureField, groupBy = 'category', onReorder }) => {
+
+  const isReorderable = groupBy === 'status';
 
   const [expandedGroups, setExpandedGroups] = useState({});
-  const [sortConfig, setSortConfig] = useState({ key: 'gravity_score', direction: 'desc' });
+  const [sortConfig, setSortConfig] = useState({ key: 'stage_sort_order', direction: 'asc' });
 
   const handleSort = (key) => {
     let direction = 'asc';
@@ -157,7 +163,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, groupBy = 'cate
         let valA = a[sortConfig.key];
         let valB = b[sortConfig.key];
         
-        if (sortConfig.key === 'vote_count' || sortConfig.key === 'gravity_score' || sortConfig.key === 'impact' || sortConfig.key === 'effort') {
+        if (sortConfig.key === 'gravity_score' || sortConfig.key === 'impact' || sortConfig.key === 'effort' || sortConfig.key === 'stage_sort_order') {
           valA = Number(valA);
           valB = Number(valB);
         } else if (sortConfig.key === 'updated_at') {
@@ -175,6 +181,39 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, groupBy = 'cate
     return sortedGroups;
   }, [features, sortConfig, groupBy, stages]);
 
+  const handleDragEnd = useCallback(async (result) => {
+    const { destination, source } = result;
+    if (!destination) return;
+    if (destination.droppableId === source.droppableId && destination.index === source.index) return;
+    if (destination.droppableId !== source.droppableId) return;
+
+    const groupKey = destination.droppableId;
+    const group = groupedFeatures.find(g => g.name === groupKey);
+    if (!group) return;
+
+    const items = [...group.items];
+    const [dragged] = items.splice(source.index, 1);
+    items.splice(destination.index, 0, dragged);
+
+    const reordered = items.map((f, i) => ({
+      id: f.id,
+      stage_sort_order: (i + 1) * 1000,
+    }));
+
+    if (onReorder) {
+      onReorder(reordered);
+    }
+    setSortConfig({ key: 'stage_sort_order', direction: 'asc' });
+
+    try {
+      await updateStageSortOrders(reordered);
+    } catch (err) {
+      console.error('Failed to reorder:', err);
+      if (onReorder) {
+        onReorder(null);
+      }
+    }
+  }, [groupedFeatures, onReorder]);
 
   const toggleGroup = (groupName) => {
     setExpandedGroups(prev => ({
@@ -193,49 +232,124 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, groupBy = 'cate
       <table className={styles.table}>
         <thead>
           <tr>
-            <SortHeader label="Aa Summary" sortKey="title" width="30%" sortConfig={sortConfig} onSort={handleSort} />
+            {isReorderable && <th className={styles.th} style={{ width: '32px' }} />}
+            <SortHeader label="#" sortKey="stage_sort_order" width="2%" textAlign="center" sortConfig={sortConfig} onSort={handleSort} />
+            <SortHeader label="Aa Summary" sortKey="title" width="28%" sortConfig={sortConfig} onSort={handleSort} />
             <SortHeader label="Release Stage" sortKey="status" width="12%" sortConfig={sortConfig} onSort={handleSort} />
             <SortHeader label="Priority" sortKey="priority" width="10%" sortConfig={sortConfig} onSort={handleSort} />
             <SortHeader label="Owner" sortKey="owner" width="12%" sortConfig={sortConfig} onSort={handleSort} />
             <SortHeader label="Stakeholder" sortKey="key_stakeholder" width="12%" sortConfig={sortConfig} onSort={handleSort} />
-            <SortHeader label="Votes" sortKey="vote_count" width="8%" textAlign="center" sortConfig={sortConfig} onSort={handleSort} />
             <SortHeader label="Impact" sortKey="impact" width="8%" sortConfig={sortConfig} onSort={handleSort} />
             <SortHeader label="Effort" sortKey="effort" width="8%" sortConfig={sortConfig} onSort={handleSort} />
             <SortHeader label="Updated" sortKey="updated_at" width="10%" sortConfig={sortConfig} onSort={handleSort} />
             <SortHeader label="Gravity" sortKey="gravity_score" width="10%" textAlign="center" sortConfig={sortConfig} onSort={handleSort} />
           </tr>
         </thead>
-        <tbody>
-          {groupedFeatures.map(group => (
-            <React.Fragment key={group.name}>
-              {/* Group Header Row */}
+        {groupedFeatures.map(group => (
+          <React.Fragment key={group.name}>
+            <tbody>
               <tr className={styles.groupRow} onClick={() => toggleGroup(group.name)}>
-                <td colSpan="10" className={styles.groupTd}>
+                <td colSpan={isReorderable ? 11 : 10} className={styles.groupTd}>
                   <div className={styles.groupDiv}>
-                    <svg 
-                      className={styles.chevron} 
-                      style={{ 
-                        transform: isExpanded(group.name) ? 'rotate(90deg)' : 'rotate(0deg)' 
-                      }} 
-                      viewBox="0 0 24 24" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      strokeWidth="2" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
+                    <ChevronRight
+                      size={16}
+                      style={{
+                        transform: isExpanded(group.name) ? 'rotate(90deg)' : 'rotate(0deg)'
+                      }}
+                    />
                     <span className={styles.groupDot} style={{backgroundColor: group.color}} />
                     <span className={styles.groupTitle}>{group.name}</span>
                     <span className={styles.groupCount}>{group.items.length} items</span>
                   </div>
                 </td>
               </tr>
-              
-              {/* Feature Rows */}
-              {isExpanded(group.name) && group.items.map(feat => (
-                <tr key={feat.id} className={styles.featureRow}>
+            </tbody>
+            {isExpanded(group.name) && (isReorderable ? (
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId={group.name}>
+                  {(provided) => (
+                    <tbody ref={provided.innerRef} {...provided.droppableProps}>
+                      {group.items.map((feat, index) => (
+                        <Draggable key={feat.id.toString()} draggableId={feat.id.toString()} index={index}>
+                          {(provided, snapshot) => (
+                            <tr
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={`${styles.featureRow} ${snapshot.isDragging ? styles.dragging : ''}`}
+                              style={provided.draggableProps.style}
+                            >
+                              <td className={styles.td} style={{ width: '32px', padding: '4px' }}>
+                                <div
+                                  {...provided.dragHandleProps}
+                                  className={styles.dragHandle}
+                                  title="Drag to reorder"
+                                >
+                                  <GripVertical size={12} strokeWidth={2.5} />
+                                </div>
+                              </td>
+                              <td className={styles.td} style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                                {feat.stage_sort_order ? Math.round(feat.stage_sort_order / 1000) : '--'}
+                              </td>
+                              <td className={styles.td}>
+                                <div className={styles.titleWrapper}>
+                                  <Link to={`/admin/features/${feat.id}/edit`} className={styles.titleLink}>
+                                    {feat.title}
+                                  </Link>
+                                  {!feat.is_published && <span className={styles.draftBadgeBadge}>DRAFT</span>}
+                                  {feat.pinned && <span className={styles.pinIcon}>★</span>}
+                                  {feat.is_reviewed && <VerifiedBadge size={22} className={styles.reviewedBadge} title="Reviewed" />}
+                                </div>
+                              </td>
+                              <td className={styles.td}>
+                                <StatusSelect 
+                                  status={feat.status} 
+                                  stageId={feat.stage_id}
+                                  stages={stages}
+                                  onChange={(newStageId) => onUpdateFeatureField(feat.id, 'stage_id', newStageId)} 
+                                />
+                              </td>
+                              <td className={styles.td}>
+                                <PrioritySelect 
+                                  priority={feat.priority} 
+                                  onChange={(newVal) => onUpdateFeatureField(feat.id, 'priority', newVal)} 
+                                />
+                              </td>
+                              <td className={styles.td}>
+                                <div className={styles.ownerText}>{feat.owner || '--'}</div>
+                              </td>
+                              <td className={styles.td}>
+                                <div className={styles.stakeholderText}>{feat.key_stakeholder || '--'}</div>
+                              </td>
+                              <td className={styles.td}>
+                                <DotScale value={feat.impact || 1} color="#10b981" />
+                              </td>
+                              <td className={styles.td}>
+                                <DotScale value={feat.effort || 1} color="#f59e0b" />
+                              </td>
+                              <td className={styles.td}>
+                                <div className={styles.dateText}>
+                                  {new Date(feat.updated_at).toLocaleDateString('en-AU', { month: 'short', day: 'numeric' })}
+                                </div>
+                              </td>
+                              <td className={styles.td} style={{ textAlign: 'center' }}>
+                                <GravityBadge score={feat.gravity_score || 0} />
+                              </td>
+                            </tr>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </tbody>
+                  )}
+                </Droppable>
+              </DragDropContext>
+            ) : (
+              <tbody>
+                {group.items.map(feat => (
+                  <tr key={feat.id} className={styles.featureRow}>
+                  <td className={styles.td} style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                    {feat.stage_sort_order ? Math.round(feat.stage_sort_order / 1000) : '--'}
+                  </td>
                   <td className={styles.td}>
                     <div className={styles.titleWrapper}>
                       <Link to={`/admin/features/${feat.id}/edit`} className={styles.titleLink}>
@@ -243,6 +357,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, groupBy = 'cate
                       </Link>
                       {!feat.is_published && <span className={styles.draftBadgeBadge}>DRAFT</span>}
                       {feat.pinned && <span className={styles.pinIcon}>★</span>}
+                      {feat.is_reviewed && <VerifiedBadge size={22} className={styles.reviewedBadge} title="Reviewed" />}
                     </div>
                   </td>
                   <td className={styles.td}>
@@ -265,11 +380,6 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, groupBy = 'cate
                   <td className={styles.td}>
                     <div className={styles.stakeholderText}>{feat.key_stakeholder || '--'}</div>
                   </td>
-                  <td className={styles.td} style={{ textAlign: 'center' }}>
-                    <div className={styles.voteWrapper}>
-                      <span className={styles.voteText}>{feat.vote_count}</span>
-                    </div>
-                  </td>
                   <td className={styles.td}>
                     <DotScale value={feat.impact || 1} color="#10b981" />
                   </td>
@@ -286,16 +396,19 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, groupBy = 'cate
                   </td>
                 </tr>
               ))}
-            </React.Fragment>
-          ))}
-          {groupedFeatures.length === 0 && (
+              </tbody>
+            ))}
+          </React.Fragment>
+        ))}
+        {groupedFeatures.length === 0 && (
+          <tbody>
             <tr>
-              <td colSpan="10" className={styles.emptyCell}>
+              <td colSpan={isReorderable ? 11 : 10} className={styles.emptyCell}>
                 No features found. Provide a wider search or add new features.
               </td>
             </tr>
-          )}
-        </tbody>
+          </tbody>
+        )}
       </table>
     </div>
   );

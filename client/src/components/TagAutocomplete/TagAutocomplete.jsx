@@ -86,6 +86,9 @@ const TagAutocomplete = ({ selected = [], onChange, suggestions = [] }) => {
           }}
           onKeyDown={handleKeyDown}
           onFocus={() => setShowDropdown(true)}
+          onBlur={() => {
+            setTimeout(() => setShowDropdown(false), 150);
+          }}
           className={styles.input}
           placeholder={selected.length === 0 ? "Add tags (OSU, VLE...)" : ""}
         />

@@ -26,12 +26,16 @@ export const featuresContainer = database.container("features");
 export const votesContainer = database.container("votes");
 export const revisionsContainer = database.container("feature_revisions");
 export const dashboardsContainer = database.container("dashboards");
+export const usersContainer = database.container("users");
+export const auditLogContainer = database.container("audit_log");
+export const metadataConfigsContainer = database.container("metadata_configs");
+export const jiraDraftsContainer = database.container("jira_drafts");
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 // Creates the database and all containers if they don't already exist.
 // Call `await initDb()` once during server startup (index.js) before routes run.
 
-export async function initDb() {
+export async function initDb(logger = console) {
   const { database: db } = await client.databases.createIfNotExists({
     id: config.cosmos.databaseId,
     throughput: 900,
@@ -77,9 +81,40 @@ export async function initDb() {
       partitionKey: { paths: ["/id"] },
       uniqueKeyPolicy: { uniqueKeys: [{ paths: ["/slug"] }] },
     }),
+
+    // Users: partition by email, unique keys on email and oauthSub
+    db.containers.createIfNotExists({
+      id: "users",
+      partitionKey: { paths: ["/email"] },
+      uniqueKeyPolicy: {
+        uniqueKeys: [
+          { paths: ["/email"] },
+          { paths: ["/oauthSub"] },
+        ],
+      },
+    }),
+
+    // Audit logs: partition by action for query efficiency
+    db.containers.createIfNotExists({
+      id: "audit_log",
+      partitionKey: { paths: ["/action"] },
+    }),
+
+    // Metadata configurations: partition by id for fast point lookups
+    db.containers.createIfNotExists({
+      id: "metadata_configs",
+      partitionKey: { paths: ["/id"] },
+    }),
+
+    // Jira drafts: ephemeral draft state for the Push-to-Jira wizard,
+    // partitioned by featureId so drafts can be fetched/deleted by feature
+    db.containers.createIfNotExists({
+      id: "jira_drafts",
+      partitionKey: { paths: ["/featureId"] },
+    }),
   ]);
 
-  console.log(
-    `✅ Cosmos DB "${config.cosmos.databaseId}" ready — all containers initialised.`,
+  logger.info(
+    `✅ Cosmos DB "${config.cosmos.databaseId}" ready — all containers initialised.`
   );
 }

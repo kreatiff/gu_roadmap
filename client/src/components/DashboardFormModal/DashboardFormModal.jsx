@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { X, Info } from 'lucide-react';
 import TagAutocomplete from '../TagAutocomplete/TagAutocomplete';
 import MultiSelectFilter from '../MultiSelectFilter/MultiSelectFilter';
 import styles from './DashboardFormModal.module.css';
@@ -13,6 +14,7 @@ const DashboardFormModal = ({ isOpen, onClose, onSubmit, dashboard = null, categ
     tags: [],
     category_ids: [],
     stage_slugs: [],
+    availableViews: ['grid'],
     password: '',
     passwordConfirm: ''
   });
@@ -33,6 +35,7 @@ const DashboardFormModal = ({ isOpen, onClose, onSubmit, dashboard = null, categ
           tags: dashboard.filters?.tags ?? [],
           category_ids: dashboard.filters?.category_ids ?? (dashboard.filters?.category_id ? [dashboard.filters.category_id] : []),
           stage_slugs: dashboard.filters?.stage_slugs ?? (dashboard.filters?.stage_slug ? [dashboard.filters.stage_slug] : []),
+          availableViews: dashboard.available_views ?? ['grid', 'swimlane', 'table'],
           password: '',
           passwordConfirm: ''
         });
@@ -44,6 +47,7 @@ const DashboardFormModal = ({ isOpen, onClose, onSubmit, dashboard = null, categ
           tags: [],
           category_ids: [],
           stage_slugs: [],
+          availableViews: ['grid'],
           password: '',
           passwordConfirm: ''
         });
@@ -133,6 +137,7 @@ const DashboardFormModal = ({ isOpen, onClose, onSubmit, dashboard = null, categ
         category_ids: form.category_ids.length > 0 ? form.category_ids : null,
         stage_slugs: form.stage_slugs.length > 0 ? form.stage_slugs : null
       },
+      available_views: form.availableViews,
       password: isEditing
         ? (passwordTouched ? form.password : undefined)
         : (form.password || undefined)
@@ -175,10 +180,7 @@ const DashboardFormModal = ({ isOpen, onClose, onSubmit, dashboard = null, categ
     <div className={styles.overlay} onClick={handleClose} role="dialog" aria-modal="true" aria-labelledby="dashboard-modal-title">
       <div className={styles.modal} onClick={(e) => e.stopPropagation()} ref={modalRef}>
         <button className={styles.closeBtn} onClick={handleClose} aria-label="Close" disabled={submitting} type="button">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={styles.closeIcon} aria-hidden="true">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
+          <X size={20} strokeWidth={2.5} className={styles.closeIcon} aria-hidden="true" />
         </button>
 
         <div className={styles.modalContent}>
@@ -255,16 +257,50 @@ const DashboardFormModal = ({ isOpen, onClose, onSubmit, dashboard = null, categ
             </div>
           </fieldset>
 
+          {/* Available Views Section */}
+          <fieldset className={styles.fieldset}>
+            <legend className={styles.legend}>Available Views</legend>
+            <p className={styles.fieldsetHelp}>Choose which views visitors can switch between on this dashboard.</p>
+            <div className={styles.viewOptions}>
+              {[
+                { key: 'grid', label: 'Grid', icon: '⊞', desc: 'Card grid layout' },
+                { key: 'swimlane', label: 'Swimlane', icon: '▦', desc: 'Kanban-style columns' },
+                { key: 'table', label: 'Table', icon: '☰', desc: 'Sortable list table' },
+              ].map(view => {
+                const isChecked = form.availableViews.includes(view.key);
+                const isDisabled = view.key === 'grid';
+                return (
+                  <label
+                    key={view.key}
+                    className={`${styles.viewOption} ${isChecked ? styles.viewOptionChecked : ''} ${isDisabled ? styles.viewOptionDisabled : ''}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      disabled={isDisabled}
+                      onChange={(e) => {
+                        const next = e.target.checked
+                          ? [...form.availableViews, view.key]
+                          : form.availableViews.filter(v => v !== view.key);
+                        updateField('availableViews', next);
+                      }}
+                      className={styles.viewCheckbox}
+                    />
+                    <span className={styles.viewOptionIcon}>{view.icon}</span>
+                    <span className={styles.viewOptionLabel}>{view.label}</span>
+                    <span className={styles.viewOptionDesc}>{view.desc}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
+
           {/* Password Section */}
           <fieldset className={styles.fieldset}>
             <legend className={styles.legend}>Access Control</legend>
             {isEditing && editingProtected && !passwordTouched && (
               <div className={styles.infoBanner} role="status">
-                <svg className={styles.infoIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <line x1="12" y1="16" x2="12" y2="12"></line>
-                  <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                </svg>
+                <Info size={20} strokeWidth={2} className={styles.infoIcon} aria-hidden="true" />
                 <span>This dashboard is currently password protected. Type a new password below to replace it, or leave both fields empty to remove protection.</span>
               </div>
             )}

@@ -182,6 +182,11 @@
   flex-shrink: 0;
 }
 
+.reviewedBadge {
+  color: #1d9bf0;
+  flex-shrink: 0;
+}
+
 .draftBadgeBadge {
   font-size: 0.5625rem;
   font-weight: 800;
@@ -193,24 +198,6 @@
   color: var(--text-muted);
   border: 1px solid var(--border-color);
   flex-shrink: 0;
-}
-
-/* Vote badge — consistent with card version */
-.voteWrapper {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  background-color: #eff6ff;
-  border: 1px solid #bfdbfe;
-  padding: 3px 9px;
-  border-radius: 6px;
-}
-
-.voteText {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #2563eb;
 }
 
 .emptyCell {
@@ -305,4 +292,35 @@
   font-size: 0.75rem;
   color: var(--text-tertiary);
   white-space: nowrap;
+}
+
+/* ── Drag handle ──────────────────────────────────────────────────── */
+
+.dragHandle {
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted, #94a3b8);
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  padding: 4px 6px;
+  border-radius: 4px;
+  user-select: none;
+}
+
+.dragHandle:hover {
+  color: var(--text-secondary, #475569);
+  background-color: var(--bg-muted, #f1f5f9);
+}
+
+tr:hover .dragHandle {
+  opacity: 1;
+}
+
+.dragging {
+  background-color: var(--bg-surface, #ffffff);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  z-index: 100;
 }

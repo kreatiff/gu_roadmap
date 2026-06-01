@@ -16,9 +16,16 @@ async function getConfig() {
   return oidcConfig;
 }
 
+export const getLoginStrategy = () => {
+  return config.oidc.enabled ? { type: 'oidc' } : { type: 'local' };
+};
+
 export const getOidcAuthUrl = async () => {
   // Dev fallback: no OIDC provider configured
   if (!config.oidc.enabled) {
+    if (!config.devAuthEnabled) {
+      throw new Error('OIDC is not configured and DEV_AUTH_ENABLED is not set.');
+    }
     const state = crypto.randomBytes(16).toString('hex');
     const nonce = crypto.randomBytes(16).toString('hex');
     return {
@@ -37,6 +44,7 @@ export const getOidcAuthUrl = async () => {
     scope: 'openid email profile',
     state,
     nonce,
+    hd: 'griffith.edu.au', // Hint: only show Griffith Google Workspace accounts
   });
 
   const authUrl = client.buildAuthorizationUrl(cfg, params);
@@ -46,13 +54,16 @@ export const getOidcAuthUrl = async () => {
 export const exchangeCodeForUser = async ({ callbackUrl, storedState, storedNonce }) => {
   // Dev fallback
   if (!config.oidc.enabled) {
+    if (!config.devAuthEnabled) {
+      throw new Error('Dev auth is not enabled');
+    }
     const url = new URL(callbackUrl);
     if (url.searchParams.get('code') !== 'dev_code') {
       throw new Error('Invalid dev code');
     }
     return {
       sub: 'dev_user_123',
-      email: config.adminEmails[0] ?? 'dev@griffith.edu.au',
+      email: config.bootstrapAdmin?.email ?? 'dev@griffith.edu.au',
       name: 'Dev User',
     };
   }
@@ -68,8 +79,8 @@ export const exchangeCodeForUser = async ({ callbackUrl, storedState, storedNonc
 
   return {
     sub: claims.sub,
-    // Microsoft may return email in `email` or `preferred_username`
-    email: claims.email ?? claims.preferred_username,
+    // Google returns email reliably in the `email` claim
+    email: claims.email,
     name: claims.name,
   };
 };

@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { Lock } from 'lucide-react';
 import { unlockDashboard } from '../../api/dashboards';
+import { setDashboardToken } from '../../utils/dashboardTokens';
 import Navbar from '../Navbar';
 import styles from './DashboardPasswordGate.module.css';
 
@@ -14,7 +16,7 @@ const DashboardPasswordGate = ({ slug, onUnlocked }) => {
     setError('');
     try {
       const { token } = await unlockDashboard(slug, password);
-      sessionStorage.setItem(`dashboard_token_${slug}`, token);
+      setDashboardToken(slug, token);
       onUnlocked();
     } catch (err) {
       setError(err.error ?? 'Incorrect password');
@@ -29,10 +31,7 @@ const DashboardPasswordGate = ({ slug, onUnlocked }) => {
       <main className={styles.gate}>
         <div className={styles.gateCard}>
           <div className={styles.iconWrapper}>
-            <svg className={styles.lockIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
-            </svg>
+            <Lock size={48} strokeWidth={2} className={styles.lockIcon} />
           </div>
           <h2 className={styles.title}>Protected Dashboard</h2>
           <p className={styles.subtitle}>This roadmap is password protected. Please enter the password to view the contents.</p>

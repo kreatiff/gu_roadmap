@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { GripVertical, Trash2 } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import AdminLayout from '../../../components/AdminLayout';
 import ReassignDialog from '../../../components/ReassignDialog';
@@ -110,7 +111,6 @@ const AdminCategoriesPage = () => {
       <div className={styles.content}>
         <header className={styles.header}>
           <div>
-            <div className={styles.breadcrumb}>ADMIN › CONFIGURATION</div>
             <h1 className={styles.h1}>Categories</h1>
           </div>
           <Link to="/admin" className={styles.backBtn}>← Back to Dashboard</Link>
@@ -191,10 +191,7 @@ const AdminCategoriesPage = () => {
                                   {/* Drag Handle Cell */}
                                   <td className={styles.td}>
                                     <div {...provided.dragHandleProps} className={styles.dragHandle}>
-                                      <svg className={styles.iconTiny} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                        <circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/>
-                                        <circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>
-                                      </svg>
+                                      <GripVertical size={16} strokeWidth={2.5} />
                                     </div>
                                   </td>
 
@@ -253,9 +250,7 @@ const AdminCategoriesPage = () => {
                                   {/* Actions Cell */}
                                   <td className={styles.td} style={{ textAlign: 'right' }}>
                                     <button onClick={() => handleDeleteAttempt(c)} className={styles.deleteBtn} title="Delete category">
-                                      <svg className={styles.iconSmall} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                         <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                                      </svg>
+                                      <Trash2 size={16} strokeWidth={2.5} />
                                     </button>
                                   </td>
                                 </tr>

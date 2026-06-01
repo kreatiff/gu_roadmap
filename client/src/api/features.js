@@ -41,3 +41,16 @@ export const deleteFeature = (id) => {
 export const getFeatureRevisions = (id) => {
   return api(`/api/features/${id}/revisions`);
 };
+
+export const updateStageSortOrders = (items) => {
+  return api('/api/features/reorder', {
+    method: 'PATCH',
+    body: JSON.stringify({ items }),
+  });
+};
+
+export const acquireEditLock = (featureId) =>
+  api(`/api/features/${featureId}/edit-lock`, { method: 'POST' });
+
+export const releaseEditLock = (featureId) =>
+  api(`/api/features/${featureId}/edit-lock`, { method: 'DELETE' });

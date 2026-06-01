@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Plus, Pencil, Copy, Trash2 } from 'lucide-react';
 import AdminLayout from '../../../components/AdminLayout';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import DashboardFormModal from '../../../components/DashboardFormModal/DashboardFormModal';
@@ -114,15 +115,11 @@ const AdminDashboardsPage = () => {
       <div className={styles.content}>
         <header className={styles.header}>
           <div>
-            <div className={styles.breadcrumb}>ADMIN › CONFIGURATION</div>
             <h1 className={styles.h1}>Public Dashboards</h1>
           </div>
           <div className={styles.headerActions}>
             <button onClick={handleCreate} className={styles.createBtn}>
-              <svg className={styles.createIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
+              <Plus size={16} strokeWidth={2.5} className={styles.createIcon} />
               Create Dashboard
             </button>
             <Link to="/admin" className={styles.backBtn}>← Back to Dashboard</Link>
@@ -221,24 +218,19 @@ const AdminDashboardsPage = () => {
                          </td>
                          <td className={`${styles.td} ${styles.tdRight}`}>
                           <div className={styles.actions}>
-                            <button 
-                              onClick={() => handleEdit(d)} 
-                              className={styles.editBtn} 
+                            <button
+                              onClick={() => handleEdit(d)}
+                              className={styles.editBtn}
                               title="Edit dashboard"
                             >
-                              <svg className={styles.iconSmall} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
-                                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-                              </svg>
+                              <Pencil size={16} strokeWidth={2.5} />
                             </button>
-                            <button 
-                              onClick={() => copyToClipboard(d.slug)} 
-                              className={styles.copyBtn} 
+                            <button
+                              onClick={() => copyToClipboard(d.slug)}
+                              className={styles.copyBtn}
                               title="Copy Public URL"
                             >
-                              <svg className={styles.iconSmall} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                <path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-                              </svg>
+                              <Copy size={16} strokeWidth={2.5} />
                             </button>
                             <button
                               onClick={() => requestDelete(d.id)}
@@ -249,9 +241,7 @@ const AdminDashboardsPage = () => {
                               {deletingId === d.id ? (
                                 <div className={styles.spinnerSmall}></div>
                               ) : (
-                                <svg className={styles.iconSmall} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                                  <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                                </svg>
+                                <Trash2 size={16} strokeWidth={2.5} />
                               )}
                             </button>
                           </div>
