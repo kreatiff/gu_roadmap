@@ -29,8 +29,7 @@ You MUST structure the description field using the following sections in order. 
 4. **Acceptance Criteria**: Concrete criteria that must be met to mark this epic complete.
 5. **Priority (Suggested)**: Suggested priority and why.
 6. **Delivery Date**: Suggested timeframe or target release if applicable.
-7. **Compliance Label**: Any compliance labels or considerations.
-8. **Dependencies**: Any known dependencies or blockers.
+7. **Dependencies**: Any known dependencies or blockers.
 
 Do NOT use em-dashes (—) anywhere in the output. Use a colon, comma, or rewrite the sentence instead.
 
@@ -38,7 +37,6 @@ You MUST return a valid JSON object only with this exact shape (do NOT wrap the 
 {
   "summary": "Clear, concise title for the Epic",
   "description": "The full Epic content structured with the required sections in markdown format",
-  "labels": ["Extract any Compliance Labels or relevant tags here"],
   "priority": "Highest" | "High" | "Medium" | "Low" | "Lowest"
 }`;
 
