@@ -32,8 +32,7 @@ COPY --from=frontend-builder /app/client/dist ./client/dist
 # Root package.json (referenced by npm start, kept for tooling compatibility)
 COPY package.json ./
 
-# Ensure the SQLite data directory exists for the volume mount
-RUN mkdir -p /app/server/data
+RUN mkdir -p /app/server/data/backups
 
 EXPOSE 3001
 

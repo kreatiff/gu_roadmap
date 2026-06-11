@@ -5,10 +5,12 @@ services:
     restart: unless-stopped
     ports:
       - "3001:3001"
-    # No volume mount needed — data lives in Azure Cosmos DB
+    volumes:
+      - gu_roadmap_data:/app/server/data
     environment:
       - PORT=${PORT:-3001}
       - NODE_ENV=${NODE_ENV:-production}
+      - TZ=Australia/Brisbane
       - JWT_SECRET=${JWT_SECRET}
       - COOKIE_SECRET=${COOKIE_SECRET}
       - CLIENT_ORIGIN=${CLIENT_ORIGIN}
@@ -20,3 +22,6 @@ services:
       - COSMOS_ENDPOINT=${COSMOS_ENDPOINT}
       - COSMOS_KEY=${COSMOS_KEY}
       - COSMOS_DATABASE_ID=${COSMOS_DATABASE_ID:-gu_roadmap}
+
+volumes:
+  gu_roadmap_data:
