@@ -1,5 +1,14 @@
+import fs from 'fs';
+import path from 'path';
 import { requireSuperAdmin } from '../auth.js';
 import { auditLog } from '../lib/auditLog.js';
+import {
+  runBackup,
+  listBackups,
+  restoreFromBackup,
+  isValidBackupFilename,
+  BACKUP_DIR,
+} from '../lib/backupService.js';
 import {
   categoriesContainer,
   stagesContainer,
@@ -7,10 +16,9 @@ import {
   votesContainer,
   revisionsContainer,
   dashboardsContainer,
-  usersContainer
+  usersContainer,
 } from '../db.js';
 
-// Map of all containers we want to export/import
 const containersMap = {
   categories: categoriesContainer,
   stages: stagesContainer,
@@ -23,33 +31,84 @@ const containersMap = {
 
 export default async function dataRoutes(fastify, options) {
   // ── GET /api/admin/data/export ────────────────────────────────────────────────
-  // Exports all documents from all configured Cosmos DB containers
+  // Saves a manual backup to disk and streams it to the browser as a download.
   fastify.get('/export', { preHandler: requireSuperAdmin }, async (request, reply) => {
     try {
-      const exportData = {};
+      const { filename, filePath } = await runBackup('manual');
 
-      // Fetch all items from all containers
-      for (const [key, container] of Object.entries(containersMap)) {
-        const { resources } = await container.items.readAll().fetchAll();
-        if (key === 'users') {
-          exportData[key] = resources.map((user) => {
-            const { passwordHash, ...safe } = user;
-            return safe;
-          });
-        } else {
-          exportData[key] = resources;
-        }
-      }
-
-      // Send as a downloadable JSON file
       reply.header('Content-Type', 'application/json');
-      reply.header('Content-Disposition', 'attachment; filename="vle-roadmap-backup.json"');
+      reply.header('Content-Disposition', `attachment; filename="${filename}"`);
 
       await auditLog(fastify, { actor: request.user.sub, action: 'data.export', outcome: 'success' });
-      return exportData;
+      return reply.send(fs.createReadStream(filePath));
     } catch (error) {
       request.log.error(error);
       return reply.code(500).send({ error: 'Failed to export data' });
+    }
+  });
+
+  // ── GET /api/admin/data/backups ───────────────────────────────────────────────
+  // Returns metadata for all saved backups, newest first.
+  fastify.get('/backups', { preHandler: requireSuperAdmin }, async (request, reply) => {
+    try {
+      return listBackups();
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(500).send({ error: 'Failed to list backups' });
+    }
+  });
+
+  // ── GET /api/admin/data/backups/:filename ─────────────────────────────────────
+  // Streams a specific backup file as a download.
+  fastify.get('/backups/:filename', { preHandler: requireSuperAdmin }, async (request, reply) => {
+    const { filename } = request.params;
+    if (!isValidBackupFilename(filename)) {
+      return reply.code(400).send({ error: 'Invalid backup filename' });
+    }
+    const filePath = path.join(BACKUP_DIR, filename);
+    if (!fs.existsSync(filePath)) {
+      return reply.code(404).send({ error: 'Backup not found' });
+    }
+    reply.header('Content-Type', 'application/json');
+    reply.header('Content-Disposition', `attachment; filename="${filename}"`);
+    return reply.send(fs.createReadStream(filePath));
+  });
+
+  // ── DELETE /api/admin/data/backups/:filename ──────────────────────────────────
+  // Deletes a specific backup file.
+  fastify.delete('/backups/:filename', { preHandler: requireSuperAdmin }, async (request, reply) => {
+    const { filename } = request.params;
+    if (!isValidBackupFilename(filename)) {
+      return reply.code(400).send({ error: 'Invalid backup filename' });
+    }
+    const filePath = path.join(BACKUP_DIR, filename);
+    if (!fs.existsSync(filePath)) {
+      return reply.code(404).send({ error: 'Backup not found' });
+    }
+    fs.unlinkSync(filePath);
+    await auditLog(fastify, { actor: request.user.sub, action: 'data.backup.delete', outcome: 'success', metadata: { filename } });
+    return { success: true };
+  });
+
+  // ── POST /api/admin/data/backups/:filename/restore ───────────────────────────
+  // Wipes the database and restores it from a saved backup file.
+  fastify.post('/backups/:filename/restore', { preHandler: requireSuperAdmin }, async (request, reply) => {
+    const { filename } = request.params;
+    if (!isValidBackupFilename(filename)) {
+      return reply.code(400).send({ error: 'Invalid backup filename' });
+    }
+    try {
+      const { stats, wipeFailures } = await restoreFromBackup(filename);
+      await auditLog(fastify, { actor: request.user.sub, action: 'data.restore', outcome: 'success', metadata: { filename, stats } });
+      return {
+        success: true,
+        message: 'Restore completed',
+        stats,
+        wipeFailures: wipeFailures.length > 0 ? wipeFailures : undefined,
+      };
+    } catch (error) {
+      request.log.error(error);
+      return reply.code(500).send({ error: 'Failed to restore backup', details: error.message });
     }
   });
 
@@ -78,7 +137,7 @@ export default async function dataRoutes(fastify, options) {
       } catch (err) {
         return reply.code(400).send({ error: 'Invalid JSON file', details: err.message });
       }
-      
+
       // Strategy: 'append' | 'upsert' | 'wipe'
       const strategy = data.fields.strategy ? data.fields.strategy.value : 'append';
       const ALLOWED_STRATEGIES = ['append', 'upsert', 'wipe'];
@@ -92,19 +151,13 @@ export default async function dataRoutes(fastify, options) {
       // Process each container in the imported JSON
       for (const [key, items] of Object.entries(importData)) {
         const container = containersMap[key];
-        
+
         // Skip if container doesn't exist in our map
         if (!container) continue;
 
         if (strategy === 'wipe') {
-          // Truncating a container in Cosmos is complex (requires deleting by ID and PartitionKey)
-          // For simplicity and safety, we will just fetch all and delete them one by one.
           const { resources: existingItems } = await container.items.readAll().fetchAll();
           for (const item of existingItems) {
-            // Note: Our DB partitions are all based on specific fields (e.g., /id or /featureId)
-            // We must provide the correct partition key to delete.
-            // Since determining the partition key dynamically is tricky without hardcoding,
-            // we will extract the partition key from the item based on known structures.
             let pk = item.id;
             if (key === 'votes' || key === 'feature_revisions') pk = item.featureId;
             else if (key === 'users') pk = item.email;
@@ -125,11 +178,9 @@ export default async function dataRoutes(fastify, options) {
 
           try {
             if (strategy === 'append') {
-              // Create will fail (409 Conflict) if the ID already exists
               await container.items.create(cleanItem);
               stats.imported++;
             } else {
-              // Upsert overwrites existing items with matching ID
               await container.items.upsert(cleanItem);
               stats.imported++;
             }
