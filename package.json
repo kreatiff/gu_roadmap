@@ -14,5 +14,8 @@
   "dependencies": {
     "@azure/cosmos": "^4.9.2",
     "dotenv": "^17.3.1"
+  },
+  "overrides": {
+    "shell-quote": "^1.8.4"
   }
 }
