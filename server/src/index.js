@@ -22,6 +22,7 @@ import dataRoutes from './routes/data.js';
 import jiraRoutes from './routes/jira.js';
 import fastifyMultipart from '@fastify/multipart';
 import { bootstrapAdminIfEmpty } from './lib/users.js';
+import { scheduleBackups } from './lib/backupService.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { errorHandler } from './errorHandler.js';
@@ -143,6 +144,7 @@ const start = async () => {
 
     await server.listen({ port: config.port, host: '0.0.0.0' });
     server.log.info(`🚀 Server listening on http://localhost:${config.port}`);
+    scheduleBackups(server.log);
   } catch (err) {
     server.log.error(err);
     process.exit(1);
