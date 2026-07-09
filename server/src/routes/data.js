@@ -17,6 +17,7 @@ import {
   revisionsContainer,
   dashboardsContainer,
   usersContainer,
+  featureNotesContainer,
 } from '../db.js';
 
 const containersMap = {
@@ -25,6 +26,7 @@ const containersMap = {
   features: featuresContainer,
   votes: votesContainer,
   feature_revisions: revisionsContainer,
+  feature_notes: featureNotesContainer,
   dashboards: dashboardsContainer,
   users: usersContainer,
 };
@@ -159,7 +161,7 @@ export default async function dataRoutes(fastify, options) {
           const { resources: existingItems } = await container.items.readAll().fetchAll();
           for (const item of existingItems) {
             let pk = item.id;
-            if (key === 'votes' || key === 'feature_revisions') pk = item.featureId;
+            if (key === 'votes' || key === 'feature_revisions' || key === 'feature_notes') pk = item.featureId;
             else if (key === 'users') pk = item.email;
 
             try {
