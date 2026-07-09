@@ -22,7 +22,7 @@ function tiptapToPlainText(content) {
     const extract = (nodes) => (nodes || []).reduce((acc, node) => {
       if (node.text) return acc + node.text;
       if (node.content) return acc + ' ' + extract(node.content);
-      return acc;
+      return acc + ' ';
     }, '').trim();
     return extract(json.content);
   } catch {
@@ -190,8 +190,13 @@ export default async function featureNotesRoutes(fastify, options) {
       return reply.code(502).send({ error: 'Failed to generate summary via Azure OpenAI completions' });
     }
 
+    if (typeof result.summary !== 'string' || !result.summary.trim()) {
+      request.log.error({ result }, 'Azure OpenAI summary response missing a valid summary field');
+      return reply.code(502).send({ error: 'Failed to generate summary via Azure OpenAI completions' });
+    }
+
     const notesSummary = {
-      content: result.summary || '',
+      content: result.summary,
       generatedAt: new Date().toISOString(),
       generatedById: request.user.sub,
       generatedByName: request.user.name,
