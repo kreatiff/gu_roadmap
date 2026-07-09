@@ -1,9 +1,58 @@
+.pageLayout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+  padding: 0 var(--space-8);
+  max-width: 1440px;
+  margin: 0 auto;
+}
+
 .content {
-  padding: var(--space-8);
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-8) 0;
   padding-bottom: 120px;
   /* Space for the fixed footer at the bottom */
-  max-width: 1000px;
-  margin: 0 auto;
+  max-width: 900px;
+}
+
+.notesColumn {
+  flex-shrink: 0;
+  width: 380px;
+  padding-top: var(--space-8);
+  padding-bottom: 120px;
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+  overflow-y: auto;
+  /* Custom scrollbar — subtle */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+.notesColumnInner {
+  /* Provides breathing room at the bottom of the sticky panel */
+  padding-bottom: var(--space-8);
+}
+
+@media (max-width: 1200px) {
+  .pageLayout {
+    flex-direction: column;
+  }
+
+  .content {
+    max-width: 100%;
+    padding-bottom: var(--space-8);
+  }
+
+  .notesColumn {
+    width: 100%;
+    position: static;
+    max-height: none;
+    overflow-y: visible;
+    padding-top: 0;
+    padding-bottom: 120px;
+  }
 }
 
 .header {
@@ -100,7 +149,6 @@
 }
 
 .deleteSection {
-  max-width: 900px;
   margin-top: var(--space-6);
   padding: var(--space-6);
   background-color: #fef2f2;
@@ -261,8 +309,8 @@
 }
 
 .stickyFooterInner {
-  max-width: 1000px;
-  /* Aligns with form width */
+  max-width: 1440px;
+  /* Aligns with new page layout width */
   margin: 0 auto;
   display: flex;
   align-items: center;

@@ -495,6 +495,7 @@ const AdminFeatureFormPage = () => {
         </div>
       )}
 
+      <div className={styles.pageLayout}>
       <div className={styles.content}>
         <header className={styles.header}>
           <div>
@@ -544,11 +545,6 @@ const AdminFeatureFormPage = () => {
             />
           </div>
 
-          {isEdit && (
-            <div className={styles.field}>
-              <InternalNotesLog featureId={id} initialSummary={notesSummary} />
-            </div>
-          )}
 
           <div className={styles.row}>
             <div className={styles.field}>
@@ -881,6 +877,15 @@ const AdminFeatureFormPage = () => {
             <button type="button" onClick={requestDelete} className={styles.deleteBtn}>Delete Feature</button>
           </div>
         )}
+      </div>
+
+      {isEdit && (
+        <aside className={styles.notesColumn}>
+          <div className={styles.notesColumnInner}>
+            <InternalNotesLog featureId={id} initialSummary={notesSummary} />
+          </div>
+        </aside>
+      )}
       </div>
 
       <div className={styles.stickyFooterArea}>
