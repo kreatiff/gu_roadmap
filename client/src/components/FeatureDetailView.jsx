@@ -1,6 +1,7 @@
 import RichTextViewer from './RichTextViewer';
 import CategoryIcon from './CategoryIcon';
 import VerifiedBadge from './VerifiedBadge';
+import InternalNotesLog from './InternalNotesLog/InternalNotesLog';
 import styles from './FeatureDetailView.module.css';
 
 /**
@@ -56,17 +57,8 @@ const FeatureDetailView = ({ feature, closeButton = null, isAdmin = false }) => 
               content={feature.description || 'No detailed description available for this request.'} 
               className={styles.description}
             />
-            {isAdmin && feature.internal_notes && (
-              <div className={styles.internalNotesSection}>
-                <div className={styles.internalNotesHeader}>
-                  <span className={styles.internalNotesLabel}>Internal Notes</span>
-                  <span className={styles.internalNotesBadge}>Admin Only</span>
-                </div>
-                <RichTextViewer 
-                  content={feature.internal_notes} 
-                  className={styles.internalNotesContent}
-                />
-              </div>
+            {isAdmin && feature.id && (
+              <InternalNotesLog featureId={feature.id} initialSummary={feature.notes_summary} />
             )}
             {isAdmin && feature.dependency_details && feature.dependency_details.length > 0 && (
               <div className={styles.dependenciesSection}>
