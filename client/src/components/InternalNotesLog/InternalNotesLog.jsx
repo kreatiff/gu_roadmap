@@ -240,7 +240,7 @@ const InternalNotesLog = ({
       )}
 
       <div className={styles.composer}>
-        <RichTextEditor key={composerKey} value={draft} onChange={setDraft} placeholder="Add an internal note…" />
+        <RichTextEditor key={composerKey} value={draft} onChange={setDraft} placeholder="Add an internal note…" editorClassName={styles.noteEditorContent} />
         <button
           type="button"
           className={styles.postBtn}
@@ -279,7 +279,7 @@ const InternalNotesLog = ({
 
               {editingId === note.id ? (
                 <div className={styles.editArea}>
-                  <RichTextEditor value={editDraft} onChange={setEditDraft} />
+                  <RichTextEditor value={editDraft} onChange={setEditDraft} editorClassName={styles.noteEditorContent} />
                   <div className={styles.editActions}>
                     <button type="button" onClick={() => saveEdit(note.id)} className={styles.saveBtn}>
                       <Check size={13} /> Save

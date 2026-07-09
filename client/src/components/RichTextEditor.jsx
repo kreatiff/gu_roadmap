@@ -88,7 +88,7 @@ const MenuBar = ({ editor, onOpenLinkModal }) => {
   );
 };
 
-const RichTextEditor = ({ value, onChange, placeholder = 'Write something...' }) => {
+const RichTextEditor = ({ value, onChange, placeholder = 'Write something...', className = '', editorClassName = '' }) => {
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [initialLinkUrl, setInitialLinkUrl] = useState('');
 
@@ -147,9 +147,9 @@ const RichTextEditor = ({ value, onChange, placeholder = 'Write something...' })
   }, [editor]);
 
   return (
-    <div className={styles.editorWrapper}>
+    <div className={`${styles.editorWrapper} ${className}`}>
       <MenuBar editor={editor} onOpenLinkModal={handleOpenLinkModal} />
-      <EditorContent editor={editor} className={styles.editorContent} />
+      <EditorContent editor={editor} className={`${styles.editorContent} ${editorClassName}`} />
       
       <LinkModal 
         isOpen={isLinkModalOpen}

@@ -231,3 +231,8 @@
   gap: 8px;
   flex-wrap: wrap;
 }
+
+.noteEditorContent,
+.noteEditorContent :global(.ProseMirror) {
+  min-height: 80px !important;
+}
