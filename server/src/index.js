@@ -14,6 +14,7 @@ import { requireAdmin } from './auth.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import featureRoutes from './routes/features.js';
+import featureNotesRoutes from './routes/featureNotes.js';
 import categoryRoutes from './routes/categories.js';
 import stageRoutes from './routes/stages.js';
 import dashboardRoutes from './routes/dashboards.js';
@@ -80,6 +81,7 @@ server.register(fastifyStatic, {
 server.register(authRoutes, { prefix: '/api/auth' });
 server.register(userRoutes, { prefix: '/api/users' });
 server.register(featureRoutes, { prefix: '/api/features' });
+server.register(featureNotesRoutes, { prefix: '/api/features' });
 server.register(categoryRoutes, { prefix: '/api/categories' });
 server.register(stageRoutes, { prefix: '/api/stages' });
 server.register(dashboardRoutes, { prefix: '/api/dashboards' });
