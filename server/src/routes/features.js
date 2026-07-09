@@ -173,6 +173,7 @@ export default async function featureRoutes(fastify, options) {
         user_voted: votedFeatureIds.has(f.id),
       };
       if (!isAdmin) {
+        delete featureData.internal_notes;
         delete featureData.dependencies;
         delete featureData.dependency_details;
       }
@@ -218,6 +219,7 @@ export default async function featureRoutes(fastify, options) {
 
     const result = { ...feature, user_voted };
     if (!isAdmin) {
+      delete result.internal_notes;
       delete result.dependencies;
       delete result.dependency_details;
     } else if (Array.isArray(feature.dependencies) && feature.dependencies.length > 0) {
