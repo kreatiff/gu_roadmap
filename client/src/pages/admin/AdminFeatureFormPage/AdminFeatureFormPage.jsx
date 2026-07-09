@@ -3,6 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import AdminLayout from '../../../components/AdminLayout';
 import RichTextEditor from '../../../components/RichTextEditor';
 import FeatureDetailView from '../../../components/FeatureDetailView';
+import InternalNotesLog from '../../../components/InternalNotesLog/InternalNotesLog';
 import FeatureDetailModal from '../../../components/FeatureDetailModal';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import RevisionHistory from '../../../components/RevisionHistory';
@@ -58,10 +59,10 @@ const AdminFeatureFormPage = () => {
   const [isLinking,  setIsLinking]  = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, payload: null });
   const [isSaving, setIsSaving] = useState(false);
+  const [notesSummary, setNotesSummary] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    internal_notes: '',
     category_id: '',
     status: 'under_review',
     stage_id: '',
@@ -190,10 +191,10 @@ const AdminFeatureFormPage = () => {
 
           if (feature) {
             if (abortedRef.current) return;
+            setNotesSummary(feature.notes_summary || null);
             setFormData({
               title: feature.title,
               description: feature.description,
-              internal_notes: feature.internal_notes || '',
               category_id: feature.category_id || '',
               status: feature.status,
               stage_id: feature.stage_id || '',
@@ -379,7 +380,6 @@ const AdminFeatureFormPage = () => {
     return {
       title: formData.title || 'Feature Title Preview',
       description: formData.description,
-      internal_notes: formData.internal_notes,
       dependency_details: formData.dependencies,
       category_name: category ? category.name : 'Uncategorized',
       category_icon: category ? category.icon : 'package',
@@ -544,15 +544,11 @@ const AdminFeatureFormPage = () => {
             />
           </div>
 
-          <div className={styles.field}>
-            <label className={styles.label}>Internal Notes (Admin Only)</label>
-            <p className={styles.fieldHint}>These notes are only visible to administrators and will never appear on the public roadmap.</p>
-            <RichTextEditor
-              value={formData.internal_notes}
-              onChange={(val) => setFormData(prev => ({ ...prev, internal_notes: val }))}
-              placeholder="Add internal planning notes, strategic context, or discussion points..."
-            />
-          </div>
+          {isEdit && (
+            <div className={styles.field}>
+              <InternalNotesLog featureId={id} initialSummary={notesSummary} />
+            </div>
+          )}
 
           <div className={styles.row}>
             <div className={styles.field}>

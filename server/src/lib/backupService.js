@@ -11,6 +11,7 @@ import {
   revisionsContainer,
   dashboardsContainer,
   usersContainer,
+  featureNotesContainer,
 } from '../db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -27,13 +28,14 @@ const containersMap = {
   features: featuresContainer,
   votes: votesContainer,
   feature_revisions: revisionsContainer,
+  feature_notes: featureNotesContainer,
   dashboards: dashboardsContainer,
   users: usersContainer,
 };
 
 // Partition key for each container (mirrors db.js setup)
 function getPartitionKey(containerKey, item) {
-  if (containerKey === 'votes' || containerKey === 'feature_revisions') return item.featureId;
+  if (containerKey === 'votes' || containerKey === 'feature_revisions' || containerKey === 'feature_notes') return item.featureId;
   if (containerKey === 'users') return item.email;
   return item.id;
 }
