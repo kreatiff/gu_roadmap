@@ -225,3 +225,9 @@
   background: transparent;
   color: var(--text-primary);
 }
+
+.summaryActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}

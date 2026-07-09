@@ -213,4 +213,39 @@ export default async function featureNotesRoutes(fastify, options) {
 
     return notesSummary;
   });
+
+  // ── PUT /:id/notes/summary — Admin: manually update notes summary ──────────
+  fastify.put('/:id/notes/summary', {
+    preHandler: [requireAdmin],
+    schema: {
+      body: {
+        type: 'object',
+        required: ['content'],
+        properties: {
+          content: { type: 'string', minLength: 1 },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    const { id } = request.params;
+    if (!(await ensureFeatureExists(id, reply))) return;
+
+    const notesSummary = {
+      content: request.body.content,
+      generatedAt: new Date().toISOString(),
+      generatedById: request.user.sub,
+      generatedByName: request.user.name,
+    };
+
+    try {
+      await featuresContainer.item(id, id).patch([
+        { op: 'set', path: '/notes_summary', value: notesSummary },
+      ]);
+    } catch (err) {
+      request.log.error(err, 'Failed to update notes summary');
+      return reply.code(500).send({ error: 'Failed to update summary' });
+    }
+
+    return notesSummary;
+  });
 }

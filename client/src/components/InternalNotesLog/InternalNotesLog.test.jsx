@@ -118,4 +118,33 @@ describe('InternalNotesLog', () => {
     await screen.findByText('No internal notes yet.');
     expect(screen.queryByText('Summarise notes')).not.toBeInTheDocument();
   });
+
+  it('allows the summary to be edited and saved', async () => {
+    notesApi.getFeatureNotes.mockResolvedValue([]);
+    const summary = { content: 'Initial summary', generatedAt: '2026-07-05T00:00:00Z', generatedByName: 'Admin' };
+    notesApi.updateNotesSummary.mockResolvedValue({
+      content: 'Updated summary text',
+      generatedAt: '2026-07-09T00:00:00Z',
+      generatedByName: 'Jane Smith',
+    });
+
+    render(<InternalNotesLog featureId="feature-1" initialSummary={summary} />);
+
+    await screen.findByText('Initial summary');
+    
+    // Click Edit summary
+    fireEvent.click(screen.getByText('Edit summary'));
+
+    // The editor should have the initial summary value
+    const editors = screen.getAllByTestId('rich-text-editor');
+    const summaryEditor = editors[0];
+    expect(summaryEditor.value).toBe('Initial summary');
+
+    // Change text and click save
+    fireEvent.change(summaryEditor, { target: { value: 'Updated summary text' } });
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => expect(notesApi.updateNotesSummary).toHaveBeenCalledWith('feature-1', 'Updated summary text'));
+    await screen.findByText('Updated summary text');
+  });
 });

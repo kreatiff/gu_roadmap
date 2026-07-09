@@ -20,3 +20,9 @@ export const deleteFeatureNote = (featureId, noteId) =>
 
 export const generateNotesSummary = (featureId) =>
   api(`/api/features/${featureId}/notes/summary`, { method: 'POST' });
+
+export const updateNotesSummary = (featureId, content) =>
+  api(`/api/features/${featureId}/notes/summary`, {
+    method: 'PUT',
+    body: JSON.stringify({ content }),
+  });
