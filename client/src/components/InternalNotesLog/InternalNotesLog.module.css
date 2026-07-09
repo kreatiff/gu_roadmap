@@ -92,7 +92,7 @@
 }
 
 .summariseBtn:hover:not(:disabled) {
-  background-color: #e2e8f0;
+  background-color: var(--bg-hover, #e2e8f0);
 }
 
 .summariseBtn:disabled {
