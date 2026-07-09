@@ -2,6 +2,7 @@ import { requireAdmin } from '../auth.js';
 import { config } from '../config.js';
 import { featuresContainer, revisionsContainer, metadataConfigsContainer, jiraDraftsContainer } from '../db.js';
 import { v4 as uuidv4 } from 'uuid';
+import { callAzureOpenAI } from '../lib/azureOpenAI.js';
 
 export default async function jiraRoutes(fastify, options) {
   // Check if Jira and AI Foundry are configured before enabling routes
@@ -78,69 +79,6 @@ You MUST return a valid JSON object only with this exact shape (do NOT wrap the 
     }
   ]
 }`;
-  }
-
-  // Helper to call Azure OpenAI Chat Completions endpoint
-  async function callAzureOpenAI(systemPrompt, userMessage, request) {
-    const { endpoint, apiKey, deployment } = config.ai;
-    let base = endpoint.replace(/\/$/, '');
-
-    // If the endpoint is configured using the Responses API URL, strip the /responses suffix to route to chat completions
-    if (base.endsWith('/responses')) {
-      base = base.slice(0, -'/responses'.length);
-    }
-
-    // Construct standard v1 chat completions endpoint matching the curl format
-    let url = '';
-    if (base.includes('/openai/v1/chat/completions')) {
-      url = base;
-    } else if (base.includes('/openai/v1')) {
-      url = `${base}/chat/completions`;
-    } else {
-      url = `${base}/openai/v1/chat/completions`;
-    }
-
-    const headers = {
-      'Content-Type': 'application/json',
-      'api-key': apiKey,
-      'Authorization': `Bearer ${apiKey}`
-    };
-
-    const body = {
-      model: deployment,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage }
-      ],
-      response_format: { type: 'json_object' }
-    };
-
-    request.log.info({ url, model: deployment }, 'Calling Azure OpenAI Chat Completions');
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body)
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      request.log.error({ status: response.status, body: errText }, 'Azure OpenAI API error');
-      throw new Error(`Azure OpenAI error: ${response.status} ${errText}`);
-    }
-
-    const data = await response.json();
-    const outputText = data.choices?.[0]?.message?.content ?? '';
-
-    let parsedOutput;
-    try {
-      const text = outputText.replace(/```json/gi, '').replace(/```/g, '').trim();
-      parsedOutput = JSON.parse(text);
-    } catch (e) {
-      request.log.error({ outputText }, 'Azure OpenAI did not return valid JSON');
-      throw new Error('Azure OpenAI did not return valid JSON');
-    }
-    return parsedOutput;
   }
 
   // ── 1. POST /preview — AI Foundry Generation ─────────────────────────────────
@@ -247,7 +185,8 @@ Category: ${feature.category_name || 'None'}
     preHandler: [requireAdmin]
   }, async (request, reply) => {
     return {
-      baseUrl: config.jira.baseUrl || ''
+      baseUrl: config.jira.baseUrl || '',
+      aiConfigured: config.ai.configured
     };
   });
 
