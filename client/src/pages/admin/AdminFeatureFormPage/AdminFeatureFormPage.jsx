@@ -4,6 +4,7 @@ import AdminLayout from '../../../components/AdminLayout';
 import RichTextEditor from '../../../components/RichTextEditor';
 import FeatureDetailView from '../../../components/FeatureDetailView';
 import InternalNotesLog from '../../../components/InternalNotesLog/InternalNotesLog';
+import NotesSummaryPanel from '../../../components/NotesSummaryPanel/NotesSummaryPanel';
 import FeatureDetailModal from '../../../components/FeatureDetailModal';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import RevisionHistory from '../../../components/RevisionHistory';
@@ -11,6 +12,7 @@ import TagAutocomplete from '../../../components/TagAutocomplete/TagAutocomplete
 import StringAutocomplete from '../../../components/StringAutocomplete/StringAutocomplete';
 import FeatureDependencyAutocomplete from '../../../components/FeatureDependencyAutocomplete/FeatureDependencyAutocomplete';
 import { getFeatures, getFeatureById, createFeature, updateFeature, deleteFeature, getFeatureRevisions, getFeatureTags, getFeatureOwners, getFeatureStakeholders } from '../../../api/features';
+import { getFeatureNotes } from '../../../api/notes';
 import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { calculateGravityScore } from '@shared/lib/gravityScore.js';
@@ -60,6 +62,7 @@ const AdminFeatureFormPage = () => {
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, payload: null });
   const [isSaving, setIsSaving] = useState(false);
   const [notesSummary, setNotesSummary] = useState(null);
+  const [notes, setNotes] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -182,12 +185,14 @@ const AdminFeatureFormPage = () => {
 
       if (isEdit) {
         try {
-          const [feature, revRes] = await Promise.all([
+          const [feature, revRes, notesRes] = await Promise.all([
             getFeatureById(id),
-            getFeatureRevisions(id).catch(() => [])
+            getFeatureRevisions(id).catch(() => []),
+            getFeatureNotes(id).catch(() => [])
           ]);
           if (abortedRef.current) return;
           setRevisions(Array.isArray(revRes) ? revRes : []);
+          setNotes(notesRes || []);
 
           if (feature) {
             if (abortedRef.current) return;
@@ -544,6 +549,15 @@ const AdminFeatureFormPage = () => {
               placeholder="Describe the problem this feature solves and who it is for..."
             />
           </div>
+ 
+          {isEdit && (
+            <NotesSummaryPanel
+              featureId={id}
+              initialSummary={notesSummary}
+              notesCount={notes.length}
+              newestNoteCreatedAt={notes[0]?.createdAt || null}
+            />
+          )}
 
 
           <div className={styles.row}>
@@ -882,7 +896,13 @@ const AdminFeatureFormPage = () => {
       {isEdit && (
         <aside className={styles.notesColumn}>
           <div className={styles.notesColumnInner}>
-            <InternalNotesLog featureId={id} initialSummary={notesSummary} />
+            <InternalNotesLog
+              featureId={id}
+              initialSummary={notesSummary}
+              showSummary={false}
+              notes={notes}
+              setNotes={setNotes}
+            />
           </div>
         </aside>
       )}

@@ -22,12 +22,21 @@ const formatTime = (isoString) => {
   }).format(new Date(isoString));
 };
 
-const InternalNotesLog = ({ featureId, initialSummary = null }) => {
+const InternalNotesLog = ({
+  featureId,
+  initialSummary = null,
+  showSummary = true,
+  notes: propNotes,
+  setNotes: propSetNotes,
+}) => {
   const { user } = useAuth();
   const { addToast } = useToast();
 
-  const [notes, setNotes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [localNotes, setLocalNotes] = useState([]);
+  const notes = propNotes || localNotes;
+  const setNotes = propSetNotes || setLocalNotes;
+
+  const [loading, setLoading] = useState(!propNotes);
   const [draft, setDraft] = useState('');
   const [composerKey, setComposerKey] = useState(0);
   const [posting, setPosting] = useState(false);
@@ -54,18 +63,22 @@ const InternalNotesLog = ({ featureId, initialSummary = null }) => {
     setIsEditingSummary(false);
     setSummaryEditDraft('');
 
-    const load = async () => {
-      setLoading(true);
-      try {
-        const data = await getFeatureNotes(featureId);
-        if (!cancelled) setNotes(data);
-      } catch {
-        if (!cancelled) addToast('Failed to load notes', 'error');
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
+    if (!propNotes) {
+      const load = async () => {
+        setLoading(true);
+        try {
+          const data = await getFeatureNotes(featureId);
+          if (!cancelled) setNotes(data);
+        } catch {
+          if (!cancelled) addToast('Failed to load notes', 'error');
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+      };
+      load();
+    } else {
+      setLoading(false);
+    }
 
     fetchJiraConfig()
       .then((cfg) => { if (!cancelled) setAiConfigured(!!cfg.aiConfigured); })
@@ -174,7 +187,7 @@ const InternalNotesLog = ({ featureId, initialSummary = null }) => {
         <span className={styles.headerBadge}>Admin Only</span>
       </div>
 
-       {aiConfigured && (
+       {showSummary && aiConfigured && (
         <div className={styles.summaryPanel}>
           {summary ? (
             <>
