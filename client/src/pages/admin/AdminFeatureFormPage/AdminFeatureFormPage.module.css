@@ -19,12 +19,13 @@
 .notesColumn {
   flex-shrink: 0;
   width: 480px;
-  padding: 32px var(--space-8);
+  padding: 32px var(--space-8) 140px;
   background-color: #f8fafc;
   border-left: 1px solid var(--border-color, #e2e8f0);
   position: sticky;
   top: 0;
   height: 100vh;
+  z-index: 10;
   box-sizing: border-box;
   overflow-y: auto;
   /* Custom scrollbar — subtle */
