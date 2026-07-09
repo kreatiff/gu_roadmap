@@ -20,27 +20,17 @@
   flex-shrink: 0;
   width: 480px;
   padding: 32px var(--space-8) 140px;
-  background-color: #1e293b;
-  border-left: 1px solid #334155;
+  background-color: #f8fafc;
+  border-left: 1px solid var(--border-color, #e2e8f0);
   position: sticky;
   top: 0;
   height: 100vh;
   z-index: 10;
   box-sizing: border-box;
   overflow-y: auto;
-
-  /* Local soft dark mode CSS variables overriding parent values */
-  --bg-surface: #334155;       /* Slate 700 */
-  --bg-base: #1e293b;          /* Slate 800 */
-  --bg-hover: #475569;         /* Slate 600 */
-  --border-color: #475569;     /* Slate 600 */
-  --text-primary: #f8fafc;     /* Slate 50 */
-  --text-secondary: #e2e8f0;   /* Slate 200 */
-  --text-muted: #cbd5e1;       /* Slate 300 */
-
-  /* Custom scrollbar — dark theme style */
+  /* Custom scrollbar — subtle */
   scrollbar-width: thin;
-  scrollbar-color: #475569 transparent;
+  scrollbar-color: var(--border-color) transparent;
 }
 
 .notesColumnInner {
@@ -66,20 +56,11 @@
     max-height: none;
     overflow-y: visible;
     padding: 24px;
-    background-color: #1e293b;
+    background-color: #f8fafc;
     border-left: none;
-    border-top: 1px solid #334155;
+    border-top: 1px solid var(--border-color, #e2e8f0);
     border-radius: var(--radius-lg);
     margin-bottom: 120px;
-
-    /* Local soft dark mode CSS variables for mobile layout as well */
-    --bg-surface: #334155;
-    --bg-base: #1e293b;
-    --bg-hover: #475569;
-    --border-color: #475569;
-    --text-primary: #f8fafc;
-    --text-secondary: #e2e8f0;
-    --text-muted: #cbd5e1;
   }
 }
 
