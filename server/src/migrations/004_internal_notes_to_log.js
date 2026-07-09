@@ -25,9 +25,16 @@ async function run() {
     const toMigrate = features.filter(
       (f) => typeof f.internal_notes === 'string' && f.internal_notes.trim().length > 0
     );
+    const whitespaceOnly = features.filter(
+      (f) => typeof f.internal_notes === 'string' && f.internal_notes.length > 0 && f.internal_notes.trim().length === 0
+    );
+    const toRemove = features.filter((f) => 'internal_notes' in f);
 
     if (toMigrate.length === 0) {
       console.log('No features with internal_notes found to migrate.');
+    }
+    if (whitespaceOnly.length > 0) {
+      console.log(`${whitespaceOnly.length} feature(s) had whitespace-only internal_notes — discarded without creating a log entry: ${whitespaceOnly.map(f => f.id).join(', ')}`);
     }
 
     let migratedCount = 0;
@@ -56,15 +63,10 @@ async function run() {
       }
     }
 
-    // Remove internal_notes from every feature that still has the field
-    const { resources: allFeatures } = await featuresContainer.items
-      .query('SELECT c.id FROM c WHERE IS_DEFINED(c.internal_notes)', {
-        enableCrossPartitionQuery: true,
-      })
-      .fetchAll();
-
+    // Remove internal_notes from every feature that still has the field (derived from the
+    // features already fetched above — no second Cosmos query needed)
     let removedCount = 0;
-    for (const feature of allFeatures) {
+    for (const feature of toRemove) {
       try {
         await featuresContainer.item(feature.id, feature.id).patch([
           { op: 'remove', path: '/internal_notes' },
@@ -75,7 +77,7 @@ async function run() {
       }
     }
 
-    console.log(`Migrated ${migratedCount} legacy notes. Removed internal_notes field from ${removedCount} features.`);
+    console.log(`Migrated ${migratedCount} legacy notes. Removed internal_notes field from ${removedCount} of ${toRemove.length} features.`);
   } catch (error) {
     console.error('Migration failed:', error);
     process.exit(1);
