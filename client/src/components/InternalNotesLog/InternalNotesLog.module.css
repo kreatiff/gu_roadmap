@@ -19,7 +19,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--notes-header-color, var(--text-primary, #0f172a));
+  color: var(--text-primary, #0f172a);
 }
 
 .headerBadge {
@@ -28,8 +28,8 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 2px 8px;
-  background-color: var(--notes-badge-bg, var(--border-color, #e2e8f0));
-  color: var(--notes-badge-color, var(--text-secondary, #475569));
+  background-color: var(--border-color, #e2e8f0);
+  color: var(--text-secondary, #475569);
   border-radius: 999px;
 }
 
