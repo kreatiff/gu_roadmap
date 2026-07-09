@@ -25,6 +25,7 @@ export const stagesContainer = database.container("stages");
 export const featuresContainer = database.container("features");
 export const votesContainer = database.container("votes");
 export const revisionsContainer = database.container("feature_revisions");
+export const featureNotesContainer = database.container("feature_notes");
 export const dashboardsContainer = database.container("dashboards");
 export const usersContainer = database.container("users");
 export const auditLogContainer = database.container("audit_log");
@@ -72,6 +73,12 @@ export async function initDb(logger = console) {
     // Revisions: partition by featureId for efficient per-feature queries
     db.containers.createIfNotExists({
       id: "feature_revisions",
+      partitionKey: { paths: ["/featureId"] },
+    }),
+
+    // Feature notes: partition by featureId — stakeholder decision/feedback log entries
+    db.containers.createIfNotExists({
+      id: "feature_notes",
       partitionKey: { paths: ["/featureId"] },
     }),
 
