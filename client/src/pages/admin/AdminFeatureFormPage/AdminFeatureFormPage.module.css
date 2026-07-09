@@ -20,8 +20,8 @@
   flex-shrink: 0;
   width: 480px;
   padding: 32px var(--space-8) 140px;
-  background-color: #0f172a;
-  border-left: 1px solid #1e293b;
+  background-color: #1e293b;
+  border-left: 1px solid #334155;
   position: sticky;
   top: 0;
   height: 100vh;
@@ -29,18 +29,18 @@
   box-sizing: border-box;
   overflow-y: auto;
 
-  /* Local dark mode CSS variables overriding parent values */
-  --bg-surface: #1e293b;       /* Slate 800 */
-  --bg-base: #0f172a;          /* Slate 900 */
-  --bg-hover: #334155;         /* Slate 700 */
-  --border-color: #334155;     /* Slate 700 */
+  /* Local soft dark mode CSS variables overriding parent values */
+  --bg-surface: #334155;       /* Slate 700 */
+  --bg-base: #1e293b;          /* Slate 800 */
+  --bg-hover: #475569;         /* Slate 600 */
+  --border-color: #475569;     /* Slate 600 */
   --text-primary: #f8fafc;     /* Slate 50 */
-  --text-secondary: #cbd5e1;   /* Slate 300 */
-  --text-muted: #94a3b8;       /* Slate 400 */
+  --text-secondary: #e2e8f0;   /* Slate 200 */
+  --text-muted: #cbd5e1;       /* Slate 300 */
 
   /* Custom scrollbar — dark theme style */
   scrollbar-width: thin;
-  scrollbar-color: #334155 transparent;
+  scrollbar-color: #475569 transparent;
 }
 
 .notesColumnInner {
@@ -66,20 +66,20 @@
     max-height: none;
     overflow-y: visible;
     padding: 24px;
-    background-color: #0f172a;
+    background-color: #1e293b;
     border-left: none;
-    border-top: 1px solid #1e293b;
+    border-top: 1px solid #334155;
     border-radius: var(--radius-lg);
     margin-bottom: 120px;
 
-    /* Local dark mode CSS variables for mobile layout as well */
-    --bg-surface: #1e293b;
-    --bg-base: #0f172a;
-    --bg-hover: #334155;
-    --border-color: #334155;
+    /* Local soft dark mode CSS variables for mobile layout as well */
+    --bg-surface: #334155;
+    --bg-base: #1e293b;
+    --bg-hover: #475569;
+    --border-color: #475569;
     --text-primary: #f8fafc;
-    --text-secondary: #cbd5e1;
-    --text-muted: #94a3b8;
+    --text-secondary: #e2e8f0;
+    --text-muted: #cbd5e1;
   }
 }
 
