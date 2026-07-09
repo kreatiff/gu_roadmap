@@ -1,9 +1,8 @@
 .wrapper {
-  padding: 20px 24px;
-  background-color: #fefce8;
-  border: 1px solid #fde68a;
-  border-left: 4px solid #f59e0b;
-  border-radius: var(--radius-md, 8px);
+  padding: 0;
+  background-color: transparent;
+  border: none;
+  border-radius: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -20,7 +19,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #92400e;
+  color: var(--text-primary, #0f172a);
 }
 
 .headerBadge {
@@ -29,8 +28,8 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   padding: 2px 8px;
-  background-color: #fde68a;
-  color: #92400e;
+  background-color: var(--border-color, #e2e8f0);
+  color: var(--text-secondary, #475569);
   border-radius: 999px;
 }
 

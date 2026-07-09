@@ -3,7 +3,7 @@
   align-items: flex-start;
   gap: var(--space-8);
   padding: 0 var(--space-8);
-  max-width: 1440px;
+  max-width: 1600px;
   margin: 0 auto;
 }
 
@@ -18,12 +18,14 @@
 
 .notesColumn {
   flex-shrink: 0;
-  width: 380px;
-  padding-top: var(--space-8);
-  padding-bottom: 120px;
+  width: 480px;
+  padding: 32px var(--space-8);
+  background-color: #f8fafc;
+  border-left: 1px solid var(--border-color, #e2e8f0);
   position: sticky;
   top: 0;
-  max-height: 100vh;
+  height: 100vh;
+  box-sizing: border-box;
   overflow-y: auto;
   /* Custom scrollbar — subtle */
   scrollbar-width: thin;
@@ -38,6 +40,7 @@
 @media (max-width: 1200px) {
   .pageLayout {
     flex-direction: column;
+    padding: 0 var(--space-4);
   }
 
   .content {
@@ -48,10 +51,15 @@
   .notesColumn {
     width: 100%;
     position: static;
+    height: auto;
     max-height: none;
     overflow-y: visible;
-    padding-top: 0;
-    padding-bottom: 120px;
+    padding: 24px;
+    background-color: #f8fafc;
+    border-left: none;
+    border-top: 1px solid var(--border-color, #e2e8f0);
+    border-radius: var(--radius-lg);
+    margin-bottom: 120px;
   }
 }
 
@@ -309,7 +317,7 @@
 }
 
 .stickyFooterInner {
-  max-width: 1440px;
+  max-width: 1600px;
   /* Aligns with new page layout width */
   margin: 0 auto;
   display: flex;
