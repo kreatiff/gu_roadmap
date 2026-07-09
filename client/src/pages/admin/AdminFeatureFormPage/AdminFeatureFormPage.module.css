@@ -29,14 +29,19 @@
   box-sizing: border-box;
   overflow-y: auto;
 
-  /* Local soft dark mode CSS variables overriding parent values */
-  --bg-surface: #334155;       /* Slate 700 */
-  --bg-base: #1e293b;          /* Slate 800 */
-  --bg-hover: #475569;         /* Slate 600 */
-  --border-color: #475569;     /* Slate 600 */
-  --text-primary: #f8fafc;     /* Slate 50 */
-  --text-secondary: #e2e8f0;   /* Slate 200 */
-  --text-muted: #cbd5e1;       /* Slate 300 */
+  /* Local light theme CSS variables overriding parent values for cards/inputs */
+  --bg-surface: #ffffff;       /* Pure White cards */
+  --bg-base: #ffffff;          /* Pure White editors */
+  --bg-hover: #f1f5f9;         /* Very Light Grey hover */
+  --border-color: #cbd5e1;     /* Light Grey border */
+  --text-primary: #0f172a;     /* Dark text */
+  --text-secondary: #334155;   /* Slate text */
+  --text-muted: #64748b;       /* Muted text */
+
+  /* Specific variables for headers sitting on the dark column background */
+  --notes-header-color: #ffffff;
+  --notes-badge-bg: #334155;
+  --notes-badge-color: #cbd5e1;
 
   /* Custom scrollbar — dark theme style */
   scrollbar-width: thin;
@@ -72,14 +77,19 @@
     border-radius: var(--radius-lg);
     margin-bottom: 120px;
 
-    /* Local soft dark mode CSS variables for mobile layout as well */
-    --bg-surface: #334155;
-    --bg-base: #1e293b;
-    --bg-hover: #475569;
-    --border-color: #475569;
-    --text-primary: #f8fafc;
-    --text-secondary: #e2e8f0;
-    --text-muted: #cbd5e1;
+    /* Local light theme CSS variables overriding parent values for cards/inputs */
+    --bg-surface: #ffffff;
+    --bg-base: #ffffff;
+    --bg-hover: #f1f5f9;
+    --border-color: #cbd5e1;
+    --text-primary: #0f172a;
+    --text-secondary: #334155;
+    --text-muted: #64748b;
+
+    /* Specific variables for headers sitting on the dark column background */
+    --notes-header-color: #ffffff;
+    --notes-badge-bg: #334155;
+    --notes-badge-color: #cbd5e1;
   }
 }
 
