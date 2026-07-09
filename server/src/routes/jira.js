@@ -117,7 +117,7 @@ You MUST return a valid JSON object only with this exact shape (do NOT wrap the 
     const featureText = `
 Title: ${feature.title}
 Description: ${(feature.description || '').replace(/<[^>]+>/g, '')}
-Internal Notes: ${(feature.internal_notes || '').replace(/<[^>]+>/g, '')}
+Internal Notes Summary: ${feature.notes_summary?.content || ''}
 Priority: ${feature.priority}
 Tags: ${(feature.tags || []).join(', ')}
 Category: ${feature.category_name || 'None'}
