@@ -135,10 +135,11 @@ describe('InternalNotesLog', () => {
     // Click Edit summary
     fireEvent.click(screen.getByText('Edit summary'));
 
-    // The editor should have the initial summary value
+    // The editor should have the initial summary value, wrapped as a paragraph
+    // so a plain-text AI summary doesn't collapse when opened for editing
     const editors = screen.getAllByTestId('rich-text-editor');
     const summaryEditor = editors[0];
-    expect(summaryEditor.value).toBe('Initial summary');
+    expect(summaryEditor.value).toBe('<p>Initial summary</p>');
 
     // Change text and click save
     fireEvent.change(summaryEditor, { target: { value: 'Updated summary text' } });

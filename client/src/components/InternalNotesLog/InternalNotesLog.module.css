@@ -185,6 +185,11 @@
   color: var(--text-primary);
 }
 
+.entryActions button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .entryContent {
   font-size: 0.9375rem;
   line-height: 1.6;
@@ -232,7 +237,9 @@
   flex-wrap: wrap;
 }
 
-.noteEditorContent,
-.noteEditorContent :global(.ProseMirror) {
-  min-height: 80px !important;
+.composer .noteEditorContent,
+.composer .noteEditorContent :global(.ProseMirror),
+.editArea .noteEditorContent,
+.editArea .noteEditorContent :global(.ProseMirror) {
+  min-height: 80px;
 }
