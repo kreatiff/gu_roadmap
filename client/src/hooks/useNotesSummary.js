@@ -28,11 +28,23 @@ function toEditableContent(value) {
 }
 
 /**
+ * Latest creation-or-edit timestamp across a notes list, used to detect
+ * staleness from edits (not just new notes) without duplicating this in
+ * every consumer that owns a notes array.
+ */
+export function getLatestNoteActivityAt(notes) {
+  return notes.reduce((latest, note) => {
+    const activityAt = note.updatedAt || note.createdAt;
+    return !latest || new Date(activityAt) > new Date(latest) ? activityAt : latest;
+  }, null);
+}
+
+/**
  * Shared AI-summary state/behaviour for a feature's internal notes log.
  * Used by both InternalNotesLog (inline panel) and NotesSummaryPanel
  * (standalone card) so summary generation/edit logic exists in one place.
  */
-export function useNotesSummary({ featureId, initialSummary = null, notesCount = 0, newestNoteCreatedAt = null, enabled = true }) {
+export function useNotesSummary({ featureId, initialSummary = null, notesCount = 0, latestNoteActivityAt = null, enabled = true }) {
   const { addToast } = useToast();
 
   const [summary, setSummary] = useState(initialSummary);
@@ -57,7 +69,12 @@ export function useNotesSummary({ featureId, initialSummary = null, notesCount =
     return () => { cancelled = true; };
   }, [enabled]);
 
-  const isStale = summary && newestNoteCreatedAt && new Date(newestNoteCreatedAt) > new Date(summary.generatedAt);
+  // Stale if a note was created/edited after generation, or the note count has
+  // since changed (catches deletions, which leave no newer timestamp behind).
+  const isStale = summary && (
+    (latestNoteActivityAt && new Date(latestNoteActivityAt) > new Date(summary.generatedAt)) ||
+    (typeof summary.noteCount === 'number' && notesCount !== summary.noteCount)
+  );
 
   const handleSummarise = async () => {
     setSummarising(true);

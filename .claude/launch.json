@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "notes-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "-l", "4173", "C:/Users/olege/AppData/Local/Temp/claude/H--Azure-vle-roadmap/0b479643-acd1-4d47-88ce-71700da94e12/scratchpad"],
+      "port": 4173
+    }
+  ]
+}

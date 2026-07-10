@@ -135,3 +135,19 @@
   background: transparent;
   color: var(--text-primary, #0f172a);
 }
+
+.smallScreenNotesLog {
+  display: none;
+}
+
+@media (max-width: 1200px) {
+  .smallScreenNotesLog {
+    display: block;
+    margin-top: 20px;
+    background: linear-gradient(180deg, #f6f1e8 0%, #f1ece1 100%);
+    border: 1px solid #e4dcc8;
+    border-radius: var(--radius-lg, 12px);
+    padding: 20px;
+    --border-color: #ede7da;
+  }
+}

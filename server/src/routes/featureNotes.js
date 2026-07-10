@@ -198,6 +198,7 @@ export default async function featureNotesRoutes(fastify, options) {
     const notesSummary = {
       content: result.summary,
       source: 'ai',
+      noteCount: notes.length,
       generatedAt: new Date().toISOString(),
       generatedById: request.user.sub,
       generatedByName: request.user.name,
@@ -231,9 +232,20 @@ export default async function featureNotesRoutes(fastify, options) {
     const { id } = request.params;
     if (!(await ensureFeatureExists(id, reply))) return;
 
+    const { resources: countResult } = await featureNotesContainer.items
+      .query(
+        {
+          query: 'SELECT VALUE COUNT(1) FROM c WHERE c.featureId = @fid',
+          parameters: [{ name: '@fid', value: id }],
+        },
+        { enableCrossPartitionQuery: true }
+      )
+      .fetchAll();
+
     const notesSummary = {
       content: request.body.content,
       source: 'manual',
+      noteCount: countResult[0] || 0,
       generatedAt: new Date().toISOString(),
       generatedById: request.user.sub,
       generatedByName: request.user.name,

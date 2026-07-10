@@ -148,4 +148,45 @@ describe('InternalNotesLog', () => {
     await waitFor(() => expect(notesApi.updateNotesSummary).toHaveBeenCalledWith('feature-1', 'Updated summary text'));
     await screen.findByText('Updated summary text');
   });
+
+  it('marks the summary stale after editing a note, even with no newer note', async () => {
+    notesApi.getFeatureNotes.mockResolvedValue([noteFromUser]);
+    const summary = { content: 'Old summary', generatedAt: '2026-07-05T00:00:00Z', generatedByName: 'Admin', noteCount: 1 };
+    notesApi.updateFeatureNote.mockResolvedValue({
+      ...noteFromUser,
+      content: 'Edited content',
+      edited: true,
+      updatedAt: '2026-07-06T00:00:00Z',
+    });
+
+    render(<InternalNotesLog featureId="feature-1" initialSummary={summary} />);
+
+    await screen.findByText('My own note');
+    expect(screen.queryByText('New notes since this summary')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Edit note'));
+    const noteEditor = screen.getAllByTestId('rich-text-editor')[0];
+    fireEvent.change(noteEditor, { target: { value: 'Edited content' } });
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => expect(notesApi.updateFeatureNote).toHaveBeenCalled());
+    await screen.findByText('New notes since this summary');
+  });
+
+  it('marks the summary stale after deleting a note, even with no newer note', async () => {
+    notesApi.getFeatureNotes.mockResolvedValue([noteFromUser, noteFromOther]);
+    const summary = { content: 'Old summary', generatedAt: '2026-07-05T00:00:00Z', generatedByName: 'Admin', noteCount: 2 };
+    notesApi.deleteFeatureNote.mockResolvedValue({ ok: true });
+
+    render(<InternalNotesLog featureId="feature-1" initialSummary={summary} />);
+
+    await screen.findByText('My own note');
+    expect(screen.queryByText('New notes since this summary')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Delete note'));
+    fireEvent.click(screen.getByText('Delete'));
+
+    await waitFor(() => expect(notesApi.deleteFeatureNote).toHaveBeenCalled());
+    await screen.findByText('New notes since this summary');
+  });
 });

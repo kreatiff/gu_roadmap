@@ -11,6 +11,10 @@ vi.mock('../../contexts/ToastContext', () => ({
   useToast: () => ({ addToast: vi.fn() }),
 }));
 
+vi.mock('../InternalNotesLog/InternalNotesLog', () => ({
+  default: () => <div data-testid="mocked-internal-notes-log" />
+}));
+
 vi.mock('../RichTextEditor', () => ({
   default: ({ value, onChange, placeholder }) => (
     <textarea
@@ -54,10 +58,49 @@ describe('NotesSummaryPanel', () => {
         featureId="feature-1"
         initialSummary={summary}
         notesCount={1}
-        newestNoteCreatedAt="2026-07-01T00:00:00Z"
+        latestNoteActivityAt="2026-07-01T00:00:00Z"
       />
     );
     await screen.findByText('New notes since this summary');
+  });
+
+  it('shows a stale badge when a note was deleted, even with no newer note timestamp', async () => {
+    // Summary was generated when there were 2 notes; only 1 remains and none are newer,
+    // so a createdAt/updatedAt comparison alone would miss this.
+    const summary = {
+      content: 'Old summary',
+      generatedAt: '2026-07-05T00:00:00Z',
+      generatedByName: 'Admin',
+      noteCount: 2,
+    };
+    render(
+      <NotesSummaryPanel
+        featureId="feature-1"
+        initialSummary={summary}
+        notesCount={1}
+        latestNoteActivityAt="2026-07-01T00:00:00Z"
+      />
+    );
+    await screen.findByText('New notes since this summary');
+  });
+
+  it('does not show a stale badge when the note count still matches the summary', async () => {
+    const summary = {
+      content: 'Fresh summary',
+      generatedAt: '2026-07-05T00:00:00Z',
+      generatedByName: 'Admin',
+      noteCount: 2,
+    };
+    render(
+      <NotesSummaryPanel
+        featureId="feature-1"
+        initialSummary={summary}
+        notesCount={2}
+        latestNoteActivityAt="2026-07-01T00:00:00Z"
+      />
+    );
+    await screen.findByText('Fresh summary');
+    expect(screen.queryByText('New notes since this summary')).not.toBeInTheDocument();
   });
 
   it('allows the summary to be edited and saved', async () => {

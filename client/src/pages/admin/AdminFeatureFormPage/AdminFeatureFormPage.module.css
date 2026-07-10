@@ -19,8 +19,8 @@
   flex: 2;
   min-width: 0;
   padding: 32px var(--space-8) 140px;
-  background-color: #dfe3e5;
-  border-left: 1px solid #c2c7d2;
+  background: linear-gradient(180deg, #f0eeeb 0%, #edeae3 100%);
+  border-left: 1px solid #e4dcc8;
   position: sticky;
   top: 0;
   height: 100vh;
@@ -29,7 +29,7 @@
   overflow-y: auto;
 
   /* Custom overrides for border colors of cards and inputs inside the sidebar */
-  --border-color: #c2c7d2;
+  --border-color: #ede7da;
 
   /* Custom scrollbar — subtle */
   scrollbar-width: thin;
@@ -54,21 +54,7 @@
   }
 
   .notesColumn {
-    flex: none;
-    width: 100%;
-    position: static;
-    height: auto;
-    max-height: none;
-    overflow-y: visible;
-    padding: 24px;
-    background-color: #dfe3e5;
-    border-left: none;
-    border-top: 1px solid #c2c7d2;
-    border-radius: var(--radius-lg);
-    margin-bottom: 120px;
-
-    /* Custom overrides for border colors of cards and inputs inside the sidebar */
-    --border-color: #c2c7d2;
+    display: none;
   }
 }
 

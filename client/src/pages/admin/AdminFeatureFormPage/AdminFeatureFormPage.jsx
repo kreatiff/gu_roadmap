@@ -5,6 +5,7 @@ import RichTextEditor from '../../../components/RichTextEditor';
 import FeatureDetailView from '../../../components/FeatureDetailView';
 import InternalNotesLog from '../../../components/InternalNotesLog/InternalNotesLog';
 import NotesSummaryPanel from '../../../components/NotesSummaryPanel/NotesSummaryPanel';
+import { getLatestNoteActivityAt } from '../../../hooks/useNotesSummary';
 import FeatureDetailModal from '../../../components/FeatureDetailModal';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import RevisionHistory from '../../../components/RevisionHistory';
@@ -555,7 +556,9 @@ const AdminFeatureFormPage = () => {
               featureId={id}
               initialSummary={notesSummary}
               notesCount={notes.length}
-              newestNoteCreatedAt={notes[0]?.createdAt || null}
+              latestNoteActivityAt={getLatestNoteActivityAt(notes)}
+              notes={notes}
+              setNotes={setNotes}
             />
           )}
 
@@ -902,6 +905,7 @@ const AdminFeatureFormPage = () => {
               showSummary={false}
               notes={notes}
               setNotes={setNotes}
+              collapsible
             />
           </div>
         </aside>

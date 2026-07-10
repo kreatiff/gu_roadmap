@@ -2,6 +2,7 @@ import { Sparkles, Pencil, X, Check } from 'lucide-react';
 import RichTextEditor from '../RichTextEditor';
 import RichTextViewer from '../RichTextViewer';
 import { useNotesSummary } from '../../hooks/useNotesSummary';
+import InternalNotesLog from '../InternalNotesLog/InternalNotesLog';
 import styles from './NotesSummaryPanel.module.css';
 
 const formatTime = (isoString) => {
@@ -10,7 +11,14 @@ const formatTime = (isoString) => {
   }).format(new Date(isoString));
 };
 
-const NotesSummaryPanel = ({ featureId, initialSummary = null, notesCount = 0, newestNoteCreatedAt = null }) => {
+const NotesSummaryPanel = ({
+  featureId,
+  initialSummary = null,
+  notesCount = 0,
+  latestNoteActivityAt = null,
+  notes,
+  setNotes,
+}) => {
   const {
     summary,
     summarising,
@@ -25,7 +33,7 @@ const NotesSummaryPanel = ({ featureId, initialSummary = null, notesCount = 0, n
     startEditSummary,
     cancelEditSummary,
     handleSaveSummary,
-  } = useNotesSummary({ featureId, initialSummary, notesCount, newestNoteCreatedAt });
+  } = useNotesSummary({ featureId, initialSummary, notesCount, latestNoteActivityAt });
 
   if (!aiConfigured) return null;
 
@@ -83,6 +91,16 @@ const NotesSummaryPanel = ({ featureId, initialSummary = null, notesCount = 0, n
             Edit summary
           </button>
         )}
+      </div>
+
+      <div className={styles.smallScreenNotesLog}>
+        <InternalNotesLog
+          featureId={featureId}
+          notes={notes}
+          setNotes={setNotes}
+          showSummary={false}
+          collapsible
+        />
       </div>
     </div>
   );
