@@ -197,6 +197,7 @@ export default async function featureNotesRoutes(fastify, options) {
 
     const notesSummary = {
       content: result.summary,
+      source: 'ai',
       generatedAt: new Date().toISOString(),
       generatedById: request.user.sub,
       generatedByName: request.user.name,
@@ -222,7 +223,7 @@ export default async function featureNotesRoutes(fastify, options) {
         type: 'object',
         required: ['content'],
         properties: {
-          content: { type: 'string', minLength: 1 },
+          content: { type: 'string', minLength: 1, maxLength: NOTE_MAX_LENGTH },
         },
       },
     },
@@ -232,6 +233,7 @@ export default async function featureNotesRoutes(fastify, options) {
 
     const notesSummary = {
       content: request.body.content,
+      source: 'manual',
       generatedAt: new Date().toISOString(),
       generatedById: request.user.sub,
       generatedByName: request.user.name,
