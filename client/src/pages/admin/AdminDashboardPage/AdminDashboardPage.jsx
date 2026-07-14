@@ -133,7 +133,13 @@ const AdminDashboardPage = () => {
 
       const matchesReviewed = !selectedReviewed || (selectedReviewed === 'true' ? !!f.is_reviewed : !f.is_reviewed);
 
-      return matchesSearch && matchesCategory && matchesStatus && matchesPriority && matchesReviewed;
+      // Filter out features in hidden columns
+      const belongsToCollapsed = collapsedColumnIds.length > 0 && (
+        collapsedColumnIds.includes(f.stage_id) ||
+        (f.stage_id === null && stages.some(s => s.slug === f.stage_slug && collapsedColumnIds.includes(s.id)))
+      );
+
+      return matchesSearch && matchesCategory && matchesStatus && matchesPriority && matchesReviewed && !belongsToCollapsed;
     });
 
     // Apply sorting
@@ -152,7 +158,7 @@ const AdminDashboardPage = () => {
     });
 
     return result;
-  }, [features, debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, sortBy]);
+  }, [features, debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, sortBy, collapsedColumnIds, stages]);
 
   // Active filter chips — one chip per active non-default filter
   const activeFilters = useMemo(() => {
@@ -192,8 +198,25 @@ const AdminDashboardPage = () => {
       label: selectedReviewed === 'true' ? 'Reviewed' : 'Not Reviewed',
       onRemove: () => setSelectedReviewed('')
     });
+    if (collapsedColumnIds.length > 0) {
+      chips.push({
+        key: 'collapsed-columns',
+        label: 'Columns hidden',
+        onRemove: () => setCollapsedColumnIds([])
+      });
+    }
     return chips;
-  }, [debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, categories, stages]);
+  }, [debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, categories, stages, collapsedColumnIds]);
+
+  const hasSearchOrFilters = useMemo(() => {
+    return !!(
+      debouncedSearchTerm ||
+      selectedCategories.length > 0 ||
+      selectedStatuses.length > 0 ||
+      selectedPriorities.length > 0 ||
+      selectedReviewed
+    );
+  }, [debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed]);
 
   const clearAllFilters = () => {
     setSearchTerm('');
@@ -212,8 +235,9 @@ const AdminDashboardPage = () => {
   }, [filteredFeatures, stages]);
 
   const columns = useMemo(() => {
-    return showAllStages ? stages : stages.filter(s => s.is_visible);
-  }, [stages, showAllStages]);
+    const baseColumns = showAllStages ? stages : stages.filter(s => s.is_visible);
+    return baseColumns.filter(col => !collapsedColumnIds.includes(col.id));
+  }, [stages, showAllStages, collapsedColumnIds]);
 
   useEffect(() => {
     fetchFeatures();
@@ -562,9 +586,11 @@ const AdminDashboardPage = () => {
                 </button>
               </span>
             ))}
-            <button className={styles.clearAllBtn} onClick={clearAllFilters}>
-              Clear all
-            </button>
+            {hasSearchOrFilters && (
+              <button className={styles.clearAllBtn} onClick={clearAllFilters}>
+                Clear all
+              </button>
+            )}
           </div>
         )}
         </div>{/* end filterSection */}
@@ -578,12 +604,23 @@ const AdminDashboardPage = () => {
               <div className={styles.emptyIcon}>🔍</div>
               <h3 className={styles.emptyTitle}>No matching features found</h3>
               <p className={styles.emptyText}>Adjust your filters or search terms to find what you're looking for.</p>
-              <button
-                className={styles.clearFiltersBtn}
-                onClick={clearAllFilters}
-              >
-                Clear all filters
-              </button>
+              {hasSearchOrFilters && (
+                <button
+                  className={styles.clearFiltersBtn}
+                  onClick={clearAllFilters}
+                  style={{ marginRight: '10px' }}
+                >
+                  Clear all filters
+                </button>
+              )}
+              {collapsedColumnIds.length > 0 && (
+                <button
+                  className={styles.clearFiltersBtn}
+                  onClick={() => setCollapsedColumnIds([])}
+                >
+                  Show hidden columns
+                </button>
+              )}
             </div>
           ) : viewMode === 'list' ? (
             <FeaturesTable
@@ -598,11 +635,10 @@ const AdminDashboardPage = () => {
               <div className={styles.board}>
                 {columns.map(col => {
                   const columnFeatures = columnsData[col.id] || [];
-                  const isCollapsed = collapsedColumnIds.includes(col.id);
                   return (
                     <div
                       key={col.id}
-                      className={isCollapsed ? `${styles.column} ${styles.columnCollapsed}` : styles.column}
+                      className={styles.column}
                       style={{ backgroundColor: `${col.color}0D` }}
                     >
                       <header className={styles.columnHeader}>
@@ -614,14 +650,13 @@ const AdminDashboardPage = () => {
                         <button
                           className={styles.columnVisibilityBtn}
                           onClick={() => handleToggleColumnCollapsed(col.id)}
-                          title={isCollapsed ? 'Show column (this view only)' : 'Hide column (this view only)'}
-                          aria-label={isCollapsed ? 'Show column' : 'Hide column'}
+                          title="Hide column (this view only)"
+                          aria-label="Hide column"
                         >
-                          {isCollapsed ? <EyeOff size={14} /> : <Eye size={14} />}
+                          <Eye size={14} />
                         </button>
                       </header>
 
-                      {isCollapsed ? null : (
                       <Droppable droppableId={col.id}>
                         {(provided, snapshot) => (
                           <div
@@ -692,7 +727,6 @@ const AdminDashboardPage = () => {
                           </div>
                         )}
                       </Droppable>
-                      )}
                     </div>
                   );
                 })}
