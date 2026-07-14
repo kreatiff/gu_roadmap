@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Search, X } from 'lucide-react';
+import { Plus, Search, X, Eye, EyeOff } from 'lucide-react';
 import AdminLayout from '../../../components/AdminLayout';
 import VerifiedBadge from '../../../components/VerifiedBadge';
 import FilterDropdown from '../../../components/FilterDropdown/FilterDropdown';
@@ -57,6 +57,9 @@ const AdminDashboardPage = () => {
   const [showAllStages, setShowAllStages] = useState(() => {
     return savedPrefs.showAllStages !== undefined ? savedPrefs.showAllStages : false;
   });
+  // Columns collapsed on this device only — does not touch the shared stage.is_visible
+  // flag that controls what other users see on the public roadmap.
+  const [collapsedColumnIds, setCollapsedColumnIds] = useState(() => savedPrefs.collapsedColumnIds || []);
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || savedPrefs.sortBy || 'order');
   const [groupBy, setGroupBy] = useState(searchParams.get('group') || savedPrefs.groupBy || 'category');
 
@@ -72,10 +75,11 @@ const AdminDashboardPage = () => {
       selectedPriorities,
       selectedReviewed,
       showAllStages,
+      collapsedColumnIds,
       sortBy,
       groupBy,
     });
-  }, [viewMode, searchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, showAllStages, sortBy, groupBy]);
+  }, [viewMode, searchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, showAllStages, collapsedColumnIds, sortBy, groupBy]);
 
   // Sync filter state → URL params (replace so we don't pollute back-stack)
   useEffect(() => {
@@ -233,6 +237,12 @@ const AdminDashboardPage = () => {
       addToast(`Failed to update ${field}`, 'error');
       fetchFeatures();
     }
+  };
+
+  const handleToggleColumnCollapsed = (stageId) => {
+    setCollapsedColumnIds(prev =>
+      prev.includes(stageId) ? prev.filter(id => id !== stageId) : [...prev, stageId]
+    );
   };
 
   const handleFeatureReorder = useCallback((reorderedItems) => {
@@ -588,10 +598,11 @@ const AdminDashboardPage = () => {
               <div className={styles.board}>
                 {columns.map(col => {
                   const columnFeatures = columnsData[col.id] || [];
+                  const isCollapsed = collapsedColumnIds.includes(col.id);
                   return (
                     <div
                       key={col.id}
-                      className={styles.column}
+                      className={isCollapsed ? `${styles.column} ${styles.columnCollapsed}` : styles.column}
                       style={{ backgroundColor: `${col.color}0D` }}
                     >
                       <header className={styles.columnHeader}>
@@ -600,9 +611,17 @@ const AdminDashboardPage = () => {
                           <h2 className={styles.columnTitle}>{col.name}</h2>
                           <span className={styles.columnCount}>{columnFeatures.length}</span>
                         </div>
-                        <button className={styles.columnMoreBtn}>•••</button>
+                        <button
+                          className={styles.columnVisibilityBtn}
+                          onClick={() => handleToggleColumnCollapsed(col.id)}
+                          title={isCollapsed ? 'Show column (this view only)' : 'Hide column (this view only)'}
+                          aria-label={isCollapsed ? 'Show column' : 'Hide column'}
+                        >
+                          {isCollapsed ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
                       </header>
 
+                      {isCollapsed ? null : (
                       <Droppable droppableId={col.id}>
                         {(provided, snapshot) => (
                           <div
@@ -673,6 +692,7 @@ const AdminDashboardPage = () => {
                           </div>
                         )}
                       </Droppable>
+                      )}
                     </div>
                   );
                 })}
