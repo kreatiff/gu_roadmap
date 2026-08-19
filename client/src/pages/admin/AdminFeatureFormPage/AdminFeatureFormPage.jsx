@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import AdminLayout from '../../../components/AdminLayout';
 import RichTextEditor from '../../../components/RichTextEditor';
+import RichTextViewer from '../../../components/RichTextViewer';
 import FeatureDetailView from '../../../components/FeatureDetailView';
 import InternalNotesLog from '../../../components/InternalNotesLog/InternalNotesLog';
 import NotesSummaryPanel from '../../../components/NotesSummaryPanel/NotesSummaryPanel';
@@ -18,7 +19,7 @@ import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { calculateGravityScore } from '@shared/lib/gravityScore.js';
 import { useToast } from '../../../contexts/ToastContext';
-import { Eye, Clock, AlertTriangle, ExternalLink, Unlink, Zap, Link2, Plus } from 'lucide-react';
+import { Eye, Clock, AlertTriangle, ExternalLink, Unlink, Zap, Link2, Plus, Ban } from 'lucide-react';
 import { useEditLock } from './useEditLock';
 import PushToJiraModal from '../../../components/PushToJiraModal/PushToJiraModal';
 import { fetchJiraConfig, fetchJiraDraft, unlinkJiraFeature, fetchJiraIssues, linkJiraIssue } from '../../../api/jira';
@@ -64,6 +65,7 @@ const AdminFeatureFormPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [notesSummary, setNotesSummary] = useState(null);
   const [notes, setNotes] = useState([]);
+  const [rejectionReasonAt, setRejectionReasonAt] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -200,6 +202,7 @@ const AdminFeatureFormPage = () => {
           if (feature) {
             if (abortedRef.current) return;
             setNotesSummary(feature.notes_summary || null);
+            setRejectionReasonAt(feature.rejection_reason_at || null);
             setFormData({
               title: feature.title,
               description: feature.description,
@@ -933,6 +936,26 @@ const AdminFeatureFormPage = () => {
       {isEdit && (
         <aside className={styles.notesColumn}>
           <div className={styles.notesColumnInner}>
+            {formData.rejection_reason && (
+              <div className={styles.rejectionCallout}>
+                <div className={styles.rejectionCalloutHeader}>
+                  <Ban size={14} strokeWidth={2.5} />
+                  <span className={styles.rejectionCalloutLabel}>Not Proceeding</span>
+                  {!formData.rejection_reason_public && (
+                    <span className={styles.rejectionCalloutBadge}>Admin Only</span>
+                  )}
+                </div>
+                <RichTextViewer
+                  content={formData.rejection_reason}
+                  className={styles.rejectionCalloutContent}
+                />
+                {rejectionReasonAt && (
+                  <div className={styles.rejectionCalloutMeta}>
+                    {new Date(rejectionReasonAt).toLocaleDateString('en-AU', { month: 'short', day: 'numeric', year: 'numeric' })}
+                  </div>
+                )}
+              </div>
+            )}
             <InternalNotesLog
               featureId={id}
               initialSummary={notesSummary}
