@@ -26,7 +26,8 @@ const FieldMap = {
   is_published: 'Published Status',
   is_reviewed: 'Reviewed Status',
   internal_notes: 'Internal Notes',
-  dependencies: 'Dependencies'
+  dependencies: 'Dependencies',
+  rejection_reason: 'Reason for Not Proceeding'
 };
 
 const RevisionHistory = ({ isOpen, onClose, revisions, categories = [], stages = [] }) => {

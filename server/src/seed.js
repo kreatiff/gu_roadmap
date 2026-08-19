@@ -44,11 +44,11 @@ const seed = async () => {
 
   // 2. Seed Stages
   const stageSeeds = [
-    { id: 'stg_1', name: 'Under Consideration', color: '#64748b', slug: 'under_review', order_idx: 0, is_visible: true },
-    { id: 'stg_2', name: 'Planned',             color: '#e8341c', slug: 'planned',      order_idx: 1, is_visible: true },
-    { id: 'stg_3', name: 'In Progress',         color: '#ea580c', slug: 'in_progress',  order_idx: 2, is_visible: true },
-    { id: 'stg_4', name: 'Launched',            color: '#059669', slug: 'launched',     order_idx: 3, is_visible: true },
-    { id: 'stg_5', name: 'Declined',            color: '#94a3b8', slug: 'declined',     order_idx: 4, is_visible: true },
+    { id: 'stg_1', name: 'Under Consideration', color: '#64748b', slug: 'under_review', order_idx: 0, is_visible: true, is_rejection_stage: false },
+    { id: 'stg_2', name: 'Planned',             color: '#e8341c', slug: 'planned',      order_idx: 1, is_visible: true, is_rejection_stage: false },
+    { id: 'stg_3', name: 'In Progress',         color: '#ea580c', slug: 'in_progress',  order_idx: 2, is_visible: true, is_rejection_stage: false },
+    { id: 'stg_4', name: 'Launched',            color: '#059669', slug: 'launched',     order_idx: 3, is_visible: true, is_rejection_stage: false },
+    { id: 'stg_5', name: 'Declined',            color: '#94a3b8', slug: 'declined',     order_idx: 4, is_visible: true, is_rejection_stage: true },
   ];
   for (const stage of stageSeeds) {
     await upsert(stagesContainer, stage);
@@ -165,6 +165,10 @@ _Internal planning notes — students will not see this content._`,
       pinned:      Math.random() > 0.8,
       is_published: true,
       gravity_score: f.score,
+      rejection_reason: '',
+      rejection_reason_public: false,
+      rejection_reason_at: null,
+      rejection_reason_by: null,
       created_at: now,
       updated_at: now,
     };

@@ -66,6 +66,8 @@ const AdminFeatureFormPage = () => {
     status: 'under_review',
     stage_id: '',
     pinned: false,
+    rejection_reason: '',
+    rejection_reason_public: false,
     tags: [],
     impact: 5,
     effort: 5,
@@ -198,6 +200,8 @@ const AdminFeatureFormPage = () => {
               status: feature.status,
               stage_id: feature.stage_id || '',
               pinned: feature.pinned,
+              rejection_reason: feature.rejection_reason || '',
+              rejection_reason_public: feature.rejection_reason_public ?? false,
               tags: typeof feature.tags === 'string' ? (() => { try { return JSON.parse(feature.tags); } catch { return []; } })() : feature.tags || [],
               impact: feature.impact || 1,
               effort: feature.effort || 1,
@@ -387,7 +391,9 @@ const AdminFeatureFormPage = () => {
       stage_id: formData.stage_id,
       stage_name: stage ? stage.name : 'Unknown Status',
       stage_color: stage ? stage.color : '#94a3b8',
-      tags: formData.tags
+      tags: formData.tags,
+      rejection_reason: formData.rejection_reason,
+      rejection_reason_public: formData.rejection_reason_public
     };
   }, [formData, categories, stages]);
 
@@ -586,6 +592,34 @@ const AdminFeatureFormPage = () => {
               </select>
             </div>
           </div>
+
+          {stages.find(s => s.id === formData.stage_id)?.is_rejection_stage && (
+            <div className={styles.field}>
+              <label className={styles.label}>Reason for Not Proceeding</label>
+              <p className={styles.fieldHint}>
+                {formData.rejection_reason_public
+                  ? 'This reason is shown on the public roadmap.'
+                  : 'This reason is admin-only and hidden from the public roadmap.'}
+              </p>
+              <RichTextEditor
+                value={formData.rejection_reason}
+                onChange={(val) => setFormData(prev => ({ ...prev, rejection_reason: val }))}
+                placeholder="Explain why this item isn't moving forward..."
+              />
+              <div className={styles.fieldRow} style={{ marginTop: '0.5rem' }}>
+                <input
+                  type="checkbox"
+                  id="rejection_reason_public"
+                  checked={formData.rejection_reason_public}
+                  onChange={(e) => setFormData(prev => ({ ...prev, rejection_reason_public: e.target.checked }))}
+                  className={styles.checkbox}
+                />
+                <label htmlFor="rejection_reason_public" className={styles.checkboxLabel}>
+                  Show this reason on the public roadmap
+                </label>
+              </div>
+            </div>
+          )}
 
           <div className={styles.row}>
             <div className={styles.field}>

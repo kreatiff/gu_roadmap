@@ -177,6 +177,12 @@ export default async function featureRoutes(fastify, options) {
         delete featureData.internal_notes;
         delete featureData.dependencies;
         delete featureData.dependency_details;
+        delete featureData.rejection_reason_by;
+        if (!featureData.rejection_reason_public) {
+          delete featureData.rejection_reason;
+          delete featureData.rejection_reason_public;
+          delete featureData.rejection_reason_at;
+        }
       }
       return featureData;
     });
@@ -223,6 +229,12 @@ export default async function featureRoutes(fastify, options) {
       delete result.internal_notes;
       delete result.dependencies;
       delete result.dependency_details;
+      delete result.rejection_reason_by;
+      if (!result.rejection_reason_public) {
+        delete result.rejection_reason;
+        delete result.rejection_reason_public;
+        delete result.rejection_reason_at;
+      }
     } else if (Array.isArray(feature.dependencies) && feature.dependencies.length > 0) {
       try {
         const depIds = feature.dependencies.filter(d => typeof d === 'string');
@@ -264,6 +276,8 @@ export default async function featureRoutes(fastify, options) {
           is_reviewed: { type: 'boolean' },
           dependencies: { type: 'array', items: { type: 'string', maxLength: 100 } },
           pinned: { type: 'boolean' },
+          rejection_reason: { type: 'string', maxLength: 100000 },
+          rejection_reason_public: { type: 'boolean' },
         },
         required: ['title'],
       },
@@ -272,6 +286,7 @@ export default async function featureRoutes(fastify, options) {
     const {
       title, description, internal_notes, category_id, status, stage_id,
       impact, effort, owner, key_stakeholder, priority, is_published, tags, dependencies,
+      rejection_reason, rejection_reason_public,
     } = request.body;
 
     if (!title) return reply.code(400).send({ error: 'Title is required' });
@@ -288,12 +303,13 @@ export default async function featureRoutes(fastify, options) {
 
     // Resolve default stage if not provided
     let finalStageId = stage_id ?? null;
-    let stageName = null, stageColor = null, stageSlug = null;
+    let stageName = null, stageColor = null, stageSlug = null, stageIsRejection = false;
 
     if (finalStageId) {
       try {
         const { resource: stage } = await stagesContainer.item(finalStageId, finalStageId).read();
         stageName = stage.name; stageColor = stage.color; stageSlug = stage.slug;
+        stageIsRejection = Boolean(stage.is_rejection_stage);
       } catch { /* stage not found — leave nulls */ }
     } else {
       const { resources: [defaultStage] } = await stagesContainer.items
@@ -302,6 +318,7 @@ export default async function featureRoutes(fastify, options) {
       if (defaultStage) {
         finalStageId = defaultStage.id;
         stageName = defaultStage.name; stageColor = defaultStage.color; stageSlug = defaultStage.slug;
+        stageIsRejection = Boolean(defaultStage.is_rejection_stage);
       }
     }
 
@@ -359,6 +376,10 @@ export default async function featureRoutes(fastify, options) {
       priority: priority ?? 'Medium',
       gravity_score: 0,
       is_reviewed: false,
+      rejection_reason: stageIsRejection ? (rejection_reason ?? '') : '',
+      rejection_reason_public: stageIsRejection ? Boolean(rejection_reason_public) : false,
+      rejection_reason_at: stageIsRejection ? now : null,
+      rejection_reason_by: stageIsRejection ? (request.user?.email ?? null) : null,
       created_at: now,
       updated_at: now,
     };
@@ -405,6 +426,8 @@ export default async function featureRoutes(fastify, options) {
           is_reviewed: { type: 'boolean' },
           dependencies: { type: 'array', items: { type: 'string', maxLength: 100 } },
           pinned: { type: 'boolean' },
+          rejection_reason: { type: 'string', maxLength: 100000 },
+          rejection_reason_public: { type: 'boolean' },
         },
         required: [],
       },
@@ -414,6 +437,7 @@ export default async function featureRoutes(fastify, options) {
     const {
       title, description, internal_notes, category_id, status, impact, effort,
       owner, key_stakeholder, priority, pinned, tags, dependencies, stage_id, is_published, is_reviewed,
+      rejection_reason, rejection_reason_public,
     } = request.body;
 
     // Fetch existing document
@@ -471,6 +495,40 @@ export default async function featureRoutes(fastify, options) {
       }
     }
 
+    // Rejection reason: sets or clears rejection_reason/_public/_at/_by on `updated`,
+    // recording a changesObj entry only when something actually changed. Never logs
+    // the reason body itself (matches description/internal_notes handling above).
+    const applyRejectionState = (isRejection) => {
+      const prevReason = oldFeature.rejection_reason || '';
+      if (isRejection) {
+        const newReason = rejection_reason !== undefined ? rejection_reason : prevReason;
+        const newPublic = rejection_reason_public !== undefined
+          ? Boolean(rejection_reason_public)
+          : Boolean(oldFeature.rejection_reason_public);
+        const reasonChanged = newReason !== prevReason || newPublic !== Boolean(oldFeature.rejection_reason_public);
+        updated.rejection_reason = newReason;
+        updated.rejection_reason_public = newPublic;
+        // Only stamp who/when touched the reason when it (or its visibility)
+        // actually changed — otherwise an unrelated save (e.g. editing owner
+        // on an item already in this stage) would silently corrupt the
+        // "who wrote this reason" audit trail.
+        if (reasonChanged) {
+          updated.rejection_reason_at = now;
+          updated.rejection_reason_by = request.user?.email ?? null;
+          changesObj.rejection_reason = { updated: true };
+        }
+      } else {
+        updated.rejection_reason = '';
+        updated.rejection_reason_public = false;
+        updated.rejection_reason_at = null;
+        updated.rejection_reason_by = null;
+        if (prevReason) {
+          changesObj.rejection_reason = { updated: true };
+        }
+      }
+    };
+    let rejectionHandledByStageChange = false;
+
     // Stage + status synchronization — re-embed stage display fields
     if (stage_id !== undefined && stage_id !== oldFeature.stage_id) {
       changesObj.stage_id = { old: oldFeature.stage_id, new: stage_id };
@@ -482,9 +540,13 @@ export default async function featureRoutes(fastify, options) {
           updated.stage_color = stage.color;
           updated.stage_slug = stage.slug;
           updated.status = stage.slug;
+          applyRejectionState(Boolean(stage.is_rejection_stage));
+          rejectionHandledByStageChange = true;
         } catch { /* stage not found — keep existing status */ }
       } else {
         updated.stage_name = null; updated.stage_color = null; updated.stage_slug = null;
+        applyRejectionState(false);
+        rejectionHandledByStageChange = true;
       }
     } else if (status !== undefined && status !== oldFeature.status) {
       changesObj.status = { old: oldFeature.status, new: status };
@@ -501,6 +563,25 @@ export default async function featureRoutes(fastify, options) {
         updated.stage_name = matchedStage.name;
         updated.stage_color = matchedStage.color;
         updated.stage_slug = matchedStage.slug;
+        applyRejectionState(Boolean(matchedStage.is_rejection_stage));
+        rejectionHandledByStageChange = true;
+      }
+    }
+
+    // Post-hoc edit: reason/visibility changed with no stage change in this request.
+    // Only honoured while the feature's CURRENT stage is flagged as a rejection stage —
+    // this is what lets admins add/edit a reason on items already sitting in that stage.
+    // Silently ignored otherwise (no 400) so the edit form's blanket payload stays safe.
+    if (!rejectionHandledByStageChange && (rejection_reason !== undefined || rejection_reason_public !== undefined)) {
+      let currentStageIsRejection = false;
+      if (oldFeature.stage_id) {
+        try {
+          const { resource: stage } = await stagesContainer.item(oldFeature.stage_id, oldFeature.stage_id).read();
+          currentStageIsRejection = Boolean(stage.is_rejection_stage);
+        } catch { /* stage missing — treat as not a rejection stage */ }
+      }
+      if (currentStageIsRejection) {
+        applyRejectionState(true);
       }
     }
 

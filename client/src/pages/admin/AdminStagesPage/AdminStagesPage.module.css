@@ -42,6 +42,12 @@
   letter-spacing: 0.05em;
 }
 
+.sectionHint {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  margin: calc(var(--space-4) * -1) 0 var(--space-4);
+}
+
 .formInline {
   display: flex;
   align-items: center;
