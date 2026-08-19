@@ -1,3 +1,4 @@
+import { Ban } from 'lucide-react';
 import RichTextViewer from './RichTextViewer';
 import CategoryIcon from './CategoryIcon';
 import VerifiedBadge from './VerifiedBadge';
@@ -20,6 +21,26 @@ const FeatureDetailView = ({ feature, closeButton = null, isAdmin = false }) => 
       style={{ '--modal-accent': feature.category_color || '#e8341c' }}
     >
       <div className={styles.header}>
+        {feature.rejection_reason && (
+          <div className={styles.rejectionCallout}>
+            <div className={styles.rejectionCalloutHeader}>
+              <Ban size={14} strokeWidth={2.5} />
+              <span className={styles.rejectionCalloutLabel}>Not Proceeding</span>
+              {isAdmin && !feature.rejection_reason_public && (
+                <span className={styles.rejectionCalloutBadge}>Admin Only</span>
+              )}
+            </div>
+            <RichTextViewer
+              content={feature.rejection_reason}
+              className={styles.rejectionCalloutContent}
+            />
+            {feature.rejection_reason_at && (
+              <div className={styles.rejectionCalloutMeta}>
+                {new Date(feature.rejection_reason_at).toLocaleDateString('en-AU', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </div>
+            )}
+          </div>
+        )}
         <div className={styles.headerTop}>
           <div className={styles.dualBadge}>
             <div 

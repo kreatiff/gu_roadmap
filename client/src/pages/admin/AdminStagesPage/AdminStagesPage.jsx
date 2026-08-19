@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { GripVertical, Eye, EyeOff, Trash2 } from 'lucide-react';
+import { GripVertical, Eye, EyeOff, Trash2, Ban } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import AdminLayout from '../../../components/AdminLayout';
 import ReassignDialog from '../../../components/ReassignDialog';
 import { getStages, createStage, updateStage, deleteStage, reorderStages } from '../../../api/stages';
 import { useToast } from '../../../contexts/ToastContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import styles from './AdminStagesPage.module.css';
 
 const AdminStagesPage = () => {
   const { addToast } = useToast();
+  const { isSuperAdmin } = useAuth();
   const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newStage, setNewStage] = useState({ name: '', color: '#64748b', order_idx: 0, is_visible: true });
@@ -139,6 +141,9 @@ const AdminStagesPage = () => {
 
         <section className={styles.section}>
           <h3 className={styles.sectionTitle}>Workflow Pipeline</h3>
+          <p className={styles.sectionHint}>
+            Items moved into a "Not Proceeding" stage prompt for a reason, shown at the top of the item detail.
+          </p>
           <div className={styles.listWrapper}>
             {loading ? (
               <div className={styles.message}>Loading stages...</div>
@@ -160,6 +165,7 @@ const AdminStagesPage = () => {
                             <th className={styles.th} style={{ width: '100px', textAlign: 'center' }}>Features</th>
                             <th className={styles.th} style={{ width: '120px' }}>Theme</th>
                             <th className={styles.th} style={{ width: '140px' }}>Visibility</th>
+                            <th className={styles.th} style={{ width: '160px' }}>Not Proceeding</th>
                             <th className={styles.th} style={{ width: '80px', textAlign: 'right' }}>Actions</th>
                           </tr>
                         </thead>
@@ -244,6 +250,25 @@ const AdminStagesPage = () => {
                                           Hidden
                                         </>
                                       )}
+                                    </button>
+                                  </td>
+
+                                  {/* Not Proceeding Cell */}
+                                  <td className={styles.td}>
+                                    <button
+                                      onClick={() => handleUpdate(s.id, { is_rejection_stage: !s.is_rejection_stage })}
+                                      className={styles.visibilityToggle}
+                                      disabled={!isSuperAdmin}
+                                      title={isSuperAdmin ? 'Toggle whether moving an item here prompts for a reason' : 'Only super admins can change this'}
+                                      style={{
+                                        backgroundColor: s.is_rejection_stage ? 'var(--error-bg)' : 'var(--bg-secondary)',
+                                        color: s.is_rejection_stage ? 'var(--error-color)' : 'var(--text-secondary)',
+                                        opacity: isSuperAdmin ? 1 : 0.6,
+                                        cursor: isSuperAdmin ? 'pointer' : 'not-allowed',
+                                      }}
+                                    >
+                                      <Ban size={16} strokeWidth={2.5} />
+                                      {s.is_rejection_stage ? 'Not Proceeding' : 'Off'}
                                     </button>
                                   </td>
 

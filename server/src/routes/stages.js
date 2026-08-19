@@ -31,8 +31,12 @@ export default async function stageRoutes(fastify, options) {
 
   // ── 2. POST / — Admin: Create stage ───────────────────────────────────────────
   fastify.post('/', { preHandler: [requireAdmin] }, async (request, reply) => {
-    const { name, color, order_idx, is_visible } = request.body;
+    const { name, color, order_idx, is_visible, is_rejection_stage } = request.body;
     if (!name) return reply.code(400).send({ error: 'Name is required' });
+
+    if (is_rejection_stage !== undefined && request.user?.role !== 'super_admin') {
+      return reply.code(403).send({ error: 'Forbidden: super admin access required' });
+    }
 
     const id = uuidv4();
     const slug = slugify(name, { lower: true, strict: true });
@@ -53,6 +57,7 @@ export default async function stageRoutes(fastify, options) {
       slug,
       order_idx: finalOrder,
       is_visible: is_visible !== undefined ? Boolean(is_visible) : true,
+      is_rejection_stage: is_rejection_stage !== undefined ? Boolean(is_rejection_stage) : false,
     };
 
     try {
@@ -68,7 +73,11 @@ export default async function stageRoutes(fastify, options) {
   // ── 3. PUT /:id — Admin: Update stage ─────────────────────────────────────────
   fastify.put('/:id', { preHandler: [requireAdmin] }, async (request, reply) => {
     const { id } = request.params;
-    const { name, color, order_idx, is_visible } = request.body;
+    const { name, color, order_idx, is_visible, is_rejection_stage } = request.body;
+
+    if (is_rejection_stage !== undefined && request.user?.role !== 'super_admin') {
+      return reply.code(403).send({ error: 'Forbidden: super admin access required' });
+    }
 
     let existing;
     try {
@@ -86,6 +95,7 @@ export default async function stageRoutes(fastify, options) {
     if (color !== undefined)      { updated.color = color;             if (color !== existing.color) displayFieldsChanged.push('color'); }
     if (order_idx !== undefined)  { updated.order_idx = order_idx; }
     if (is_visible !== undefined) { updated.is_visible = Boolean(is_visible); }
+    if (is_rejection_stage !== undefined) { updated.is_rejection_stage = Boolean(is_rejection_stage); }
 
     await stagesContainer.item(id, id).replace(updated);
 
@@ -162,14 +172,24 @@ export default async function stageRoutes(fastify, options) {
         )
         .fetchAll();
 
+      const reassignOps = [
+        { op: 'set', path: '/stage_id',    value: reassignTo },
+        { op: 'set', path: '/stage_name',  value: targetStage.name },
+        { op: 'set', path: '/stage_color', value: targetStage.color },
+        { op: 'set', path: '/stage_slug',  value: targetStage.slug },
+      ];
+      if (!targetStage.is_rejection_stage) {
+        reassignOps.push(
+          { op: 'set', path: '/rejection_reason', value: '' },
+          { op: 'set', path: '/rejection_reason_public', value: false },
+          { op: 'set', path: '/rejection_reason_at', value: null },
+          { op: 'set', path: '/rejection_reason_by', value: null },
+        );
+      }
+
       await Promise.all(
         affectedFeatures.map((f) =>
-          featuresContainer.item(f.id, f.id).patch([
-            { op: 'set', path: '/stage_id',    value: reassignTo },
-            { op: 'set', path: '/stage_name',  value: targetStage.name },
-            { op: 'set', path: '/stage_color', value: targetStage.color },
-            { op: 'set', path: '/stage_slug',  value: targetStage.slug },
-          ])
+          featuresContainer.item(f.id, f.id).patch(reassignOps)
         )
       );
     }

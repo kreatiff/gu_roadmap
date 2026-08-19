@@ -537,6 +537,26 @@
   border-top: 1px solid #f3f4f6;
 }
 
+.rejectionChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: var(--space-2);
+  padding: 3px 8px;
+  border-radius: 100px;
+  border: 1px solid var(--error-bg, #fee2e2);
+  background-color: var(--error-bg, #fef2f2);
+  color: var(--error-color, #dc2626);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.rejectionChip:hover {
+  opacity: 0.85;
+}
+
 .cardMetrics {
   display: flex;
   align-items: center;
