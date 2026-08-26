@@ -2,6 +2,7 @@ import { requireAdmin } from '../auth.js';
 import { config } from '../config.js';
 import { featuresContainer, revisionsContainer, metadataConfigsContainer, jiraDraftsContainer } from '../db.js';
 import { v4 as uuidv4 } from 'uuid';
+import { callAzureOpenAI } from '../lib/azureOpenAI.js';
 
 export default async function jiraRoutes(fastify, options) {
   // Check if Jira and AI Foundry are configured before enabling routes
@@ -29,8 +30,7 @@ You MUST structure the description field using the following sections in order. 
 4. **Acceptance Criteria**: Concrete criteria that must be met to mark this epic complete.
 5. **Priority (Suggested)**: Suggested priority and why.
 6. **Delivery Date**: Suggested timeframe or target release if applicable.
-7. **Compliance Label**: Any compliance labels or considerations.
-8. **Dependencies**: Any known dependencies or blockers.
+7. **Dependencies**: Any known dependencies or blockers.
 
 Do NOT use em-dashes (—) anywhere in the output. Use a colon, comma, or rewrite the sentence instead.
 
@@ -38,7 +38,6 @@ You MUST return a valid JSON object only with this exact shape (do NOT wrap the 
 {
   "summary": "Clear, concise title for the Epic",
   "description": "The full Epic content structured with the required sections in markdown format",
-  "labels": ["Extract any Compliance Labels or relevant tags here"],
   "priority": "Highest" | "High" | "Medium" | "Low" | "Lowest"
 }`;
 
@@ -82,63 +81,6 @@ You MUST return a valid JSON object only with this exact shape (do NOT wrap the 
 }`;
   }
 
-  // Helper to call Azure OpenAI Chat Completions endpoint
-  async function callAzureOpenAI(systemPrompt, userMessage, request) {
-    const { endpoint, apiKey, deployment } = config.ai;
-    const base = endpoint.replace(/\/$/, '');
-
-    // Construct standard v1 chat completions endpoint matching the curl format
-    let url = '';
-    if (base.includes('/openai/v1/chat/completions')) {
-      url = base;
-    } else if (base.includes('/openai/v1')) {
-      url = `${base}/chat/completions`;
-    } else {
-      url = `${base}/openai/v1/chat/completions`;
-    }
-
-    const headers = {
-      'Content-Type': 'application/json',
-      'api-key': apiKey
-    };
-
-    const body = {
-      model: deployment,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage }
-      ],
-      response_format: { type: 'json_object' }
-    };
-
-    request.log.info({ url, model: deployment }, 'Calling Azure OpenAI Chat Completions');
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body)
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      request.log.error({ status: response.status, body: errText }, 'Azure OpenAI API error');
-      throw new Error(`Azure OpenAI error: ${response.status} ${errText}`);
-    }
-
-    const data = await response.json();
-    const outputText = data.choices?.[0]?.message?.content ?? '';
-
-    let parsedOutput;
-    try {
-      const text = outputText.replace(/```json/gi, '').replace(/```/g, '').trim();
-      parsedOutput = JSON.parse(text);
-    } catch (e) {
-      request.log.error({ outputText }, 'Azure OpenAI did not return valid JSON');
-      throw new Error('Azure OpenAI did not return valid JSON');
-    }
-    return parsedOutput;
-  }
-
   // ── 1. POST /preview — AI Foundry Generation ─────────────────────────────────
   fastify.post('/preview', {
     preHandler: [requireAdmin, checkConfigured, checkAIConfigured],
@@ -175,7 +117,7 @@ You MUST return a valid JSON object only with this exact shape (do NOT wrap the 
     const featureText = `
 Title: ${feature.title}
 Description: ${(feature.description || '').replace(/<[^>]+>/g, '')}
-Internal Notes: ${(feature.internal_notes || '').replace(/<[^>]+>/g, '')}
+Internal Notes Summary: ${feature.notes_summary?.content || ''}
 Priority: ${feature.priority}
 Tags: ${(feature.tags || []).join(', ')}
 Category: ${feature.category_name || 'None'}
@@ -243,7 +185,8 @@ Category: ${feature.category_name || 'None'}
     preHandler: [requireAdmin]
   }, async (request, reply) => {
     return {
-      baseUrl: config.jira.baseUrl || ''
+      baseUrl: config.jira.baseUrl || '',
+      aiConfigured: config.ai.configured
     };
   });
 

@@ -142,9 +142,12 @@ vite.config.ts.timestamp-*
 server/data/*.sqlite
 server/data/*.sqlite-shm
 server/data/*.sqlite-wal
+
+# Local backup files (stored in Docker volume in production)
+server/data/backups/
 .env.example
 /docs
 
 .agents
 .agents/*
-/server/data/backups
+/.vscode

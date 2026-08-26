@@ -1,9 +1,130 @@
+.pageLayout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+  padding: 0 var(--space-8);
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
 .content {
-  padding: var(--space-8);
+  flex: 3;
+  min-width: 0;
+  padding: var(--space-8) 0;
   padding-bottom: 120px;
   /* Space for the fixed footer at the bottom */
-  max-width: 1000px;
-  margin: 0 auto;
+}
+
+.notesColumn {
+  flex: 2;
+  min-width: 0;
+  padding: 32px var(--space-8) 140px;
+  background: linear-gradient(180deg, #f0eeeb 0%, #edeae3 100%);
+  border-left: 1px solid #e4dcc8;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 10;
+  box-sizing: border-box;
+  overflow-y: auto;
+
+  /* Custom overrides for border colors of cards and inputs inside the sidebar */
+  --border-color: #ede7da;
+
+  /* Custom scrollbar — subtle */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+.notesColumnInner {
+  /* Provides breathing room at the bottom of the sticky panel */
+  padding-bottom: var(--space-8);
+}
+
+.rejectionCallout {
+  padding: 16px 20px;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-left: 4px solid #dc2626;
+  border-radius: var(--radius-md, 8px);
+}
+
+.rejectionCalloutHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  color: #b91c1c;
+}
+
+.rejectionCalloutEditBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 3px 8px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #b91c1c;
+  background: transparent;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.rejectionCalloutEditBtn:hover {
+  background-color: #fecaca;
+}
+
+.rejectionCalloutLabel {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.rejectionCalloutBadge {
+  font-size: 0.625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 8px;
+  background-color: #fecaca;
+  color: #b91c1c;
+  border-radius: 4px;
+}
+
+.rejectionCalloutContent {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: #7f1d1d;
+}
+
+.rejectionCalloutMeta {
+  margin-top: 10px;
+  font-size: 0.75rem;
+  color: #b91c1c;
+  opacity: 0.75;
+}
+
+@media (max-width: 1200px) {
+  .pageLayout {
+    flex-direction: column;
+    padding: 0 var(--space-4);
+  }
+
+  .content {
+    flex: none;
+    width: 100%;
+    padding-bottom: var(--space-8);
+  }
+
+  .notesColumn {
+    display: none;
+  }
 }
 
 .header {
@@ -100,7 +221,6 @@
 }
 
 .deleteSection {
-  max-width: 900px;
   margin-top: var(--space-6);
   padding: var(--space-6);
   background-color: #fef2f2;
@@ -261,8 +381,8 @@
 }
 
 .stickyFooterInner {
-  max-width: 1000px;
-  /* Aligns with form width */
+  max-width: 1600px;
+  /* Aligns with new page layout width */
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -667,20 +787,36 @@
   gap: 8px;
 }
 
+.linkInputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 140px;
+}
+
+.linkInputIcon {
+  position: absolute;
+  left: 10px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
 .linkIssueInput {
-  height: 32px;
-  padding: 0 10px;
+  height: 36px;
+  padding: 0 10px 0 30px;
   font-size: 0.8125rem;
   font-family: monospace;
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   background: #fff;
   color: var(--text-primary);
   outline: none;
-  width: 110px;
+  width: 100%;
   flex-shrink: 0;
   text-transform: uppercase;
   box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .linkIssueInput:focus {
@@ -695,27 +831,33 @@
 
 .roleToggle {
   display: flex;
-  background: var(--bg-base);
+  background: #f1f5f9;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   padding: 2px;
   gap: 2px;
   flex-shrink: 0;
+  height: 36px;
+  align-items: center;
+  box-sizing: border-box;
 }
 
 .roleBtn {
-  height: 26px;
-  padding: 0 9px;
-  font-size: 0.6875rem;
+  height: 30px;
+  padding: 0 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--text-muted);
+  color: #64748b;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.1s, color 0.1s;
+  transition: all 0.15s ease;
   font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .roleBtn.active {
@@ -725,27 +867,55 @@
 }
 
 .linkIssueBtn {
-  height: 32px;
-  padding: 0 12px;
+  height: 36px;
+  padding: 0 16px;
   font-size: 0.8125rem;
-  font-weight: 600;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  background: #fff;
-  color: var(--text-primary);
+  font-weight: 700;
+  border: none;
+  border-radius: var(--radius-md);
+  background: #0f172a;
+  color: #fff;
   cursor: pointer;
   flex-shrink: 0;
   font-family: inherit;
-  transition: background 0.12s, border-color 0.12s;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .linkIssueBtn:hover:not(:disabled) {
-  background: var(--bg-base);
+  background: #1e293b;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 .linkIssueBtn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .linkIssueForm {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .linkInputWrapper {
+    width: 100%;
+  }
+  .roleToggle {
+    width: 100%;
+    justify-content: stretch;
+  }
+  .roleBtn {
+    flex: 1;
+  }
+  .linkIssueBtn {
+    width: 100%;
+  }
 }
 
 .jiraBtn {
@@ -825,4 +995,37 @@
   padding-bottom: var(--space-2);
   border-bottom: 1px solid var(--border-color);
   margin-bottom: var(--space-2);
+}
+
+.jiraPushContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-2) 0 var(--space-6) 0;
+  gap: var(--space-4);
+}
+
+.jiraPushInstructions {
+  font-size: 0.875rem;
+  color: var(--text-secondary, #475569);
+  max-width: 500px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.jiraLinkedSection {
+  margin-bottom: var(--space-6);
+}
+
+.jiraNoLinksContainer {
+  text-align: center;
+  padding: var(--space-4) 0;
+  margin-bottom: var(--space-6);
+}
+
+.jiraNoLinksText {
+  font-size: 0.8125rem;
+  color: var(--text-muted, #94a3b8);
+  margin: 0;
 }

@@ -179,47 +179,6 @@
   font-weight: 600;
 }
 
-.internalNotesSection {
-  margin-top: 24px;
-  padding: 20px 24px;
-  background-color: #fefce8;
-  border: 1px solid #fde68a;
-  border-left: 4px solid #f59e0b;
-  border-radius: var(--radius-md, 8px);
-}
-
-.internalNotesHeader {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.internalNotesLabel {
-  font-size: 0.75rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #92400e;
-}
-
-.internalNotesBadge {
-  font-size: 0.625rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  padding: 2px 8px;
-  background-color: #fde68a;
-  color: #92400e;
-  border-radius: 4px;
-}
-
-.internalNotesContent {
-  font-size: 0.9375rem;
-  line-height: 1.6;
-  color: var(--text-secondary, #475569);
-}
-
 .dependenciesSection {
   margin-top: 16px;
   padding: 20px 24px;

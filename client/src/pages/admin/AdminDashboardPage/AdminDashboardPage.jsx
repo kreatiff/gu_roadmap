@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Search, X, Ban } from 'lucide-react';
+import { Plus, Search, X, Eye, EyeOff, Ban } from 'lucide-react';
 import AdminLayout from '../../../components/AdminLayout';
 import VerifiedBadge from '../../../components/VerifiedBadge';
 import FilterDropdown from '../../../components/FilterDropdown/FilterDropdown';
@@ -58,6 +58,9 @@ const AdminDashboardPage = () => {
   const [showAllStages, setShowAllStages] = useState(() => {
     return savedPrefs.showAllStages !== undefined ? savedPrefs.showAllStages : false;
   });
+  // Columns collapsed on this device only — does not touch the shared stage.is_visible
+  // flag that controls what other users see on the public roadmap.
+  const [collapsedColumnIds, setCollapsedColumnIds] = useState(() => savedPrefs.collapsedColumnIds || []);
   const [sortBy, setSortBy] = useState(searchParams.get('sort') || savedPrefs.sortBy || 'order');
   const [groupBy, setGroupBy] = useState(searchParams.get('group') || savedPrefs.groupBy || 'category');
 
@@ -73,10 +76,11 @@ const AdminDashboardPage = () => {
       selectedPriorities,
       selectedReviewed,
       showAllStages,
+      collapsedColumnIds,
       sortBy,
       groupBy,
     });
-  }, [viewMode, searchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, showAllStages, sortBy, groupBy]);
+  }, [viewMode, searchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, showAllStages, collapsedColumnIds, sortBy, groupBy]);
 
   // Sync filter state → URL params (replace so we don't pollute back-stack)
   useEffect(() => {
@@ -130,7 +134,13 @@ const AdminDashboardPage = () => {
 
       const matchesReviewed = !selectedReviewed || (selectedReviewed === 'true' ? !!f.is_reviewed : !f.is_reviewed);
 
-      return matchesSearch && matchesCategory && matchesStatus && matchesPriority && matchesReviewed;
+      // Filter out features in hidden columns
+      const belongsToCollapsed = collapsedColumnIds.length > 0 && (
+        collapsedColumnIds.includes(f.stage_id) ||
+        (f.stage_id === null && stages.some(s => s.slug === f.stage_slug && collapsedColumnIds.includes(s.id)))
+      );
+
+      return matchesSearch && matchesCategory && matchesStatus && matchesPriority && matchesReviewed && !belongsToCollapsed;
     });
 
     // Apply sorting
@@ -149,7 +159,7 @@ const AdminDashboardPage = () => {
     });
 
     return result;
-  }, [features, debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, sortBy]);
+  }, [features, debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, sortBy, collapsedColumnIds, stages]);
 
   // Active filter chips — one chip per active non-default filter
   const activeFilters = useMemo(() => {
@@ -189,8 +199,25 @@ const AdminDashboardPage = () => {
       label: selectedReviewed === 'true' ? 'Reviewed' : 'Not Reviewed',
       onRemove: () => setSelectedReviewed('')
     });
+    if (collapsedColumnIds.length > 0) {
+      chips.push({
+        key: 'collapsed-columns',
+        label: 'Columns hidden',
+        onRemove: () => setCollapsedColumnIds([])
+      });
+    }
     return chips;
-  }, [debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, categories, stages]);
+  }, [debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, categories, stages, collapsedColumnIds]);
+
+  const hasSearchOrFilters = useMemo(() => {
+    return !!(
+      debouncedSearchTerm ||
+      selectedCategories.length > 0 ||
+      selectedStatuses.length > 0 ||
+      selectedPriorities.length > 0 ||
+      selectedReviewed
+    );
+  }, [debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed]);
 
   const clearAllFilters = () => {
     setSearchTerm('');
@@ -209,8 +236,9 @@ const AdminDashboardPage = () => {
   }, [filteredFeatures, stages]);
 
   const columns = useMemo(() => {
-    return showAllStages ? stages : stages.filter(s => s.is_visible);
-  }, [stages, showAllStages]);
+    const baseColumns = showAllStages ? stages : stages.filter(s => s.is_visible);
+    return baseColumns.filter(col => !collapsedColumnIds.includes(col.id));
+  }, [stages, showAllStages, collapsedColumnIds]);
 
   useEffect(() => {
     fetchFeatures();
@@ -305,6 +333,12 @@ const AdminDashboardPage = () => {
       addToast(`Failed to update ${field}`, 'error');
       fetchFeatures();
     }
+  };
+
+  const handleToggleColumnCollapsed = (stageId) => {
+    setCollapsedColumnIds(prev =>
+      prev.includes(stageId) ? prev.filter(id => id !== stageId) : [...prev, stageId]
+    );
   };
 
   const handleFeatureReorder = useCallback((reorderedItems) => {
@@ -641,9 +675,11 @@ const AdminDashboardPage = () => {
                 </button>
               </span>
             ))}
-            <button className={styles.clearAllBtn} onClick={clearAllFilters}>
-              Clear all
-            </button>
+            {hasSearchOrFilters && (
+              <button className={styles.clearAllBtn} onClick={clearAllFilters}>
+                Clear all
+              </button>
+            )}
           </div>
         )}
         </div>{/* end filterSection */}
@@ -657,12 +693,23 @@ const AdminDashboardPage = () => {
               <div className={styles.emptyIcon}>🔍</div>
               <h3 className={styles.emptyTitle}>No matching features found</h3>
               <p className={styles.emptyText}>Adjust your filters or search terms to find what you're looking for.</p>
-              <button
-                className={styles.clearFiltersBtn}
-                onClick={clearAllFilters}
-              >
-                Clear all filters
-              </button>
+              {hasSearchOrFilters && (
+                <button
+                  className={styles.clearFiltersBtn}
+                  onClick={clearAllFilters}
+                  style={{ marginRight: '10px' }}
+                >
+                  Clear all filters
+                </button>
+              )}
+              {collapsedColumnIds.length > 0 && (
+                <button
+                  className={styles.clearFiltersBtn}
+                  onClick={() => setCollapsedColumnIds([])}
+                >
+                  Show hidden columns
+                </button>
+              )}
             </div>
           ) : viewMode === 'list' ? (
             <FeaturesTable
@@ -690,7 +737,14 @@ const AdminDashboardPage = () => {
                           <h2 className={styles.columnTitle}>{col.name}</h2>
                           <span className={styles.columnCount}>{columnFeatures.length}</span>
                         </div>
-                        <button className={styles.columnMoreBtn}>•••</button>
+                        <button
+                          className={styles.columnVisibilityBtn}
+                          onClick={() => handleToggleColumnCollapsed(col.id)}
+                          title="Hide column (this view only)"
+                          aria-label="Hide column"
+                        >
+                          <Eye size={14} />
+                        </button>
                       </header>
 
                       <Droppable droppableId={col.id}>

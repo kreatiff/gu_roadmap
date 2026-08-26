@@ -14,6 +14,7 @@ import { requireAdmin } from './auth.js';
 import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import featureRoutes from './routes/features.js';
+import featureNotesRoutes from './routes/featureNotes.js';
 import categoryRoutes from './routes/categories.js';
 import stageRoutes from './routes/stages.js';
 import dashboardRoutes from './routes/dashboards.js';
@@ -22,6 +23,7 @@ import dataRoutes from './routes/data.js';
 import jiraRoutes from './routes/jira.js';
 import fastifyMultipart from '@fastify/multipart';
 import { bootstrapAdminIfEmpty } from './lib/users.js';
+import { scheduleBackups } from './lib/backupService.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 import { errorHandler } from './errorHandler.js';
@@ -79,6 +81,7 @@ server.register(fastifyStatic, {
 server.register(authRoutes, { prefix: '/api/auth' });
 server.register(userRoutes, { prefix: '/api/users' });
 server.register(featureRoutes, { prefix: '/api/features' });
+server.register(featureNotesRoutes, { prefix: '/api/features' });
 server.register(categoryRoutes, { prefix: '/api/categories' });
 server.register(stageRoutes, { prefix: '/api/stages' });
 server.register(dashboardRoutes, { prefix: '/api/dashboards' });
@@ -143,6 +146,7 @@ const start = async () => {
 
     await server.listen({ port: config.port, host: '0.0.0.0' });
     server.log.info(`🚀 Server listening on http://localhost:${config.port}`);
+    scheduleBackups(server.log);
   } catch (err) {
     server.log.error(err);
     process.exit(1);

@@ -6,7 +6,9 @@
     "postinstall": "npm install --prefix server",
     "build": "npm install --prefix client --include=dev && npm run build --prefix client",
     "start": "node server/src/index.js",
-    "seed": "node server/src/seed.js"
+    "seed": "node server/src/seed.js",
+    "migrate:004": "cd server && node src/migrations/004_internal_notes_to_log.js",
+    "migrate:005": "cd server && node src/migrations/005_add_rejection_reason.js"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"
@@ -14,5 +16,8 @@
   "dependencies": {
     "@azure/cosmos": "^4.9.2",
     "dotenv": "^17.3.1"
+  },
+  "overrides": {
+    "shell-quote": "^1.8.4"
   }
 }

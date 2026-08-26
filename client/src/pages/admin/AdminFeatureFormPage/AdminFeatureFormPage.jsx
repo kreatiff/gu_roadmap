@@ -2,7 +2,11 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import AdminLayout from '../../../components/AdminLayout';
 import RichTextEditor from '../../../components/RichTextEditor';
+import RichTextViewer, { getPlainTextFromRichText } from '../../../components/RichTextViewer';
 import FeatureDetailView from '../../../components/FeatureDetailView';
+import InternalNotesLog from '../../../components/InternalNotesLog/InternalNotesLog';
+import NotesSummaryPanel from '../../../components/NotesSummaryPanel/NotesSummaryPanel';
+import { getLatestNoteActivityAt } from '../../../hooks/useNotesSummary';
 import FeatureDetailModal from '../../../components/FeatureDetailModal';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import RevisionHistory from '../../../components/RevisionHistory';
@@ -10,11 +14,12 @@ import TagAutocomplete from '../../../components/TagAutocomplete/TagAutocomplete
 import StringAutocomplete from '../../../components/StringAutocomplete/StringAutocomplete';
 import FeatureDependencyAutocomplete from '../../../components/FeatureDependencyAutocomplete/FeatureDependencyAutocomplete';
 import { getFeatures, getFeatureById, createFeature, updateFeature, deleteFeature, getFeatureRevisions, getFeatureTags, getFeatureOwners, getFeatureStakeholders } from '../../../api/features';
+import { getFeatureNotes } from '../../../api/notes';
 import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { calculateGravityScore } from '@shared/lib/gravityScore.js';
 import { useToast } from '../../../contexts/ToastContext';
-import { Eye, Clock, AlertTriangle, ExternalLink, Unlink, Zap } from 'lucide-react';
+import { Eye, Clock, AlertTriangle, ExternalLink, Unlink, Zap, Link2, Plus, Ban, Pencil } from 'lucide-react';
 import { useEditLock } from './useEditLock';
 import PushToJiraModal from '../../../components/PushToJiraModal/PushToJiraModal';
 import { fetchJiraConfig, fetchJiraDraft, unlinkJiraFeature, fetchJiraIssues, linkJiraIssue } from '../../../api/jira';
@@ -58,10 +63,12 @@ const AdminFeatureFormPage = () => {
   const [isLinking,  setIsLinking]  = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, payload: null });
   const [isSaving, setIsSaving] = useState(false);
+  const [notesSummary, setNotesSummary] = useState(null);
+  const [notes, setNotes] = useState([]);
+  const [rejectionReasonAt, setRejectionReasonAt] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    internal_notes: '',
     category_id: '',
     status: 'under_review',
     stage_id: '',
@@ -85,6 +92,7 @@ const AdminFeatureFormPage = () => {
   const skipDirtyRef = useRef(false);
   const abortedRef = useRef(false);
   const formRef = useRef(null);
+  const rejectionReasonFieldRef = useRef(null);
   const { otherEditor } = useEditLock(isEdit ? id : null);
 
   // Mark dirty on any form change after initial load
@@ -183,19 +191,22 @@ const AdminFeatureFormPage = () => {
 
       if (isEdit) {
         try {
-          const [feature, revRes] = await Promise.all([
+          const [feature, revRes, notesRes] = await Promise.all([
             getFeatureById(id),
-            getFeatureRevisions(id).catch(() => [])
+            getFeatureRevisions(id).catch(() => []),
+            getFeatureNotes(id).catch(() => [])
           ]);
           if (abortedRef.current) return;
           setRevisions(Array.isArray(revRes) ? revRes : []);
+          setNotes(notesRes || []);
 
           if (feature) {
             if (abortedRef.current) return;
+            setNotesSummary(feature.notes_summary || null);
+            setRejectionReasonAt(feature.rejection_reason_at || null);
             setFormData({
               title: feature.title,
               description: feature.description,
-              internal_notes: feature.internal_notes || '',
               category_id: feature.category_id || '',
               status: feature.status,
               stage_id: feature.stage_id || '',
@@ -281,6 +292,11 @@ const AdminFeatureFormPage = () => {
 
   const requestDelete = () => {
     setConfirmDialog({ isOpen: true, type: 'delete' });
+  };
+
+  const editRejectionReason = () => {
+    rejectionReasonFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    rejectionReasonFieldRef.current?.querySelector('[contenteditable="true"]')?.focus();
   };
 
   const executeDelete = async () => {
@@ -376,6 +392,11 @@ const AdminFeatureFormPage = () => {
     return calculateGravityScore(formData.impact, formData.effort, formData.priority);
   }, [formData.impact, formData.effort, formData.priority]);
 
+  // A rich-text field can hold a non-empty JSON doc (e.g. an empty paragraph)
+  // even after the user has deleted all visible text, so a truthy check on
+  // the raw value isn't enough — compare the extracted plain text instead.
+  const hasRejectionReason = !!getPlainTextFromRichText(formData.rejection_reason)?.trim();
+
   const previewFeature = useMemo(() => {
     const category = categories.find(c => c.id === formData.category_id);
     const stage = stages.find(s => s.id === formData.stage_id);
@@ -383,7 +404,6 @@ const AdminFeatureFormPage = () => {
     return {
       title: formData.title || 'Feature Title Preview',
       description: formData.description,
-      internal_notes: formData.internal_notes,
       dependency_details: formData.dependencies,
       category_name: category ? category.name : 'Uncategorized',
       category_icon: category ? category.icon : 'package',
@@ -501,6 +521,7 @@ const AdminFeatureFormPage = () => {
         </div>
       )}
 
+      <div className={styles.pageLayout}>
       <div className={styles.content}>
         <header className={styles.header}>
           <div>
@@ -549,16 +570,18 @@ const AdminFeatureFormPage = () => {
               placeholder="Describe the problem this feature solves and who it is for..."
             />
           </div>
-
-          <div className={styles.field}>
-            <label className={styles.label}>Internal Notes (Admin Only)</label>
-            <p className={styles.fieldHint}>These notes are only visible to administrators and will never appear on the public roadmap.</p>
-            <RichTextEditor
-              value={formData.internal_notes}
-              onChange={(val) => setFormData(prev => ({ ...prev, internal_notes: val }))}
-              placeholder="Add internal planning notes, strategic context, or discussion points..."
+ 
+          {isEdit && (
+            <NotesSummaryPanel
+              featureId={id}
+              initialSummary={notesSummary}
+              notesCount={notes.length}
+              latestNoteActivityAt={getLatestNoteActivityAt(notes)}
+              notes={notes}
+              setNotes={setNotes}
             />
-          </div>
+          )}
+
 
           <div className={styles.row}>
             <div className={styles.field}>
@@ -594,7 +617,7 @@ const AdminFeatureFormPage = () => {
           </div>
 
           {stages.find(s => s.id === formData.stage_id)?.is_rejection_stage && (
-            <div className={styles.field}>
+            <div className={styles.field} ref={rejectionReasonFieldRef}>
               <label className={styles.label}>Reason for Not Proceeding</label>
               <p className={styles.fieldHint}>
                 {formData.rejection_reason_public
@@ -769,9 +792,27 @@ const AdminFeatureFormPage = () => {
           <div className={styles.jiraCard}>
             <h3 className={styles.jiraCardTitle}>Jira Integration</h3>
             <div className={styles.jiraSection}>
-              {formData.jira_issue_key || (formData.jira_child_keys && formData.jira_child_keys.length > 0) ? (
-                <>
-                  <p className={styles.fieldHint}>The following Jira issues are linked to this feature:</p>
+              
+              {/* Upper Section: Centered Push Button and AI Instructions */}
+              <div className={styles.jiraPushContainer}>
+                <p className={styles.jiraPushInstructions}>
+                  Generate a structured Epic and its corresponding child Tasks in Jira using AI, or update the issues if they have already been generated.
+                </p>
+                <button
+                  type="button"
+                  className={styles.jiraBtn}
+                  onClick={() => setShowJiraModal(true)}
+                >
+                  <JiraLogo size={20} className={styles.jiraBtnIcon} />
+                  <span>{formData.jira_issue_key ? 'Re-generate Jira Issues' : 'Generate Jira Issues'}</span>
+                  {jiraDraft && <span className={styles.draftBadge}>· Draft saved</span>}
+                </button>
+              </div>
+
+              {/* Middle Section: Linked Issues */}
+              {Boolean(formData.jira_issue_key || (formData.jira_child_keys && formData.jira_child_keys.length > 0)) && (
+                <div className={styles.jiraLinkedSection}>
+                  <p className={styles.fieldHint}>Linked Jira Issues</p>
                   <ul className={styles.jiraList}>
                     {formData.jira_issue_key && (
                       <li className={styles.jiraItem}>
@@ -834,11 +875,10 @@ const AdminFeatureFormPage = () => {
                       </li>
                     ))}
                   </ul>
-                </>
-              ) : (
-                <p className={styles.fieldHint}>This feature has not been linked to Jira yet.</p>
+                </div>
               )}
-              
+
+              {/* Bottom Section: Link Existing Issue */}
               <div className={styles.linkIssueSection}>
                 <div className={styles.linkIssueSectionHeader}>
                   <span className={styles.linkIssueSectionTitle}>Link an existing issue</span>
@@ -847,27 +887,34 @@ const AdminFeatureFormPage = () => {
                   </p>
                 </div>
                 <div className={styles.linkIssueForm}>
-                  <input
-                    className={styles.linkIssueInput}
-                    value={linkInput}
-                    onChange={e => setLinkInput(e.target.value.toUpperCase())}
-                    onKeyDown={e => e.key === 'Enter' && handleLinkIssue()}
-                    placeholder="e.g. LTD-42"
-                    disabled={isLinking}
-                    maxLength={20}
-                    autoComplete="off"
-                  />
+                  <div className={styles.linkInputWrapper}>
+                    <Link2 size={14} className={styles.linkInputIcon} />
+                    <input
+                      className={styles.linkIssueInput}
+                      value={linkInput}
+                      onChange={e => setLinkInput(e.target.value.toUpperCase())}
+                      onKeyDown={e => e.key === 'Enter' && handleLinkIssue()}
+                      placeholder="e.g. LTD-42"
+                      disabled={isLinking}
+                      maxLength={20}
+                      autoComplete="off"
+                    />
+                  </div>
                   <div className={styles.roleToggle}>
                     <button
                       type="button"
                       className={`${styles.roleBtn}${linkRole === 'primary' ? ' ' + styles.active : ''}`}
                       onClick={() => setLinkRole('primary')}
-                    >Primary</button>
+                    >
+                      Primary Epic
+                    </button>
                     <button
                       type="button"
                       className={`${styles.roleBtn}${linkRole === 'child' ? ' ' + styles.active : ''}`}
                       onClick={() => setLinkRole('child')}
-                    >Child task</button>
+                    >
+                      Child Task
+                    </button>
                   </div>
                   <button
                     type="button"
@@ -875,21 +922,16 @@ const AdminFeatureFormPage = () => {
                     onClick={handleLinkIssue}
                     disabled={isLinking || !linkInput.trim()}
                   >
-                    {isLinking ? 'Linking…' : 'Link'}
+                    {isLinking ? (
+                      'Linking…'
+                    ) : (
+                      <>
+                        <Plus size={14} />
+                        <span>Link Issue</span>
+                      </>
+                    )}
                   </button>
                 </div>
-              </div>
-
-              <div style={{ marginTop: '12px' }}>
-                <button
-                  type="button"
-                  className={styles.jiraBtn}
-                  onClick={() => setShowJiraModal(true)}
-                >
-                  <JiraLogo size={20} className={styles.jiraBtnIcon} />
-                  <span>{formData.jira_issue_key ? 'Push to Jira / Update Issues' : 'Push to Jira'}</span>
-                  {jiraDraft && <span className={styles.draftBadge}>· Draft saved</span>}
-                </button>
               </div>
             </div>
           </div>
@@ -900,6 +942,52 @@ const AdminFeatureFormPage = () => {
             <button type="button" onClick={requestDelete} className={styles.deleteBtn}>Delete Feature</button>
           </div>
         )}
+      </div>
+
+      {isEdit && (
+        <aside className={styles.notesColumn}>
+          <div className={styles.notesColumnInner}>
+            <InternalNotesLog
+              featureId={id}
+              initialSummary={notesSummary}
+              showSummary={false}
+              notes={notes}
+              setNotes={setNotes}
+              collapsible
+            >
+              {hasRejectionReason && (
+                <div className={styles.rejectionCallout}>
+                  <div className={styles.rejectionCalloutHeader}>
+                    <Ban size={14} strokeWidth={2.5} />
+                    <span className={styles.rejectionCalloutLabel}>Not Proceeding</span>
+                    {!formData.rejection_reason_public && (
+                      <span className={styles.rejectionCalloutBadge}>Admin Only</span>
+                    )}
+                    <button
+                      type="button"
+                      className={styles.rejectionCalloutEditBtn}
+                      onClick={editRejectionReason}
+                      aria-label="Edit reason for not proceeding"
+                    >
+                      <Pencil size={12} />
+                      Edit
+                    </button>
+                  </div>
+                  <RichTextViewer
+                    content={formData.rejection_reason}
+                    className={styles.rejectionCalloutContent}
+                  />
+                  {rejectionReasonAt && (
+                    <div className={styles.rejectionCalloutMeta}>
+                      {new Date(rejectionReasonAt).toLocaleDateString('en-AU', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </InternalNotesLog>
+          </div>
+        </aside>
+      )}
       </div>
 
       <div className={styles.stickyFooterArea}>

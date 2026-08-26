@@ -1,4 +1,4 @@
-import { featuresContainer, categoriesContainer, stagesContainer, revisionsContainer, votesContainer, jiraDraftsContainer } from '../db.js';
+import { featuresContainer, categoriesContainer, stagesContainer, revisionsContainer, votesContainer, jiraDraftsContainer, featureNotesContainer } from '../db.js';
 import { v4 as uuidv4 } from 'uuid';
 import slugify from 'slugify';
 import { requireAdmin, requireSuperAdmin, optionalAuthenticate, authenticate } from '../auth.js';
@@ -132,8 +132,7 @@ export default async function featureRoutes(fastify, options) {
       const q = search.toLowerCase();
       const filtered = all.filter(f =>
         (f.title || '').toLowerCase().includes(q) ||
-        (f.description || '').toLowerCase().includes(q) ||
-        (isAdmin && (f.internal_notes || '').toLowerCase().includes(q))
+        (f.description || '').toLowerCase().includes(q)
       );
 
       hasMore = offsetNum + limitNum < filtered.length;
@@ -262,7 +261,6 @@ export default async function featureRoutes(fastify, options) {
         properties: {
           title: { type: 'string', maxLength: 500 },
           description: { type: 'string', maxLength: 100000 },
-          internal_notes: { type: 'string', maxLength: 100000 },
           impact: { type: 'integer', minimum: 1, maximum: 10 },
           effort: { type: 'integer', minimum: 1, maximum: 10 },
           priority: { type: 'string', enum: ['Low', 'Medium', 'High', 'Critical'] },
@@ -284,7 +282,7 @@ export default async function featureRoutes(fastify, options) {
     },
   }, async (request, reply) => {
     const {
-      title, description, internal_notes, category_id, status, stage_id,
+      title, description, category_id, status, stage_id,
       impact, effort, owner, key_stakeholder, priority, is_published, tags, dependencies,
       rejection_reason, rejection_reason_public,
     } = request.body;
@@ -353,7 +351,6 @@ export default async function featureRoutes(fastify, options) {
       title,
       slug,
       description: description ?? '',
-      internal_notes: internal_notes ?? '',
       dependencies: Array.isArray(dependencies) ? dependencies : [],
       status: status ?? stageSlug ?? 'under_review',
       category_id: finalCategoryId,
@@ -412,7 +409,6 @@ export default async function featureRoutes(fastify, options) {
         properties: {
           title: { type: 'string', maxLength: 500 },
           description: { type: 'string', maxLength: 100000 },
-          internal_notes: { type: 'string', maxLength: 100000 },
           impact: { type: 'integer', minimum: 1, maximum: 10 },
           effort: { type: 'integer', minimum: 1, maximum: 10 },
           priority: { type: 'string', enum: ['Low', 'Medium', 'High', 'Critical'] },
@@ -435,7 +431,7 @@ export default async function featureRoutes(fastify, options) {
   }, async (request, reply) => {
     const { id } = request.params;
     const {
-      title, description, internal_notes, category_id, status, impact, effort,
+      title, description, category_id, status, impact, effort,
       owner, key_stakeholder, priority, pinned, tags, dependencies, stage_id, is_published, is_reviewed,
       rejection_reason, rejection_reason_public,
     } = request.body;
@@ -462,10 +458,6 @@ export default async function featureRoutes(fastify, options) {
     if (description !== undefined && description !== oldFeature.description) {
       changesObj.description = { updated: true };
       updated.description = description;
-    }
-    if (internal_notes !== undefined && internal_notes !== oldFeature.internal_notes) {
-      changesObj.internal_notes = { updated: true };
-      updated.internal_notes = internal_notes;
     }
     if (dependencies !== undefined) {
       changesObj.dependencies = { updated: true };
@@ -731,6 +723,22 @@ export default async function featureRoutes(fastify, options) {
       } catch (err) {
         cascadeErrors.push({ type: 'revision', id: r.id, error: err.message });
         request.log.error({ err }, `Failed to cascade-delete revision ${r.id} for feature ${id}`);
+      }
+    }));
+
+    // Cascade-delete note log entries
+    const { resources: notesForDelete } = await featureNotesContainer.items
+      .query(
+        { query: 'SELECT c.id FROM c WHERE c.featureId = @fid', parameters: [{ name: '@fid', value: id }] },
+        { enableCrossPartitionQuery: true }
+      )
+      .fetchAll();
+    await Promise.all(notesForDelete.map(async (n) => {
+      try {
+        await featureNotesContainer.item(n.id, id).delete();
+      } catch (err) {
+        cascadeErrors.push({ type: 'note', id: n.id, error: err.message });
+        request.log.error({ err }, `Failed to cascade-delete note ${n.id} for feature ${id}`);
       }
     }));
 

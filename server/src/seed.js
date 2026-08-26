@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import slugify from 'slugify';
-import { initDb, categoriesContainer, stagesContainer, featuresContainer, votesContainer, revisionsContainer } from './db.js';
+import { initDb, categoriesContainer, stagesContainer, featuresContainer, votesContainer, revisionsContainer, featureNotesContainer } from './db.js';
 
 /**
  * Upsert helper — creates the document or silently ignores a 409 Conflict
@@ -21,7 +21,7 @@ const seed = async () => {
   await initDb();
 
   // 1. Clear existing data (delete all items in each container)
-  for (const container of [votesContainer, revisionsContainer, featuresContainer, categoriesContainer]) {
+  for (const container of [votesContainer, revisionsContainer, featureNotesContainer, featuresContainer, categoriesContainer]) {
     const { resources } = await container.items
       .query('SELECT c.id, c.featureId FROM c', { enableCrossPartitionQuery: true })
       .fetchAll();
@@ -138,14 +138,6 @@ const seed = async () => {
       title: f.title,
       slug: slugify(f.title, { lower: true, strict: true }),
       description: `This is a highly requested feature for the ${cat.name} ecosystem. Implementing this will significantly improve institutional efficiency and student engagement.`,
-      internal_notes: `**Strategic Assessment (Admin Only)**
-
-- **Viability:** High — aligns with current tech stack and available resources
-- **Timeline target:** Q3 2026
-- **Dependencies:** Awaiting ${cat.name} API upgrade completion
-- **Risk level:** Low
-
-_Internal planning notes — students will not see this content._`,
       status: f.status,
       category_id:    cat.id,
       category_name:  cat.name,
@@ -174,6 +166,18 @@ _Internal planning notes — students will not see this content._`,
     };
 
     await upsert(featuresContainer, doc);
+
+    await upsert(featureNotesContainer, {
+      id: uuidv4(),
+      featureId: doc.id,
+      content: `Strategic assessment: viability is high and aligns with the current tech stack. Target timeline is Q3 2026, pending completion of the ${cat.name} API upgrade. Risk level is low.`,
+      authorId: 'seed-admin',
+      authorName: 'System Admin',
+      authorEmail: 'admin@griffith.edu.au',
+      createdAt: now,
+      updatedAt: null,
+      edited: false,
+    });
   }
 
   console.log(`✅ Seeded ${featureSeeds.length} features across ${categorySeeds.length} categories.`);
