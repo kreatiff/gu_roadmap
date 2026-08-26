@@ -147,3 +147,4 @@ server/data/*.sqlite-wal
 
 .agents
 .agents/*
+/server/data/backups
