@@ -1,5 +1,5 @@
 import { Ban } from 'lucide-react';
-import RichTextViewer from './RichTextViewer';
+import RichTextViewer, { getPlainTextFromRichText } from './RichTextViewer';
 import CategoryIcon from './CategoryIcon';
 import VerifiedBadge from './VerifiedBadge';
 import InternalNotesLog from './InternalNotesLog/InternalNotesLog';
@@ -15,13 +15,18 @@ import styles from './FeatureDetailView.module.css';
 const FeatureDetailView = ({ feature, closeButton = null, isAdmin = false }) => {
   if (!feature) return null;
 
+  // A rich-text field can hold a non-empty JSON doc (e.g. an empty paragraph)
+  // even after all visible text is deleted, so compare the extracted plain
+  // text rather than the raw value.
+  const hasRejectionReason = !!getPlainTextFromRichText(feature.rejection_reason)?.trim();
+
   return (
     <div 
       className={styles.viewCard} 
       style={{ '--modal-accent': feature.category_color || '#e8341c' }}
     >
       <div className={styles.header}>
-        {feature.rejection_reason && (
+        {hasRejectionReason && (
           <div className={styles.rejectionCallout}>
             <div className={styles.rejectionCalloutHeader}>
               <Ban size={14} strokeWidth={2.5} />

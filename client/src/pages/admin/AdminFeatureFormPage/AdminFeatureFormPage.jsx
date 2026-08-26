@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import AdminLayout from '../../../components/AdminLayout';
 import RichTextEditor from '../../../components/RichTextEditor';
-import RichTextViewer from '../../../components/RichTextViewer';
+import RichTextViewer, { getPlainTextFromRichText } from '../../../components/RichTextViewer';
 import FeatureDetailView from '../../../components/FeatureDetailView';
 import InternalNotesLog from '../../../components/InternalNotesLog/InternalNotesLog';
 import NotesSummaryPanel from '../../../components/NotesSummaryPanel/NotesSummaryPanel';
@@ -19,7 +19,7 @@ import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { calculateGravityScore } from '@shared/lib/gravityScore.js';
 import { useToast } from '../../../contexts/ToastContext';
-import { Eye, Clock, AlertTriangle, ExternalLink, Unlink, Zap, Link2, Plus, Ban } from 'lucide-react';
+import { Eye, Clock, AlertTriangle, ExternalLink, Unlink, Zap, Link2, Plus, Ban, Pencil } from 'lucide-react';
 import { useEditLock } from './useEditLock';
 import PushToJiraModal from '../../../components/PushToJiraModal/PushToJiraModal';
 import { fetchJiraConfig, fetchJiraDraft, unlinkJiraFeature, fetchJiraIssues, linkJiraIssue } from '../../../api/jira';
@@ -92,6 +92,7 @@ const AdminFeatureFormPage = () => {
   const skipDirtyRef = useRef(false);
   const abortedRef = useRef(false);
   const formRef = useRef(null);
+  const rejectionReasonFieldRef = useRef(null);
   const { otherEditor } = useEditLock(isEdit ? id : null);
 
   // Mark dirty on any form change after initial load
@@ -293,6 +294,11 @@ const AdminFeatureFormPage = () => {
     setConfirmDialog({ isOpen: true, type: 'delete' });
   };
 
+  const editRejectionReason = () => {
+    rejectionReasonFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    rejectionReasonFieldRef.current?.querySelector('[contenteditable="true"]')?.focus();
+  };
+
   const executeDelete = async () => {
     try {
       await deleteFeature(id);
@@ -385,6 +391,11 @@ const AdminFeatureFormPage = () => {
   const calculatedScore = useMemo(() => {
     return calculateGravityScore(formData.impact, formData.effort, formData.priority);
   }, [formData.impact, formData.effort, formData.priority]);
+
+  // A rich-text field can hold a non-empty JSON doc (e.g. an empty paragraph)
+  // even after the user has deleted all visible text, so a truthy check on
+  // the raw value isn't enough — compare the extracted plain text instead.
+  const hasRejectionReason = !!getPlainTextFromRichText(formData.rejection_reason)?.trim();
 
   const previewFeature = useMemo(() => {
     const category = categories.find(c => c.id === formData.category_id);
@@ -606,7 +617,7 @@ const AdminFeatureFormPage = () => {
           </div>
 
           {stages.find(s => s.id === formData.stage_id)?.is_rejection_stage && (
-            <div className={styles.field}>
+            <div className={styles.field} ref={rejectionReasonFieldRef}>
               <label className={styles.label}>Reason for Not Proceeding</label>
               <p className={styles.fieldHint}>
                 {formData.rejection_reason_public
@@ -936,26 +947,6 @@ const AdminFeatureFormPage = () => {
       {isEdit && (
         <aside className={styles.notesColumn}>
           <div className={styles.notesColumnInner}>
-            {formData.rejection_reason && (
-              <div className={styles.rejectionCallout}>
-                <div className={styles.rejectionCalloutHeader}>
-                  <Ban size={14} strokeWidth={2.5} />
-                  <span className={styles.rejectionCalloutLabel}>Not Proceeding</span>
-                  {!formData.rejection_reason_public && (
-                    <span className={styles.rejectionCalloutBadge}>Admin Only</span>
-                  )}
-                </div>
-                <RichTextViewer
-                  content={formData.rejection_reason}
-                  className={styles.rejectionCalloutContent}
-                />
-                {rejectionReasonAt && (
-                  <div className={styles.rejectionCalloutMeta}>
-                    {new Date(rejectionReasonAt).toLocaleDateString('en-AU', { month: 'short', day: 'numeric', year: 'numeric' })}
-                  </div>
-                )}
-              </div>
-            )}
             <InternalNotesLog
               featureId={id}
               initialSummary={notesSummary}
@@ -963,7 +954,37 @@ const AdminFeatureFormPage = () => {
               notes={notes}
               setNotes={setNotes}
               collapsible
-            />
+            >
+              {hasRejectionReason && (
+                <div className={styles.rejectionCallout}>
+                  <div className={styles.rejectionCalloutHeader}>
+                    <Ban size={14} strokeWidth={2.5} />
+                    <span className={styles.rejectionCalloutLabel}>Not Proceeding</span>
+                    {!formData.rejection_reason_public && (
+                      <span className={styles.rejectionCalloutBadge}>Admin Only</span>
+                    )}
+                    <button
+                      type="button"
+                      className={styles.rejectionCalloutEditBtn}
+                      onClick={editRejectionReason}
+                      aria-label="Edit reason for not proceeding"
+                    >
+                      <Pencil size={12} />
+                      Edit
+                    </button>
+                  </div>
+                  <RichTextViewer
+                    content={formData.rejection_reason}
+                    className={styles.rejectionCalloutContent}
+                  />
+                  {rejectionReasonAt && (
+                    <div className={styles.rejectionCalloutMeta}>
+                      {new Date(rejectionReasonAt).toLocaleDateString('en-AU', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </InternalNotesLog>
           </div>
         </aside>
       )}

@@ -42,7 +42,6 @@
 }
 
 .rejectionCallout {
-  margin-bottom: 20px;
   padding: 16px 20px;
   background-color: #fef2f2;
   border: 1px solid #fecaca;
@@ -56,6 +55,28 @@
   gap: 8px;
   margin-bottom: 10px;
   color: #b91c1c;
+}
+
+.rejectionCalloutEditBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  padding: 3px 8px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #b91c1c;
+  background: transparent;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.rejectionCalloutEditBtn:hover {
+  background-color: #fecaca;
 }
 
 .rejectionCalloutLabel {
