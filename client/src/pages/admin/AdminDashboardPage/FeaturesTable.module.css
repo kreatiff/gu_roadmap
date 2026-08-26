@@ -253,6 +253,28 @@
   letter-spacing: 0;
 }
 
+.rejectionChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  margin-top: 4px;
+  padding: 3px 8px;
+  border-radius: 100px;
+  border: 1px solid var(--error-bg, #fee2e2);
+  background-color: var(--error-bg, #fef2f2);
+  color: var(--error-color, #dc2626);
+  font-size: 0.625rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+  white-space: nowrap;
+}
+
+.rejectionChip:hover {
+  opacity: 0.85;
+}
+
 /* Gravity badge */
 .gravityBadge {
   display: inline-flex;

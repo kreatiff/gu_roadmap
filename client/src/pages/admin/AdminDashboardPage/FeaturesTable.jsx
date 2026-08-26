@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, GripVertical } from 'lucide-react';
+import { ChevronRight, GripVertical, Ban } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import VerifiedBadge from '../../../components/VerifiedBadge';
 import { updateStageSortOrders } from '../../../api/features';
@@ -103,9 +103,12 @@ const SortHeader = ({ label, sortKey, width, textAlign = 'left', sortConfig, onS
   );
 };
 
-const FeaturesTable = ({ features, stages, onUpdateFeatureField, groupBy = 'category', onReorder }) => {
+const FeaturesTable = ({ features, stages, onUpdateFeatureField, onEditRejectionReason, groupBy = 'category', onReorder }) => {
 
   const isReorderable = groupBy === 'status';
+
+  const isRejectionStage = (feat) =>
+    Boolean(stages.find(s => s.id === feat.stage_id)?.is_rejection_stage);
 
   const [expandedGroups, setExpandedGroups] = useState({});
   const [sortConfig, setSortConfig] = useState({ key: 'stage_sort_order', direction: 'asc' });
@@ -307,6 +310,16 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, groupBy = 'cate
                                   stages={stages}
                                   onChange={(newStageId) => onUpdateFeatureField(feat.id, 'stage_id', newStageId)} 
                                 />
+                                {isRejectionStage(feat) && onEditRejectionReason && (
+                                  <button
+                                    type="button"
+                                    className={styles.rejectionChip}
+                                    onClick={() => onEditRejectionReason(feat)}
+                                  >
+                                    <Ban size={11} strokeWidth={2.5} />
+                                    {feat.rejection_reason ? 'Edit reason' : '+ Add reason'}
+                                  </button>
+                                )}
                               </td>
                               <td className={styles.td}>
                                 <PrioritySelect 
@@ -367,6 +380,16 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, groupBy = 'cate
                       stages={stages}
                       onChange={(newStageId) => onUpdateFeatureField(feat.id, 'stage_id', newStageId)} 
                     />
+                    {isRejectionStage(feat) && onEditRejectionReason && (
+                      <button
+                        type="button"
+                        className={styles.rejectionChip}
+                        onClick={() => onEditRejectionReason(feat)}
+                      >
+                        <Ban size={11} strokeWidth={2.5} />
+                        {feat.rejection_reason ? 'Edit reason' : '+ Add reason'}
+                      </button>
+                    )}
                   </td>
                   <td className={styles.td}>
                     <PrioritySelect 

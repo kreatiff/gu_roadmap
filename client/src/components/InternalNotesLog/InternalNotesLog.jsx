@@ -87,6 +87,7 @@ const InternalNotesLog = ({
   notes: propNotes,
   setNotes: propSetNotes,
   collapsible = false,
+  children,
 }) => {
   const { user } = useAuth();
   const { addToast } = useToast();
@@ -305,6 +306,8 @@ const InternalNotesLog = ({
           {posting ? 'Posting…' : 'Add note'}
         </button>
       </div>
+
+      {children}
 
       {loading ? (
         <p className={styles.loading}>Loading notes…</p>

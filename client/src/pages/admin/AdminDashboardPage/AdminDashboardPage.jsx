@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Search, X, Eye, EyeOff } from 'lucide-react';
+import { Plus, Search, X, Eye, EyeOff, Ban } from 'lucide-react';
 import AdminLayout from '../../../components/AdminLayout';
 import VerifiedBadge from '../../../components/VerifiedBadge';
 import FilterDropdown from '../../../components/FilterDropdown/FilterDropdown';
@@ -12,6 +12,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useToast } from '../../../contexts/ToastContext';
 import { useDebounce } from '../../../hooks/useDebounce';
 import FeaturesTable from './FeaturesTable';
+import RejectionReasonDialog from '../../../components/RejectionReasonDialog/RejectionReasonDialog';
 import styles from './AdminDashboardPage.module.css';
 
 const AdminDashboardPage = () => {
@@ -243,12 +244,83 @@ const AdminDashboardPage = () => {
     fetchFeatures();
   }, []);
 
+  // Rejection-reason dialog: shared by the kanban drag, the table's status
+  // dropdown, and the post-hoc "add/edit reason" affordance on items already
+  // sitting in a rejection stage. `patch` holds whatever stage-change fields
+  // (if any) should be committed alongside the reason.
+  const [rejectionDialog, setRejectionDialog] = useState(null);
+  const isRejectionStage = (stageId) => Boolean(stages.find(s => s.id === stageId)?.is_rejection_stage);
+
+  // Applies `patch` to local state (if the feature is already loaded) and persists it.
+  const commitStageChange = async (featureId, patch, successMessage) => {
+    const idx = features.findIndex(f => f.id.toString() === featureId.toString());
+    if (idx !== -1) {
+      const newFeatures = [...features];
+      newFeatures[idx] = { ...newFeatures[idx], ...patch };
+      setFeatures(newFeatures);
+    }
+    try {
+      await updateFeature(featureId, patch);
+      if (successMessage) addToast(successMessage, 'success');
+    } catch {
+      addToast('Failed to update feature', 'error');
+      fetchFeatures();
+    }
+  };
+
+  const openRejectionEditor = (feature) => {
+    setRejectionDialog({
+      mode: 'edit',
+      featureId: feature.id,
+      patch: {},
+      stageName: feature.stage_name || 'this stage',
+      featureTitle: feature.title,
+      initialReason: feature.rejection_reason || '',
+      initialPublic: Boolean(feature.rejection_reason_public),
+    });
+  };
+
+  const closeRejectionDialog = () => setRejectionDialog(null);
+
+  const handleRejectionConfirm = async (reason, isPublic) => {
+    if (!rejectionDialog) return;
+    const { featureId, patch, stageName } = rejectionDialog;
+    await commitStageChange(
+      featureId,
+      { ...patch, rejection_reason: reason, rejection_reason_public: isPublic },
+      patch.stage_id !== undefined ? `Moved to ${stageName}` : 'Reason updated'
+    );
+    closeRejectionDialog();
+  };
+
+  const handleRejectionCancel = () => {
+    if (rejectionDialog?.mode === 'move') {
+      // The drag already optimistically moved the card — undo by refetching.
+      fetchFeatures();
+    }
+    closeRejectionDialog();
+  };
+
   const onUpdateFeatureField = async (featureId, field, newValue) => {
     const featureIdx = features.findIndex(f => f.id.toString() === featureId.toString());
     if (featureIdx === -1) return;
 
     const oldFeature = features[featureIdx];
     if (oldFeature[field] === newValue) return;
+
+    if (field === 'stage_id' && isRejectionStage(newValue)) {
+      const destStage = stages.find(s => s.id === newValue);
+      setRejectionDialog({
+        mode: 'move',
+        featureId,
+        patch: { stage_id: newValue },
+        stageName: destStage?.name || 'this stage',
+        featureTitle: oldFeature.title,
+        initialReason: '',
+        initialPublic: false,
+      });
+      return;
+    }
 
     const newFeatures = [...features];
     newFeatures[featureIdx] = { ...oldFeature, [field]: newValue };
@@ -334,12 +406,29 @@ const AdminDashboardPage = () => {
       };
       setFeatures(newFeatures);
 
-      try {
-        await updateFeature(draggableIdStr, {
-          stage_id: newStageId,
-          status: destStage?.slug,
-          stage_sort_order: newSortOrder,
+      const stagePatch = {
+        stage_id: newStageId,
+        status: destStage?.slug,
+        stage_sort_order: newSortOrder,
+      };
+
+      if (destStage?.is_rejection_stage) {
+        // Card is already optimistically in the new column — collect the
+        // reason (or Skip) before persisting the move.
+        setRejectionDialog({
+          mode: 'move',
+          featureId: draggableIdStr,
+          patch: stagePatch,
+          stageName: destStage?.name || 'this stage',
+          featureTitle: oldFeature.title,
+          initialReason: '',
+          initialPublic: false,
         });
+        return;
+      }
+
+      try {
+        await updateFeature(draggableIdStr, stagePatch);
         addToast(`Moved to ${destStage?.name || 'new stage'}`, 'success');
       } catch {
         addToast('Failed to move feature', 'error');
@@ -627,6 +716,7 @@ const AdminDashboardPage = () => {
               features={filteredFeatures}
               stages={stages}
               onUpdateFeatureField={onUpdateFeatureField}
+              onEditRejectionReason={openRejectionEditor}
               groupBy={groupBy}
               onReorder={handleFeatureReorder}
             />
@@ -719,6 +809,16 @@ const AdminDashboardPage = () => {
                                             </div>
                                         </div>
                                     </div>
+                                    {col.is_rejection_stage && (
+                                      <button
+                                        type="button"
+                                        className={styles.rejectionChip}
+                                        onClick={(e) => { e.stopPropagation(); openRejectionEditor(feat); }}
+                                      >
+                                        <Ban size={12} strokeWidth={2.5} />
+                                        {feat.rejection_reason ? 'Edit reason' : '+ Add reason'}
+                                      </button>
+                                    )}
                                   </div>
                                 )}
                               </Draggable>
@@ -735,6 +835,19 @@ const AdminDashboardPage = () => {
           )}
         </div>
       </div>
+
+      {rejectionDialog && (
+        <RejectionReasonDialog
+          key={rejectionDialog.featureId}
+          mode={rejectionDialog.mode}
+          stageName={rejectionDialog.stageName}
+          featureTitle={rejectionDialog.featureTitle}
+          initialReason={rejectionDialog.initialReason}
+          initialPublic={rejectionDialog.initialPublic}
+          onConfirm={handleRejectionConfirm}
+          onCancel={handleRejectionCancel}
+        />
+      )}
     </AdminLayout>
   );
 };

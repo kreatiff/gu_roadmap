@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import AdminLayout from '../../../components/AdminLayout';
 import RichTextEditor from '../../../components/RichTextEditor';
+import RichTextViewer, { getPlainTextFromRichText } from '../../../components/RichTextViewer';
 import FeatureDetailView from '../../../components/FeatureDetailView';
 import InternalNotesLog from '../../../components/InternalNotesLog/InternalNotesLog';
 import NotesSummaryPanel from '../../../components/NotesSummaryPanel/NotesSummaryPanel';
@@ -18,7 +19,7 @@ import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { calculateGravityScore } from '@shared/lib/gravityScore.js';
 import { useToast } from '../../../contexts/ToastContext';
-import { Eye, Clock, AlertTriangle, ExternalLink, Unlink, Zap, Link2, Plus } from 'lucide-react';
+import { Eye, Clock, AlertTriangle, ExternalLink, Unlink, Zap, Link2, Plus, Ban, Pencil } from 'lucide-react';
 import { useEditLock } from './useEditLock';
 import PushToJiraModal from '../../../components/PushToJiraModal/PushToJiraModal';
 import { fetchJiraConfig, fetchJiraDraft, unlinkJiraFeature, fetchJiraIssues, linkJiraIssue } from '../../../api/jira';
@@ -64,6 +65,7 @@ const AdminFeatureFormPage = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [notesSummary, setNotesSummary] = useState(null);
   const [notes, setNotes] = useState([]);
+  const [rejectionReasonAt, setRejectionReasonAt] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -71,6 +73,8 @@ const AdminFeatureFormPage = () => {
     status: 'under_review',
     stage_id: '',
     pinned: false,
+    rejection_reason: '',
+    rejection_reason_public: false,
     tags: [],
     impact: 5,
     effort: 5,
@@ -88,6 +92,7 @@ const AdminFeatureFormPage = () => {
   const skipDirtyRef = useRef(false);
   const abortedRef = useRef(false);
   const formRef = useRef(null);
+  const rejectionReasonFieldRef = useRef(null);
   const { otherEditor } = useEditLock(isEdit ? id : null);
 
   // Mark dirty on any form change after initial load
@@ -198,6 +203,7 @@ const AdminFeatureFormPage = () => {
           if (feature) {
             if (abortedRef.current) return;
             setNotesSummary(feature.notes_summary || null);
+            setRejectionReasonAt(feature.rejection_reason_at || null);
             setFormData({
               title: feature.title,
               description: feature.description,
@@ -205,6 +211,8 @@ const AdminFeatureFormPage = () => {
               status: feature.status,
               stage_id: feature.stage_id || '',
               pinned: feature.pinned,
+              rejection_reason: feature.rejection_reason || '',
+              rejection_reason_public: feature.rejection_reason_public ?? false,
               tags: typeof feature.tags === 'string' ? (() => { try { return JSON.parse(feature.tags); } catch { return []; } })() : feature.tags || [],
               impact: feature.impact || 1,
               effort: feature.effort || 1,
@@ -284,6 +292,11 @@ const AdminFeatureFormPage = () => {
 
   const requestDelete = () => {
     setConfirmDialog({ isOpen: true, type: 'delete' });
+  };
+
+  const editRejectionReason = () => {
+    rejectionReasonFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    rejectionReasonFieldRef.current?.querySelector('[contenteditable="true"]')?.focus();
   };
 
   const executeDelete = async () => {
@@ -379,6 +392,11 @@ const AdminFeatureFormPage = () => {
     return calculateGravityScore(formData.impact, formData.effort, formData.priority);
   }, [formData.impact, formData.effort, formData.priority]);
 
+  // A rich-text field can hold a non-empty JSON doc (e.g. an empty paragraph)
+  // even after the user has deleted all visible text, so a truthy check on
+  // the raw value isn't enough — compare the extracted plain text instead.
+  const hasRejectionReason = !!getPlainTextFromRichText(formData.rejection_reason)?.trim();
+
   const previewFeature = useMemo(() => {
     const category = categories.find(c => c.id === formData.category_id);
     const stage = stages.find(s => s.id === formData.stage_id);
@@ -393,7 +411,9 @@ const AdminFeatureFormPage = () => {
       stage_id: formData.stage_id,
       stage_name: stage ? stage.name : 'Unknown Status',
       stage_color: stage ? stage.color : '#94a3b8',
-      tags: formData.tags
+      tags: formData.tags,
+      rejection_reason: formData.rejection_reason,
+      rejection_reason_public: formData.rejection_reason_public
     };
   }, [formData, categories, stages]);
 
@@ -595,6 +615,34 @@ const AdminFeatureFormPage = () => {
               </select>
             </div>
           </div>
+
+          {stages.find(s => s.id === formData.stage_id)?.is_rejection_stage && (
+            <div className={styles.field} ref={rejectionReasonFieldRef}>
+              <label className={styles.label}>Reason for Not Proceeding</label>
+              <p className={styles.fieldHint}>
+                {formData.rejection_reason_public
+                  ? 'This reason is shown on the public roadmap.'
+                  : 'This reason is admin-only and hidden from the public roadmap.'}
+              </p>
+              <RichTextEditor
+                value={formData.rejection_reason}
+                onChange={(val) => setFormData(prev => ({ ...prev, rejection_reason: val }))}
+                placeholder="Explain why this item isn't moving forward..."
+              />
+              <div className={styles.fieldRow} style={{ marginTop: '0.5rem' }}>
+                <input
+                  type="checkbox"
+                  id="rejection_reason_public"
+                  checked={formData.rejection_reason_public}
+                  onChange={(e) => setFormData(prev => ({ ...prev, rejection_reason_public: e.target.checked }))}
+                  className={styles.checkbox}
+                />
+                <label htmlFor="rejection_reason_public" className={styles.checkboxLabel}>
+                  Show this reason on the public roadmap
+                </label>
+              </div>
+            </div>
+          )}
 
           <div className={styles.row}>
             <div className={styles.field}>
@@ -906,7 +954,37 @@ const AdminFeatureFormPage = () => {
               notes={notes}
               setNotes={setNotes}
               collapsible
-            />
+            >
+              {hasRejectionReason && (
+                <div className={styles.rejectionCallout}>
+                  <div className={styles.rejectionCalloutHeader}>
+                    <Ban size={14} strokeWidth={2.5} />
+                    <span className={styles.rejectionCalloutLabel}>Not Proceeding</span>
+                    {!formData.rejection_reason_public && (
+                      <span className={styles.rejectionCalloutBadge}>Admin Only</span>
+                    )}
+                    <button
+                      type="button"
+                      className={styles.rejectionCalloutEditBtn}
+                      onClick={editRejectionReason}
+                      aria-label="Edit reason for not proceeding"
+                    >
+                      <Pencil size={12} />
+                      Edit
+                    </button>
+                  </div>
+                  <RichTextViewer
+                    content={formData.rejection_reason}
+                    className={styles.rejectionCalloutContent}
+                  />
+                  {rejectionReasonAt && (
+                    <div className={styles.rejectionCalloutMeta}>
+                      {new Date(rejectionReasonAt).toLocaleDateString('en-AU', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </InternalNotesLog>
           </div>
         </aside>
       )}

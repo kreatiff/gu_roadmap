@@ -1,0 +1,26 @@
+.editorWrapper {
+  margin-bottom: 1rem;
+  max-height: 260px;
+  overflow-y: auto;
+  border-radius: var(--radius-md, 6px);
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.875rem;
+  color: var(--text-secondary, #4b5563);
+  cursor: pointer;
+}
+
+.checkboxRow input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.dialog {
+  max-width: 520px;
+}
