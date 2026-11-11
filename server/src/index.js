@@ -1,4 +1,11 @@
+import net from 'net';
 import fastify from 'fastify';
+
+// Node 22 tries each resolved IPv6/IPv4 address for only 250ms before moving on
+// ("happy eyeballs"). On hosts with broken IPv6 or a slow first connect, every
+// attempt times out and outbound fetch() fails with ETIMEDOUT, which broke the
+// Google OIDC token exchange. Give each attempt a realistic window instead.
+net.setDefaultAutoSelectFamilyAttemptTimeout(2500);
 import cors from '@fastify/cors';
 import jwt from '@fastify/jwt';
 import cookie from '@fastify/cookie';
