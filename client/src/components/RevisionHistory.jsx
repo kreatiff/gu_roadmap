@@ -17,6 +17,7 @@ const FieldMap = {
   status: 'Status',
   stage_id: 'Stage',
   pinned: 'Pinned Status',
+  flagged_for_discussion: 'Discussion Flag',
   tags: 'Tags',
   impact: 'Impact',
   effort: 'Effort',
@@ -60,7 +61,7 @@ const RevisionHistory = ({ isOpen, onClose, revisions, categories = [], stages =
     } else if (fieldKey === 'stage_id') {
       old = getStageName(old);
       newVal = getStageName(newVal);
-    } else if (typeof old === 'boolean') {
+    } else if (typeof old === 'boolean' || typeof newVal === 'boolean') {
       old = old ? 'Yes' : 'No';
       newVal = newVal ? 'Yes' : 'No';
     }
