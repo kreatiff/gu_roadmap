@@ -455,6 +455,11 @@
   transform: translateY(-1px);
 }
 
+.cardFlagged {
+  background-color: #fffbeb;
+  border-left: 3px solid #d97706;
+}
+
 /* Inner click area — flex column for consistent spacing */
 .cardBody {
   display: flex;
@@ -493,6 +498,19 @@
   color: #1d9bf0;
   flex-shrink: 0;
   vertical-align: middle;
+}
+
+.discussBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background-color: #fef3c7;
+  color: #92400e;
+  flex-shrink: 0;
 }
 
 /* Priority badge — soft fill, coloured text (see priority classes below) */
