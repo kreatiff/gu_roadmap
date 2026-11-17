@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Clock, X } from 'lucide-react';
 import styles from './RevisionHistory.module.css';
 
@@ -69,7 +70,10 @@ const RevisionHistory = ({ isOpen, onClose, revisions, categories = [], stages =
     return <li>Changed {fieldName} from "{old}" to "{newVal}"</li>;
   };
 
-  return (
+  // Portalled to <body>: the modal is used inside stacking contexts (the feature form is
+  // position: relative; z-index: 1) where its own z-index could not lift it above siblings
+  // such as the sticky notes column and footer.
+  return createPortal(
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={e => e.stopPropagation()}>
         <div className={styles.header}>
@@ -115,7 +119,8 @@ const RevisionHistory = ({ isOpen, onClose, revisions, categories = [], stages =
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
