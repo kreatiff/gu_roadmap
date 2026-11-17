@@ -11,6 +11,9 @@ services:
       - PORT=${PORT:-3001}
       - NODE_ENV=${NODE_ENV:-production}
       - TZ=Australia/Brisbane
+      # Host has no IPv6 route and Node's default 250ms per-address timeout is too
+      # short for the IPv4 handshake to Google, which breaks OIDC discovery (ETIMEDOUT).
+      - NODE_OPTIONS=--no-network-family-autoselection --dns-result-order=ipv4first
       - JWT_SECRET=${JWT_SECRET}
       - COOKIE_SECRET=${COOKIE_SECRET}
       - CLIENT_ORIGIN=${CLIENT_ORIGIN}
