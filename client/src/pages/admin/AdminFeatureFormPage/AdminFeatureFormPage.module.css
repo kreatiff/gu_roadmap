@@ -98,7 +98,7 @@
 }
 
 .discussIcon {
-  color: #b45309;
+  color: #047857;
   vertical-align: middle;
   margin-right: 2px;
 }
@@ -109,13 +109,13 @@
   gap: 8px;
   margin: -4px 0 var(--space-4) 26px;
   padding: 10px 14px;
-  background-color: #fef3c7;
-  border-left: 3px solid #d97706;
+  background-color: #d1fae5;
+  border-left: 3px solid #10b981;
   border-radius: 0;
 }
 
 .discussionNudgeIcon {
-  color: #92400e;
+  color: #065f46;
   flex-shrink: 0;
   margin-top: 2px;
 }
@@ -123,14 +123,14 @@
 .discussionNudgeTitle {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #92400e;
+  color: #065f46;
   margin: 0 0 4px;
 }
 
 .discussionNudgeLink {
   font-size: 0.75rem;
   font-weight: 700;
-  color: #92400e;
+  color: #065f46;
   background: transparent;
   border: none;
   padding: 0;
@@ -140,7 +140,7 @@
 
 .discussionNudgeHint {
   font-size: 0.75rem;
-  color: #92400e;
+  color: #065f46;
   margin: 0;
 }
 

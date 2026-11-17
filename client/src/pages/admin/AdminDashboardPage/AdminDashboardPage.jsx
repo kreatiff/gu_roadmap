@@ -55,7 +55,9 @@ const AdminDashboardPage = () => {
     parseArrayParam(searchParams.get('priority')) || savedPrefs.selectedPriorities || []
   );
   const [selectedReviewed, setSelectedReviewed] = useState(searchParams.get('reviewed') || savedPrefs.selectedReviewed || '');
-  const [selectedFlagged, setSelectedFlagged] = useState(searchParams.get('discussion') || savedPrefs.selectedFlagged || '');
+  const [selectedFlagged, setSelectedFlagged] = useState(
+    (searchParams.get('discussion') || savedPrefs.selectedFlagged) === 'true' ? 'true' : ''
+  );
   const [showAllStages, setShowAllStages] = useState(() => {
     return savedPrefs.showAllStages !== undefined ? savedPrefs.showAllStages : false;
   });
@@ -137,7 +139,7 @@ const AdminDashboardPage = () => {
 
       const matchesReviewed = !selectedReviewed || (selectedReviewed === 'true' ? !!f.is_reviewed : !f.is_reviewed);
 
-      const matchesFlagged = !selectedFlagged || (selectedFlagged === 'true' ? !!f.flagged_for_discussion : !f.flagged_for_discussion);
+      const matchesFlagged = !selectedFlagged || !!f.flagged_for_discussion;
 
       // Filter out features in hidden columns
       const belongsToCollapsed = collapsedColumnIds.length > 0 && (
@@ -207,7 +209,7 @@ const AdminDashboardPage = () => {
     });
     if (selectedFlagged) chips.push({
       key: 'flagged',
-      label: selectedFlagged === 'true' ? 'Flagged for Discussion' : 'Not Flagged',
+      label: 'Flagged for Discussion',
       onRemove: () => setSelectedFlagged('')
     });
     if (collapsedColumnIds.length > 0) {
@@ -561,6 +563,26 @@ const AdminDashboardPage = () => {
               </button>
             </div>
 
+            {/* Discussion toggle */}
+            <div className={styles.viewToggleGroup}>
+              <button
+                className={!selectedFlagged ? styles.viewToggleBtnActive : styles.viewToggleBtn}
+                onClick={() => setSelectedFlagged('')}
+                title="Show all items"
+                type="button"
+              >
+                All items
+              </button>
+              <button
+                className={selectedFlagged ? styles.viewToggleBtnActive : styles.viewToggleBtn}
+                onClick={() => setSelectedFlagged('true')}
+                title="Show only items flagged for discussion"
+                type="button"
+              >
+                Flagged
+              </button>
+            </div>
+
             <div className={styles.filterDivider} />
 
             {/* Multiselect dropdowns */}
@@ -634,36 +656,6 @@ const AdminDashboardPage = () => {
                     type="button"
                   >
                     Not Reviewed
-                  </button>
-                </div>
-              </FilterDropdown>
-
-              <FilterDropdown
-                label="Discussion"
-                selectedCount={selectedFlagged ? 1 : 0}
-                type="discussion"
-              >
-                <div className={styles.selectList}>
-                  <button
-                    className={`${styles.selectOption} ${selectedFlagged === '' ? styles.selectOptionActive : ''}`}
-                    onClick={() => setSelectedFlagged('')}
-                    type="button"
-                  >
-                    All
-                  </button>
-                  <button
-                    className={`${styles.selectOption} ${selectedFlagged === 'true' ? styles.selectOptionActive : ''}`}
-                    onClick={() => setSelectedFlagged('true')}
-                    type="button"
-                  >
-                    Flagged
-                  </button>
-                  <button
-                    className={`${styles.selectOption} ${selectedFlagged === 'false' ? styles.selectOptionActive : ''}`}
-                    onClick={() => setSelectedFlagged('false')}
-                    type="button"
-                  >
-                    Not flagged
                   </button>
                 </div>
               </FilterDropdown>
