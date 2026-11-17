@@ -35,7 +35,7 @@ export async function findUserByEmail(email) {
     query: 'SELECT * FROM c WHERE c.email = @email',
     parameters: [{ name: '@email', value: normalisedEmail }]
   };
-  const { resources } = await usersContainer.items.query(querySpec).fetchAll();
+  const { resources } = await usersContainer.items.query(querySpec, { enableCrossPartitionQuery: true }).fetchAll();
   return resources[0] || null;
 }
 
@@ -49,7 +49,7 @@ export async function findUserById(id) {
     query: 'SELECT * FROM c WHERE c.id = @id',
     parameters: [{ name: '@id', value: id }]
   };
-  const { resources } = await usersContainer.items.query(querySpec).fetchAll();
+  const { resources } = await usersContainer.items.query(querySpec, { enableCrossPartitionQuery: true }).fetchAll();
   return resources[0] || null;
 }
 
@@ -166,14 +166,15 @@ export async function listUsers({ search, continuationToken, pageSize }) {
   const querySpec = { query: queryText, parameters };
   const queryOptions = {
     maxItemCount: limit,
-    continuationToken: continuationToken || undefined
+    continuationToken: continuationToken || undefined,
+    enableCrossPartitionQuery: true
   };
 
   const queryIterator = usersContainer.items.query(querySpec, queryOptions);
   const { resources: users, continuationToken: nextContinuationToken } = await queryIterator.fetchNext();
 
   const countQuerySpec = { query: countQueryText, parameters };
-  const { resources: countResources } = await usersContainer.items.query(countQuerySpec).fetchAll();
+  const { resources: countResources } = await usersContainer.items.query(countQuerySpec, { enableCrossPartitionQuery: true }).fetchAll();
   const totalCount = countResources[0] || 0;
 
   return {
@@ -189,7 +190,7 @@ export async function listUsers({ search, continuationToken, pageSize }) {
  */
 export async function ensureSessionVersionForAllUsers(logger = console) {
   const querySpec = { query: 'SELECT * FROM c WHERE NOT IS_DEFINED(c.sessionVersion)' };
-  const { resources } = await usersContainer.items.query(querySpec).fetchAll();
+  const { resources } = await usersContainer.items.query(querySpec, { enableCrossPartitionQuery: true }).fetchAll();
   for (const user of resources) {
     try {
       await usersContainer.item(user.id, user.email).patch([
@@ -218,7 +219,7 @@ export async function bootstrapAdminIfEmpty(logger = console) {
   }
 
   try {
-    const { resources } = await usersContainer.items.query('SELECT VALUE COUNT(1) FROM c').fetchAll();
+    const { resources } = await usersContainer.items.query('SELECT VALUE COUNT(1) FROM c', { enableCrossPartitionQuery: true }).fetchAll();
     const count = resources[0] || 0;
     if (count > 0) {
       logger.info('ℹ️ Users container is not empty. Skipping admin bootstrap.');

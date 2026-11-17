@@ -126,7 +126,7 @@ export default async function userRoutes(fastify, options) {
         
         if (isChangingRole || isDeactivating) {
           // Count active admins in Cosmos
-          const { resources } = await usersContainer.items.query("SELECT VALUE COUNT(1) FROM c WHERE c.role = 'admin' AND c.status = 'active'").fetchAll();
+          const { resources } = await usersContainer.items.query("SELECT VALUE COUNT(1) FROM c WHERE c.role = 'admin' AND c.status = 'active'", { enableCrossPartitionQuery: true }).fetchAll();
           const activeAdminCount = resources[0] || 0;
           if (activeAdminCount <= 1) {
             return reply.code(400).send({ error: 'Cannot demote or deactivate the last active admin' });
