@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Search, X, Eye, EyeOff, Ban } from 'lucide-react';
+import { Plus, Search, X, Eye, EyeOff, Ban, MessageCircle } from 'lucide-react';
 import AdminLayout from '../../../components/AdminLayout';
 import VerifiedBadge from '../../../components/VerifiedBadge';
 import FilterDropdown from '../../../components/FilterDropdown/FilterDropdown';
@@ -55,6 +55,7 @@ const AdminDashboardPage = () => {
     parseArrayParam(searchParams.get('priority')) || savedPrefs.selectedPriorities || []
   );
   const [selectedReviewed, setSelectedReviewed] = useState(searchParams.get('reviewed') || savedPrefs.selectedReviewed || '');
+  const [selectedFlagged, setSelectedFlagged] = useState(searchParams.get('discussion') || savedPrefs.selectedFlagged || '');
   const [showAllStages, setShowAllStages] = useState(() => {
     return savedPrefs.showAllStages !== undefined ? savedPrefs.showAllStages : false;
   });
@@ -75,12 +76,13 @@ const AdminDashboardPage = () => {
       selectedStatuses,
       selectedPriorities,
       selectedReviewed,
+      selectedFlagged,
       showAllStages,
       collapsedColumnIds,
       sortBy,
       groupBy,
     });
-  }, [viewMode, searchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, showAllStages, collapsedColumnIds, sortBy, groupBy]);
+  }, [viewMode, searchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, selectedFlagged, showAllStages, collapsedColumnIds, sortBy, groupBy]);
 
   // Sync filter state → URL params (replace so we don't pollute back-stack)
   useEffect(() => {
@@ -90,10 +92,11 @@ const AdminDashboardPage = () => {
     if (selectedStatuses.length > 0) params.status = selectedStatuses.join(',');
     if (selectedPriorities.length > 0) params.priority = selectedPriorities.join(',');
     if (selectedReviewed) params.reviewed = selectedReviewed;
+    if (selectedFlagged) params.discussion = selectedFlagged;
     if (sortBy !== 'default') params.sort = sortBy;
     if (groupBy !== 'category') params.group = groupBy;
     setSearchParams(params, { replace: true });
-  }, [debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, sortBy, groupBy]);
+  }, [debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, selectedFlagged, sortBy, groupBy]);
 
   const fetchFeatures = async () => {
     try {
@@ -134,13 +137,15 @@ const AdminDashboardPage = () => {
 
       const matchesReviewed = !selectedReviewed || (selectedReviewed === 'true' ? !!f.is_reviewed : !f.is_reviewed);
 
+      const matchesFlagged = !selectedFlagged || (selectedFlagged === 'true' ? !!f.flagged_for_discussion : !f.flagged_for_discussion);
+
       // Filter out features in hidden columns
       const belongsToCollapsed = collapsedColumnIds.length > 0 && (
         collapsedColumnIds.includes(f.stage_id) ||
         (f.stage_id === null && stages.some(s => s.slug === f.stage_slug && collapsedColumnIds.includes(s.id)))
       );
 
-      return matchesSearch && matchesCategory && matchesStatus && matchesPriority && matchesReviewed && !belongsToCollapsed;
+      return matchesSearch && matchesCategory && matchesStatus && matchesPriority && matchesReviewed && matchesFlagged && !belongsToCollapsed;
     });
 
     // Apply sorting
@@ -148,6 +153,7 @@ const AdminDashboardPage = () => {
       if (sortBy === 'newest') return new Date(b.created_at) - new Date(a.created_at);
       if (sortBy === 'updated') return new Date(b.updated_at) - new Date(a.updated_at);
       if (sortBy === 'gravity') return b.gravity_score - a.gravity_score;
+
       if (sortBy === 'order') {
         const aOrder = a.stage_sort_order ?? 0;
         const bOrder = b.stage_sort_order ?? 0;
@@ -159,7 +165,7 @@ const AdminDashboardPage = () => {
     });
 
     return result;
-  }, [features, debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, sortBy, collapsedColumnIds, stages]);
+  }, [features, debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, selectedFlagged, sortBy, collapsedColumnIds, stages]);
 
   // Active filter chips — one chip per active non-default filter
   const activeFilters = useMemo(() => {
@@ -199,6 +205,11 @@ const AdminDashboardPage = () => {
       label: selectedReviewed === 'true' ? 'Reviewed' : 'Not Reviewed',
       onRemove: () => setSelectedReviewed('')
     });
+    if (selectedFlagged) chips.push({
+      key: 'flagged',
+      label: selectedFlagged === 'true' ? 'Flagged for Discussion' : 'Not Flagged',
+      onRemove: () => setSelectedFlagged('')
+    });
     if (collapsedColumnIds.length > 0) {
       chips.push({
         key: 'collapsed-columns',
@@ -207,7 +218,7 @@ const AdminDashboardPage = () => {
       });
     }
     return chips;
-  }, [debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, categories, stages, collapsedColumnIds]);
+  }, [debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, selectedFlagged, categories, stages, collapsedColumnIds]);
 
   const hasSearchOrFilters = useMemo(() => {
     return !!(
@@ -215,9 +226,10 @@ const AdminDashboardPage = () => {
       selectedCategories.length > 0 ||
       selectedStatuses.length > 0 ||
       selectedPriorities.length > 0 ||
-      selectedReviewed
+      selectedReviewed ||
+      selectedFlagged
     );
-  }, [debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed]);
+  }, [debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, selectedFlagged]);
 
   const clearAllFilters = () => {
     setSearchTerm('');
@@ -225,6 +237,7 @@ const AdminDashboardPage = () => {
     setSelectedStatuses([]);
     setSelectedPriorities([]);
     setSelectedReviewed('');
+    setSelectedFlagged('');
   };
 
   const columnsData = useMemo(() => {
@@ -625,6 +638,36 @@ const AdminDashboardPage = () => {
                 </div>
               </FilterDropdown>
 
+              <FilterDropdown
+                label="Discussion"
+                selectedCount={selectedFlagged ? 1 : 0}
+                type="discussion"
+              >
+                <div className={styles.selectList}>
+                  <button
+                    className={`${styles.selectOption} ${selectedFlagged === '' ? styles.selectOptionActive : ''}`}
+                    onClick={() => setSelectedFlagged('')}
+                    type="button"
+                  >
+                    All
+                  </button>
+                  <button
+                    className={`${styles.selectOption} ${selectedFlagged === 'true' ? styles.selectOptionActive : ''}`}
+                    onClick={() => setSelectedFlagged('true')}
+                    type="button"
+                  >
+                    Flagged
+                  </button>
+                  <button
+                    className={`${styles.selectOption} ${selectedFlagged === 'false' ? styles.selectOptionActive : ''}`}
+                    onClick={() => setSelectedFlagged('false')}
+                    type="button"
+                  >
+                    Not flagged
+                  </button>
+                </div>
+              </FilterDropdown>
+
               {/* Sort — board view only (table uses column headers) */}
               {viewMode === 'board' && (
                 <FilterDropdown
@@ -767,7 +810,7 @@ const AdminDashboardPage = () => {
                                     ref={provided.innerRef}
                                     {...provided.draggableProps}
                                     {...provided.dragHandleProps}
-                                    className={styles.card}
+                                    className={`${styles.card} ${feat.flagged_for_discussion ? styles.cardFlagged : ''}`}
                                     style={{
                                       ...provided.draggableProps.style,
                                       opacity: snapshot.isDragging ? 0.9 : 1,
@@ -789,6 +832,12 @@ const AdminDashboardPage = () => {
                                             {feat.priority}
                                           </span>
                                           {feat.pinned && <span className={styles.pinIcon}>★</span>}
+                                          {feat.flagged_for_discussion && (
+                                            <span className={styles.discussBadge} title="Flagged for discussion">
+                                              <MessageCircle size={12} strokeWidth={2.5} />
+                                              Discuss
+                                            </span>
+                                          )}
                                         </div>
                                       </div>
                                       <h4 className={styles.cardTitle}>{feat.title}</h4>

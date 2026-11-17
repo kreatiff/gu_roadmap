@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, GripVertical, Ban } from 'lucide-react';
+import { ChevronRight, GripVertical, Ban, MessageCircle } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import VerifiedBadge from '../../../components/VerifiedBadge';
 import { updateStageSortOrders } from '../../../api/features';
@@ -165,7 +165,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, onEditRejection
       group.items.sort((a, b) => {
         let valA = a[sortConfig.key];
         let valB = b[sortConfig.key];
-        
+
         if (sortConfig.key === 'gravity_score' || sortConfig.key === 'impact' || sortConfig.key === 'effort' || sortConfig.key === 'stage_sort_order') {
           valA = Number(valA);
           valB = Number(valB);
@@ -278,7 +278,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, onEditRejection
                             <tr
                               ref={provided.innerRef}
                               {...provided.draggableProps}
-                              className={`${styles.featureRow} ${snapshot.isDragging ? styles.dragging : ''}`}
+                              className={`${styles.featureRow} ${feat.flagged_for_discussion ? styles.rowFlagged : ''} ${snapshot.isDragging ? styles.dragging : ''}`}
                               style={provided.draggableProps.style}
                             >
                               <td className={styles.td} style={{ width: '32px', padding: '4px' }}>
@@ -301,6 +301,12 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, onEditRejection
                                   {!feat.is_published && <span className={styles.draftBadgeBadge}>DRAFT</span>}
                                   {feat.pinned && <span className={styles.pinIcon}>★</span>}
                                   {feat.is_reviewed && <VerifiedBadge size={22} className={styles.reviewedBadge} title="Reviewed" />}
+                                  {feat.flagged_for_discussion && (
+                                    <span className={styles.discussBadge} title="Flagged for discussion">
+                                      <MessageCircle size={11} strokeWidth={2.5} />
+                                      Discuss
+                                    </span>
+                                  )}
                                 </div>
                               </td>
                               <td className={styles.td}>
@@ -359,7 +365,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, onEditRejection
             ) : (
               <tbody>
                 {group.items.map(feat => (
-                  <tr key={feat.id} className={styles.featureRow}>
+                  <tr key={feat.id} className={`${styles.featureRow} ${feat.flagged_for_discussion ? styles.rowFlagged : ''}`}>
                   <td className={styles.td} style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>
                     {feat.stage_sort_order ? Math.round(feat.stage_sort_order / 1000) : '--'}
                   </td>
@@ -371,6 +377,12 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, onEditRejection
                       {!feat.is_published && <span className={styles.draftBadgeBadge}>DRAFT</span>}
                       {feat.pinned && <span className={styles.pinIcon}>★</span>}
                       {feat.is_reviewed && <VerifiedBadge size={22} className={styles.reviewedBadge} title="Reviewed" />}
+                      {feat.flagged_for_discussion && (
+                        <span className={styles.discussBadge} title="Flagged for discussion">
+                          <MessageCircle size={11} strokeWidth={2.5} />
+                          Discuss
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className={styles.td}>
