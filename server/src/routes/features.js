@@ -178,6 +178,7 @@ export default async function featureRoutes(fastify, options) {
         delete featureData.dependency_details;
         delete featureData.rejection_reason_by;
         delete featureData.flagged_for_discussion;
+        delete featureData.discussion_text;
         if (!featureData.rejection_reason_public) {
           delete featureData.rejection_reason;
           delete featureData.rejection_reason_public;
@@ -231,6 +232,7 @@ export default async function featureRoutes(fastify, options) {
       delete result.dependency_details;
       delete result.rejection_reason_by;
       delete result.flagged_for_discussion;
+      delete result.discussion_text;
       if (!result.rejection_reason_public) {
         delete result.rejection_reason;
         delete result.rejection_reason_public;
@@ -276,7 +278,6 @@ export default async function featureRoutes(fastify, options) {
           is_reviewed: { type: 'boolean' },
           dependencies: { type: 'array', items: { type: 'string', maxLength: 100 } },
           pinned: { type: 'boolean' },
-          flagged_for_discussion: { type: 'boolean' },
           rejection_reason: { type: 'string', maxLength: 100000 },
           rejection_reason_public: { type: 'boolean' },
         },
@@ -371,6 +372,7 @@ export default async function featureRoutes(fastify, options) {
       tags: Array.isArray(tags) ? tags : [],
       pinned: false,
       flagged_for_discussion: false,
+      discussion_text: null,
       is_published: is_published === 0 ? false : Boolean(is_published),
       owner: (owner ?? '').trim(),
       key_stakeholder: (key_stakeholder ?? '').trim(),
@@ -426,7 +428,6 @@ export default async function featureRoutes(fastify, options) {
           is_reviewed: { type: 'boolean' },
           dependencies: { type: 'array', items: { type: 'string', maxLength: 100 } },
           pinned: { type: 'boolean' },
-          flagged_for_discussion: { type: 'boolean' },
           rejection_reason: { type: 'string', maxLength: 100000 },
           rejection_reason_public: { type: 'boolean' },
         },
@@ -437,7 +438,7 @@ export default async function featureRoutes(fastify, options) {
     const { id } = request.params;
     const {
       title, description, category_id, status, impact, effort,
-      owner, key_stakeholder, priority, pinned, flagged_for_discussion, tags, dependencies, stage_id, is_published, is_reviewed,
+      owner, key_stakeholder, priority, pinned, tags, dependencies, stage_id, is_published, is_reviewed,
       rejection_reason, rejection_reason_public,
     } = request.body;
 
@@ -585,10 +586,6 @@ export default async function featureRoutes(fastify, options) {
     if (pinned !== undefined && Boolean(pinned) !== oldFeature.pinned) {
       changesObj.pinned = { old: oldFeature.pinned, new: Boolean(pinned) };
       updated.pinned = Boolean(pinned);
-    }
-    if (flagged_for_discussion !== undefined && Boolean(flagged_for_discussion) !== Boolean(oldFeature.flagged_for_discussion)) {
-      changesObj.flagged_for_discussion = { old: Boolean(oldFeature.flagged_for_discussion), new: Boolean(flagged_for_discussion) };
-      updated.flagged_for_discussion = Boolean(flagged_for_discussion);
     }
     if (tags !== undefined) {
       changesObj.tags = { updated: true };

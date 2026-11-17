@@ -397,3 +397,171 @@
 .editArea .noteEditorContent :global(.ProseMirror) {
   min-height: 80px;
 }
+
+/* ── Discussion points ───────────────────────────────────────────────
+   Northern-lights greens to match the board's flagged-for-discussion ring. */
+
+.composerFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.discussionOption {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #065f46;
+  cursor: pointer;
+  user-select: none;
+}
+
+.discussionOption input {
+  accent-color: #10b981;
+  cursor: inherit;
+}
+
+.discussionOptionBlocked {
+  color: #a8977f;
+  cursor: not-allowed;
+}
+
+.discussionHint {
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: #6b5d45;
+}
+
+.entryDiscussionOpen {
+  border-color: #6ee7b7;
+  border-left: 3px solid #10b981;
+  background: #f0fdf8;
+}
+
+.entryDiscussionResolved {
+  border-left: 3px solid #a7d7c5;
+}
+
+.pillOpen,
+.pillResolved {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill, 999px);
+}
+
+.pillOpen {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.pillResolved {
+  background: #f1ece1;
+  color: #6b5d45;
+}
+
+.discussionActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.resolveBtn,
+.reopenBtn,
+.resolveConfirmBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.resolveBtn,
+.resolveConfirmBtn {
+  border: none;
+  background: #10b981;
+  color: #ffffff;
+}
+
+.resolveBtn:hover:not(:disabled),
+.resolveConfirmBtn:hover:not(:disabled) {
+  background: #059669;
+}
+
+.reopenBtn {
+  border: 1px solid #d9cfba;
+  background: transparent;
+  color: #4a3b28;
+}
+
+.reopenBtn:hover:not(:disabled) {
+  background: #f1ece1;
+}
+
+/* Looks unavailable but still clickable, so a click can explain why. */
+.reopenBtnBlocked {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.resolveBtn:disabled,
+.resolveConfirmBtn:disabled,
+.reopenBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.resolveArea,
+.resolutionBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f0fdf8;
+  border: 1px solid #bbf0d9;
+}
+
+.resolveArea .composerEditorWrapper {
+  background: #ffffff;
+  border: 1px solid #d9cfba;
+  border-radius: 8px;
+}
+
+.resolutionMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #065f46;
+}
+
+.resolutionEmpty {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-style: italic;
+  color: #6b5d45;
+}
+
+.resolveConfirmBtn,
+.resolveBtn,
+.reopenBtn {
+  white-space: nowrap;
+}
+
+.resolveArea .editActions {
+  flex-wrap: wrap;
+}

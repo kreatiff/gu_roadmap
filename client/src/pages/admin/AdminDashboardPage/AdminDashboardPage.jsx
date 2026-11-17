@@ -825,7 +825,7 @@ const AdminDashboardPage = () => {
                                           </span>
                                           {feat.pinned && <span className={styles.pinIcon}>★</span>}
                                           {feat.flagged_for_discussion && (
-                                            <span className={styles.discussBadge} title="Flagged for discussion">
+                                            <span className={styles.discussBadge} title={feat.discussion_text ? `Flagged for discussion: ${feat.discussion_text}` : 'Flagged for discussion'}>
                                               <MessageCircle size={12} strokeWidth={2.5} />
                                               Discuss
                                             </span>

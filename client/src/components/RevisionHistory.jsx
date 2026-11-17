@@ -61,7 +61,7 @@ const RevisionHistory = ({ isOpen, onClose, revisions, categories = [], stages =
     } else if (fieldKey === 'stage_id') {
       old = getStageName(old);
       newVal = getStageName(newVal);
-    } else if (typeof old === 'boolean') {
+    } else if (typeof old === 'boolean' || typeof newVal === 'boolean') {
       old = old ? 'Yes' : 'No';
       newVal = newVal ? 'Yes' : 'No';
     }

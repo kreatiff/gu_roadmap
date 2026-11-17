@@ -97,53 +97,6 @@
   border-radius: 4px;
 }
 
-.discussIcon {
-  color: #047857;
-  vertical-align: middle;
-  margin-right: 2px;
-}
-
-.discussionNudge {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin: -4px 0 var(--space-4) 26px;
-  padding: 10px 14px;
-  background-color: #d1fae5;
-  border-left: 3px solid #10b981;
-  border-radius: 0;
-}
-
-.discussionNudgeIcon {
-  color: #065f46;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-
-.discussionNudgeTitle {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: #065f46;
-  margin: 0 0 4px;
-}
-
-.discussionNudgeLink {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #065f46;
-  background: transparent;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  text-decoration: underline;
-}
-
-.discussionNudgeHint {
-  font-size: 0.75rem;
-  color: #065f46;
-  margin: 0;
-}
-
 .rejectionCalloutContent {
   font-size: 0.9375rem;
   line-height: 1.6;

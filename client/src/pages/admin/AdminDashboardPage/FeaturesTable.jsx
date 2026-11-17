@@ -336,7 +336,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, onEditRejection
                                   {feat.pinned && <span className={styles.pinIcon}>★</span>}
                                   {feat.is_reviewed && <VerifiedBadge size={22} className={styles.reviewedBadge} title="Reviewed" />}
                                   {feat.flagged_for_discussion && (
-                                    <span className={styles.discussBadge} title="Flagged for discussion">
+                                    <span className={styles.discussBadge} title={feat.discussion_text ? `Flagged for discussion: ${feat.discussion_text}` : 'Flagged for discussion'}>
                                       <MessageCircle size={11} strokeWidth={2.5} />
                                       Discuss
                                     </span>
@@ -412,7 +412,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, onEditRejection
                       {feat.pinned && <span className={styles.pinIcon}>★</span>}
                       {feat.is_reviewed && <VerifiedBadge size={22} className={styles.reviewedBadge} title="Reviewed" />}
                       {feat.flagged_for_discussion && (
-                        <span className={styles.discussBadge} title="Flagged for discussion">
+                        <span className={styles.discussBadge} title={feat.discussion_text ? `Flagged for discussion: ${feat.discussion_text}` : 'Flagged for discussion'}>
                           <MessageCircle size={11} strokeWidth={2.5} />
                           Discuss
                         </span>
