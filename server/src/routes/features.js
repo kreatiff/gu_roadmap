@@ -177,6 +177,7 @@ export default async function featureRoutes(fastify, options) {
         delete featureData.dependencies;
         delete featureData.dependency_details;
         delete featureData.rejection_reason_by;
+        delete featureData.flagged_for_discussion;
         if (!featureData.rejection_reason_public) {
           delete featureData.rejection_reason;
           delete featureData.rejection_reason_public;
@@ -229,6 +230,7 @@ export default async function featureRoutes(fastify, options) {
       delete result.dependencies;
       delete result.dependency_details;
       delete result.rejection_reason_by;
+      delete result.flagged_for_discussion;
       if (!result.rejection_reason_public) {
         delete result.rejection_reason;
         delete result.rejection_reason_public;
@@ -584,8 +586,8 @@ export default async function featureRoutes(fastify, options) {
       changesObj.pinned = { old: oldFeature.pinned, new: Boolean(pinned) };
       updated.pinned = Boolean(pinned);
     }
-    if (flagged_for_discussion !== undefined && Boolean(flagged_for_discussion) !== oldFeature.flagged_for_discussion) {
-      changesObj.flagged_for_discussion = { old: oldFeature.flagged_for_discussion, new: Boolean(flagged_for_discussion) };
+    if (flagged_for_discussion !== undefined && Boolean(flagged_for_discussion) !== Boolean(oldFeature.flagged_for_discussion)) {
+      changesObj.flagged_for_discussion = { old: Boolean(oldFeature.flagged_for_discussion), new: Boolean(flagged_for_discussion) };
       updated.flagged_for_discussion = Boolean(flagged_for_discussion);
     }
     if (tags !== undefined) {

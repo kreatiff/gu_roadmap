@@ -163,14 +163,6 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, onEditRejection
     sortedGroups.forEach(group => {
 
       group.items.sort((a, b) => {
-        // Flagged items float to the top of the default manual order only.
-        // An explicit column sort (clicking a header) is left untouched.
-        if (sortConfig.key === 'stage_sort_order') {
-          const aFlag = !!a.flagged_for_discussion;
-          const bFlag = !!b.flagged_for_discussion;
-          if (aFlag !== bFlag) return bFlag - aFlag;
-        }
-
         let valA = a[sortConfig.key];
         let valB = b[sortConfig.key];
 

@@ -154,12 +154,6 @@ const AdminDashboardPage = () => {
       if (sortBy === 'updated') return new Date(b.updated_at) - new Date(a.updated_at);
       if (sortBy === 'gravity') return b.gravity_score - a.gravity_score;
 
-      // Flagged items float to the top of the manual/default order. An explicit
-      // sort choice above (newest/updated/gravity) is left untouched.
-      if (!!a.flagged_for_discussion !== !!b.flagged_for_discussion) {
-        return (b.flagged_for_discussion ? 1 : 0) - (a.flagged_for_discussion ? 1 : 0);
-      }
-
       if (sortBy === 'order') {
         const aOrder = a.stage_sort_order ?? 0;
         const bOrder = b.stage_sort_order ?? 0;
