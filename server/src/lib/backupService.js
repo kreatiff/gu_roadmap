@@ -44,11 +44,9 @@ export async function gatherExportData() {
   const exportData = {};
   for (const [key, container] of Object.entries(containersMap)) {
     const { resources } = await container.items.readAll().fetchAll();
-    if (key === 'users') {
-      exportData[key] = resources.map(({ passwordHash, ...safe }) => safe);
-    } else {
-      exportData[key] = resources;
-    }
+    // Users keep their bcrypt passwordHash so local accounts survive a restore into
+    // an empty database. Treat backup files as sensitive: they contain these hashes.
+    exportData[key] = resources;
   }
   return exportData;
 }
