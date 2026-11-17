@@ -205,7 +205,7 @@ export async function ensureSessionVersionForAllUsers(logger = console) {
 }
 
 /**
- * Bootstrap the initial admin user if the users container is empty.
+ * Bootstrap the initial admin user if it doesn't already exist.
  * Idempotency is guaranteed structurally by using a deterministic UUID v5.
  * @param {object} [logger=console] - Optional logger (e.g., fastify.log)
  */
@@ -218,17 +218,27 @@ export async function bootstrapAdminIfEmpty(logger = console) {
     return;
   }
 
+  // Point read for this specific deterministic ID, never a SELECT query. The
+  // Cosmos emulator's query engine fails with "unknown type of jsonb
+  // container" on ANY query (plain or aggregate) against this container
+  // while it is still completely empty, which is exactly the state right
+  // after initDb() creates it. A point read goes through a different gateway
+  // path and works fine on an empty container.
+  const normalisedEmail = email.trim().toLowerCase();
+  const id = uuidv5(normalisedEmail, NAMESPACE);
   try {
-    // Plain existence check rather than SELECT VALUE COUNT(1) — the Cosmos
-    // emulator's aggregate query path has a known bug ("unknown type of jsonb
-    // container" / PostgresError XX000) when the container is still empty,
-    // which is exactly the case right after initDb() creates it fresh.
-    const { resources } = await usersContainer.items.query('SELECT TOP 1 c.id FROM c', { enableCrossPartitionQuery: true }).fetchAll();
-    if (resources.length > 0) {
-      logger.info('ℹ️ Users container is not empty. Skipping admin bootstrap.');
-      return;
+    await usersContainer.item(id, normalisedEmail).read();
+    logger.info('ℹ️ Bootstrap admin user already exists. Skipping bootstrap.');
+    return;
+  } catch (err) {
+    if (err.statusCode !== 404) {
+      logger.error('❌ Error checking for bootstrap admin user:', err);
+      throw err;
     }
+    // 404 — doesn't exist yet, fall through to create it.
+  }
 
+  try {
     logger.info(`🚀 Bootstrapping super admin user: ${email}`);
     await createUser({
       email,
