@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, GripVertical, Ban } from 'lucide-react';
+import { ChevronRight, GripVertical, Ban, MessageCircle } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import VerifiedBadge from '../../../components/VerifiedBadge';
 import { updateStageSortOrders } from '../../../api/features';
@@ -112,6 +112,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, onEditRejection
 
   const [expandedGroups, setExpandedGroups] = useState({});
   const [sortConfig, setSortConfig] = useState({ key: 'stage_sort_order', direction: 'asc' });
+  const isDefaultOrder = sortConfig.key === 'stage_sort_order' && sortConfig.direction === 'asc';
 
   const handleSort = (key) => {
     let direction = 'asc';
@@ -163,9 +164,17 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, onEditRejection
     sortedGroups.forEach(group => {
 
       group.items.sort((a, b) => {
+        // Flagged items sit at the top of each section, but only in the default
+        // order. Any explicit column sort is left exactly as the user asked.
+        if (isDefaultOrder) {
+          const aFlag = !!a.flagged_for_discussion;
+          const bFlag = !!b.flagged_for_discussion;
+          if (aFlag !== bFlag) return aFlag ? -1 : 1;
+        }
+
         let valA = a[sortConfig.key];
         let valB = b[sortConfig.key];
-        
+
         if (sortConfig.key === 'gravity_score' || sortConfig.key === 'impact' || sortConfig.key === 'effort' || sortConfig.key === 'stage_sort_order') {
           valA = Number(valA);
           valB = Number(valB);
@@ -182,7 +191,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, onEditRejection
     });
     
     return sortedGroups;
-  }, [features, sortConfig, groupBy, stages]);
+  }, [features, sortConfig, groupBy, stages, isDefaultOrder]);
 
   const handleDragEnd = useCallback(async (result) => {
     const { destination, source } = result;
@@ -194,9 +203,34 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, onEditRejection
     const group = groupedFeatures.find(g => g.name === groupKey);
     if (!group) return;
 
-    const items = [...group.items];
-    const [dragged] = items.splice(source.index, 1);
-    items.splice(destination.index, 0, dragged);
+    const isFlagged = (f) => !!f.flagged_for_discussion;
+    const flaggedCount = group.items.filter(isFlagged).length;
+    let items;
+
+    if (isDefaultOrder && flaggedCount > 0) {
+      // Flagged items are pinned to the top of the section by the display sort,
+      // so a drag can only reorder within its own partition (flagged or not).
+      // Only that partition's slots in the saved order are rewritten, so the
+      // float-to-top never gets baked into stage_sort_order.
+      const draggedIsFlagged = source.index < flaggedCount;
+      const offset = draggedIsFlagged ? 0 : flaggedCount;
+      const partitionSize = draggedIsFlagged ? flaggedCount : group.items.length - flaggedCount;
+      const from = source.index - offset;
+      const to = Math.min(Math.max(destination.index - offset, 0), partitionSize - 1);
+      if (from === to) return;
+
+      const partition = group.items.filter(f => isFlagged(f) === draggedIsFlagged);
+      const [moved] = partition.splice(from, 1);
+      partition.splice(to, 0, moved);
+
+      const savedOrder = [...group.items].sort((a, b) => Number(a.stage_sort_order) - Number(b.stage_sort_order));
+      let next = 0;
+      items = savedOrder.map(f => (isFlagged(f) === draggedIsFlagged ? partition[next++] : f));
+    } else {
+      items = [...group.items];
+      const [dragged] = items.splice(source.index, 1);
+      items.splice(destination.index, 0, dragged);
+    }
 
     const reordered = items.map((f, i) => ({
       id: f.id,
@@ -216,7 +250,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, onEditRejection
         onReorder(null);
       }
     }
-  }, [groupedFeatures, onReorder]);
+  }, [groupedFeatures, onReorder, isDefaultOrder]);
 
   const toggleGroup = (groupName) => {
     setExpandedGroups(prev => ({
@@ -278,7 +312,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, onEditRejection
                             <tr
                               ref={provided.innerRef}
                               {...provided.draggableProps}
-                              className={`${styles.featureRow} ${snapshot.isDragging ? styles.dragging : ''}`}
+                              className={`${styles.featureRow} ${feat.flagged_for_discussion ? styles.rowFlagged : ''} ${snapshot.isDragging ? styles.dragging : ''}`}
                               style={provided.draggableProps.style}
                             >
                               <td className={styles.td} style={{ width: '32px', padding: '4px' }}>
@@ -301,6 +335,12 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, onEditRejection
                                   {!feat.is_published && <span className={styles.draftBadgeBadge}>DRAFT</span>}
                                   {feat.pinned && <span className={styles.pinIcon}>★</span>}
                                   {feat.is_reviewed && <VerifiedBadge size={22} className={styles.reviewedBadge} title="Reviewed" />}
+                                  {feat.flagged_for_discussion && (
+                                    <span className={styles.discussBadge} title={feat.discussion_text ? `Flagged for discussion: ${feat.discussion_text}` : 'Flagged for discussion'}>
+                                      <MessageCircle size={11} strokeWidth={2.5} />
+                                      Discuss
+                                    </span>
+                                  )}
                                 </div>
                               </td>
                               <td className={styles.td}>
@@ -359,7 +399,7 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, onEditRejection
             ) : (
               <tbody>
                 {group.items.map(feat => (
-                  <tr key={feat.id} className={styles.featureRow}>
+                  <tr key={feat.id} className={`${styles.featureRow} ${feat.flagged_for_discussion ? styles.rowFlagged : ''}`}>
                   <td className={styles.td} style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>
                     {feat.stage_sort_order ? Math.round(feat.stage_sort_order / 1000) : '--'}
                   </td>
@@ -371,6 +411,12 @@ const FeaturesTable = ({ features, stages, onUpdateFeatureField, onEditRejection
                       {!feat.is_published && <span className={styles.draftBadgeBadge}>DRAFT</span>}
                       {feat.pinned && <span className={styles.pinIcon}>★</span>}
                       {feat.is_reviewed && <VerifiedBadge size={22} className={styles.reviewedBadge} title="Reviewed" />}
+                      {feat.flagged_for_discussion && (
+                        <span className={styles.discussBadge} title={feat.discussion_text ? `Flagged for discussion: ${feat.discussion_text}` : 'Flagged for discussion'}>
+                          <MessageCircle size={11} strokeWidth={2.5} />
+                          Discuss
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className={styles.td}>

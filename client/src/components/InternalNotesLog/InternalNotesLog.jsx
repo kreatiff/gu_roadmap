@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Sparkles, Pencil, Trash2, X, Check, Lock, Paperclip, ChevronDown } from 'lucide-react';
+import { Plus, Sparkles, Pencil, Trash2, X, Check, Lock, Paperclip, ChevronDown, MessageCircle, CheckCircle2, RotateCcw } from 'lucide-react';
 import RichTextEditor from '../RichTextEditor';
 import RichTextViewer, { getPlainTextFromRichText } from '../RichTextViewer';
 import ConfirmDialog from '../ConfirmDialog';
@@ -10,6 +10,9 @@ import {
   createFeatureNote,
   updateFeatureNote,
   deleteFeatureNote,
+  resolveDiscussionPoint,
+  reopenDiscussionPoint,
+  getNoteErrorMessage,
 } from '../../api/notes';
 import { useNotesSummary, getLatestNoteActivityAt } from '../../hooks/useNotesSummary';
 import styles from './InternalNotesLog.module.css';
@@ -80,6 +83,12 @@ const extractAttachment = (content) => {
   return { body, attachment: { url, label } };
 };
 
+const formatShortDate = (isoString) => new Intl.DateTimeFormat('en-AU', {
+  day: 'numeric', month: 'short', year: 'numeric',
+}).format(new Date(isoString));
+
+const describeNote = (note) => `added by ${note.authorName} on ${formatShortDate(note.createdAt)}`;
+
 const InternalNotesLog = ({
   featureId,
   initialSummary = null,
@@ -107,6 +116,12 @@ const InternalNotesLog = ({
   const [editingId, setEditingId] = useState(null);
   const [editDraft, setEditDraft] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [isDiscussionDraft, setIsDiscussionDraft] = useState(false);
+  const [resolvingId, setResolvingId] = useState(null);
+  const [resolveDraft, setResolveDraft] = useState('');
+  const [resolveKey, setResolveKey] = useState(0);
+  const [busyNoteId, setBusyNoteId] = useState(null);
+  const [reopenTarget, setReopenTarget] = useState(null);
 
   const {
     summary,
@@ -140,6 +155,10 @@ const InternalNotesLog = ({
     setEditingId(null);
     setEditDraft('');
     setDeleteTarget(null);
+    setIsDiscussionDraft(false);
+    setResolvingId(null);
+    setResolveDraft('');
+    setReopenTarget(null);
 
     if (!propNotes) {
       setLocalNotes([]);
@@ -164,17 +183,43 @@ const InternalNotesLog = ({
 
   const draftIsEmpty = !getPlainTextFromRichText(draft)?.trim();
 
+  // Only one discussion point can be open per feature, so the composer option and
+  // the Reopen buttons are blocked (with the reason shown) while one is open.
+  const openDiscussion = notes.find((n) => n.discussion?.status === 'open') || null;
+  const addAsDiscussion = isDiscussionDraft && !openDiscussion;
+  const alreadyOpenMessage = openDiscussion
+    ? `A discussion point is already open on this feature (${describeNote(openDiscussion)}). Only one can be open at a time, so resolve it before adding another.`
+    : '';
+  const reopenBlockedMessage = (note) => (openDiscussion && openDiscussion.id !== note.id
+    ? `This discussion point cannot be reopened because another discussion point on this feature (${describeNote(openDiscussion)}) is still open and unresolved. Resolve that one first, then reopen this one.`
+    : '');
+
+  // After a conflict (someone else resolved/deleted the note first) the list on screen is
+  // out of date, so reload it rather than leaving the person looking at stale state.
+  const refreshAfterConflict = async (err) => {
+    if (err?.statusCode !== 409 && err?.statusCode !== 404) return;
+    try { setNotes(await getFeatureNotes(featureId)); } catch { /* keep what is on screen */ }
+  };
+
+  const showWarning = (warning) => { if (warning) addToast(warning, 'error'); };
+
   const handlePost = async () => {
     if (draftIsEmpty) return;
     setPosting(true);
     try {
-      const created = await createFeatureNote(featureId, draft);
+      const { warning, ...created } = await createFeatureNote(featureId, draft, { discussion: addAsDiscussion });
       setNotes((prev) => [created, ...prev]);
       setDraft('');
+      setIsDiscussionDraft(false);
       setComposerKey((k) => k + 1);
-      addToast('Note added', 'success');
-    } catch {
-      addToast('Failed to add note', 'error');
+      addToast(
+        addAsDiscussion ? 'Discussion point added. This feature is now flagged for discussion.' : 'Note added',
+        'success',
+      );
+      showWarning(warning);
+    } catch (err) {
+      addToast(getNoteErrorMessage(err, 'The note could not be added because of an unexpected error. Your text is still in the box, so try again.'), 'error');
+      await refreshAfterConflict(err);
     } finally {
       setPosting(false);
     }
@@ -192,27 +237,96 @@ const InternalNotesLog = ({
 
   const saveEdit = async (noteId) => {
     try {
-      const updated = await updateFeatureNote(featureId, noteId, editDraft);
+      const { warning, ...updated } = await updateFeatureNote(featureId, noteId, editDraft);
       setNotes((prev) => prev.map((n) => (n.id === noteId ? updated : n)));
       setEditingId(null);
       setEditDraft('');
       addToast('Note updated', 'success');
-    } catch {
-      addToast('Failed to update note', 'error');
+      showWarning(warning);
+    } catch (err) {
+      addToast(getNoteErrorMessage(err, 'The note could not be updated because of an unexpected error. Your edit is still open, so try again.'), 'error');
+      await refreshAfterConflict(err);
     }
   };
 
   const confirmDelete = async () => {
     const noteId = deleteTarget;
+    const wasOpenDiscussion = notes.find((n) => n.id === noteId)?.discussion?.status === 'open';
     setDeleteTarget(null);
     try {
-      await deleteFeatureNote(featureId, noteId);
+      const result = await deleteFeatureNote(featureId, noteId);
       setNotes((prev) => prev.filter((n) => n.id !== noteId));
-      addToast('Note deleted', 'success');
-    } catch {
-      addToast('Failed to delete note', 'error');
+      addToast(
+        wasOpenDiscussion ? 'Discussion point deleted. This feature is no longer flagged for discussion.' : 'Note deleted',
+        'success',
+      );
+      showWarning(result?.warning);
+    } catch (err) {
+      addToast(getNoteErrorMessage(err, 'The note could not be deleted because of an unexpected error. Try again.'), 'error');
+      await refreshAfterConflict(err);
     }
   };
+
+  const startResolve = (noteId) => {
+    setResolvingId(noteId);
+    setResolveDraft('');
+    setResolveKey((k) => k + 1);
+  };
+
+  const cancelResolve = () => {
+    setResolvingId(null);
+    setResolveDraft('');
+  };
+
+  const confirmResolve = async (noteId) => {
+    setBusyNoteId(noteId);
+    try {
+      const hasResolution = Boolean(getPlainTextFromRichText(resolveDraft)?.trim());
+      const { warning, ...updated } = await resolveDiscussionPoint(featureId, noteId, hasResolution ? resolveDraft : '');
+      setNotes((prev) => prev.map((n) => (n.id === noteId ? updated : n)));
+      cancelResolve();
+      addToast('Discussion point resolved. This feature is no longer flagged for discussion.', 'success');
+      showWarning(warning);
+    } catch (err) {
+      addToast(getNoteErrorMessage(err, 'The discussion point could not be resolved because of an unexpected error. Your resolution note is still open, so try again.'), 'error');
+      await refreshAfterConflict(err);
+    } finally {
+      setBusyNoteId(null);
+    }
+  };
+
+  const requestReopen = (note) => {
+    const blocked = reopenBlockedMessage(note);
+    if (blocked) {
+      addToast(blocked, 'error');
+      return;
+    }
+    setReopenTarget(note.id);
+  };
+
+  const confirmReopen = async () => {
+    const noteId = reopenTarget;
+    setReopenTarget(null);
+    setBusyNoteId(noteId);
+    try {
+      const { warning, ...updated } = await reopenDiscussionPoint(featureId, noteId);
+      setNotes((prev) => prev.map((n) => (n.id === noteId ? updated : n)));
+      addToast('Discussion point reopened. This feature is flagged for discussion again.', 'success');
+      showWarning(warning);
+    } catch (err) {
+      addToast(getNoteErrorMessage(err, 'The discussion point could not be reopened because of an unexpected error. Try again.'), 'error');
+      await refreshAfterConflict(err);
+    } finally {
+      setBusyNoteId(null);
+    }
+  };
+
+  const deleteTargetNote = notes.find((n) => n.id === deleteTarget) || null;
+  const deleteMessage = deleteTargetNote?.discussion?.status === 'open'
+    ? 'This open discussion point will be permanently deleted and the feature will no longer be flagged for discussion. This cannot be undone.'
+    : deleteTargetNote?.discussion
+      ? 'This discussion point and its resolution will be permanently deleted. This cannot be undone.'
+      : 'This note entry will be permanently deleted. This cannot be undone.';
 
   return (
     <div className={styles.wrapper} data-collapsible={collapsible} data-expanded={expanded}>
@@ -296,15 +410,38 @@ const InternalNotesLog = ({
           className={styles.composerEditorWrapper}
           editorClassName={styles.noteEditorContent}
         />
-        <button
-          type="button"
-          className={styles.postBtn}
-          onClick={handlePost}
-          disabled={posting || draftIsEmpty}
-        >
-          <Plus size={14} />
-          {posting ? 'Posting…' : 'Add note'}
-        </button>
+        <div className={styles.composerFooter}>
+          <label
+            className={`${styles.discussionOption} ${openDiscussion ? styles.discussionOptionBlocked : ''}`}
+            title={alreadyOpenMessage || undefined}
+          >
+            <input
+              type="checkbox"
+              checked={addAsDiscussion}
+              disabled={Boolean(openDiscussion) || posting}
+              onChange={(e) => setIsDiscussionDraft(e.target.checked)}
+            />
+            <MessageCircle size={13} />
+            Discussion point
+          </label>
+          <button
+            type="button"
+            className={styles.postBtn}
+            onClick={handlePost}
+            disabled={posting || draftIsEmpty}
+          >
+            <Plus size={14} />
+            {posting ? 'Posting…' : addAsDiscussion ? 'Add discussion point' : 'Add note'}
+          </button>
+        </div>
+        {openDiscussion && (
+          <p className={styles.discussionHint}>{alreadyOpenMessage}</p>
+        )}
+        {addAsDiscussion && (
+          <p className={styles.discussionHint}>
+            This will flag the feature for discussion until the point is resolved.
+          </p>
+        )}
       </div>
 
       {children}
@@ -318,7 +455,10 @@ const InternalNotesLog = ({
           {notes.map((note) => {
             const { body, attachment } = extractAttachment(note.content);
             return (
-              <li key={note.id} className={styles.entry}>
+              <li
+                key={note.id}
+                className={`${styles.entry} ${note.discussion?.status === 'open' ? styles.entryDiscussionOpen : ''} ${note.discussion?.status === 'resolved' ? styles.entryDiscussionResolved : ''}`}
+              >
                 <div className={styles.entryHeader}>
                   <div className={styles.avatar} style={{ backgroundColor: getAvatarColor(note.authorName) }}>
                     {getInitials(note.authorName)}
@@ -329,6 +469,12 @@ const InternalNotesLog = ({
                       {formatRelativeTime(note.createdAt)}{note.edited ? ' (edited)' : ''}
                     </span>
                   </div>
+                  {note.discussion && (
+                    <span className={note.discussion.status === 'open' ? styles.pillOpen : styles.pillResolved}>
+                      {note.discussion.status === 'open' ? <MessageCircle size={11} strokeWidth={2.5} /> : <CheckCircle2 size={11} strokeWidth={2.5} />}
+                      {note.discussion.status === 'open' ? 'Discussion' : 'Resolved'}
+                    </span>
+                  )}
                   {note.authorId === user?.id && editingId !== note.id && (
                     <span className={styles.entryActions}>
                       <button
@@ -386,6 +532,74 @@ const InternalNotesLog = ({
                         <span>{attachment.label}</span>
                       </a>
                     )}
+
+                    {note.discussion?.status === 'open' && resolvingId !== note.id && (
+                      <div className={styles.discussionActions}>
+                        <button
+                          type="button"
+                          className={styles.resolveBtn}
+                          onClick={() => startResolve(note.id)}
+                          disabled={busyNoteId === note.id}
+                        >
+                          <CheckCircle2 size={13} /> Resolve
+                        </button>
+                      </div>
+                    )}
+
+                    {note.discussion?.status === 'open' && resolvingId === note.id && (
+                      <div className={styles.resolveArea}>
+                        <RichTextEditor
+                          key={resolveKey}
+                          value={resolveDraft}
+                          onChange={setResolveDraft}
+                          placeholder="Add a resolution note (optional)…"
+                          className={styles.composerEditorWrapper}
+                          editorClassName={styles.noteEditorContent}
+                        />
+                        <div className={styles.editActions}>
+                          <button
+                            type="button"
+                            className={styles.resolveConfirmBtn}
+                            onClick={() => confirmResolve(note.id)}
+                            disabled={busyNoteId === note.id}
+                          >
+                            <Check size={13} /> {busyNoteId === note.id ? 'Resolving…' : 'Resolve discussion'}
+                          </button>
+                          <button type="button" onClick={cancelResolve} className={styles.cancelBtn} disabled={busyNoteId === note.id}>
+                            <X size={13} /> Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {note.discussion?.status === 'resolved' && (
+                      <div className={styles.resolutionBlock}>
+                        <div className={styles.resolutionMeta}>
+                          <CheckCircle2 size={13} />
+                          <span>
+                            Resolved by {note.discussion.resolvedByName}
+                            {note.discussion.resolvedAt ? ` · ${formatRelativeTime(note.discussion.resolvedAt)}` : ''}
+                          </span>
+                        </div>
+                        {note.discussion.resolution ? (
+                          <RichTextViewer content={note.discussion.resolution} className={styles.entryContent} />
+                        ) : (
+                          <p className={styles.resolutionEmpty}>Resolved without a resolution note.</p>
+                        )}
+                        <div className={styles.discussionActions}>
+                          <button
+                            type="button"
+                            className={`${styles.reopenBtn} ${reopenBlockedMessage(note) ? styles.reopenBtnBlocked : ''}`}
+                            onClick={() => requestReopen(note)}
+                            disabled={busyNoteId === note.id}
+                            aria-disabled={Boolean(reopenBlockedMessage(note))}
+                            title={reopenBlockedMessage(note) || undefined}
+                          >
+                            <RotateCcw size={13} /> Reopen
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </li>
@@ -397,12 +611,23 @@ const InternalNotesLog = ({
 
       {deleteTarget && (
         <ConfirmDialog
-          title="Delete note"
-          message="This note entry will be permanently deleted. This cannot be undone."
+          title={deleteTargetNote?.discussion ? 'Delete discussion point' : 'Delete note'}
+          message={deleteMessage}
           confirmText="Delete"
           onConfirm={confirmDelete}
           onCancel={() => setDeleteTarget(null)}
           variant="danger"
+        />
+      )}
+
+      {reopenTarget && (
+        <ConfirmDialog
+          title="Reopen discussion point"
+          message="Reopening removes this discussion point's resolution note and flags the feature for discussion again."
+          confirmText="Reopen"
+          onConfirm={confirmReopen}
+          onCancel={() => setReopenTarget(null)}
+          variant="primary"
         />
       )}
     </div>

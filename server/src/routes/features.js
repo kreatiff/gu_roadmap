@@ -177,6 +177,8 @@ export default async function featureRoutes(fastify, options) {
         delete featureData.dependencies;
         delete featureData.dependency_details;
         delete featureData.rejection_reason_by;
+        delete featureData.flagged_for_discussion;
+        delete featureData.discussion_text;
         if (!featureData.rejection_reason_public) {
           delete featureData.rejection_reason;
           delete featureData.rejection_reason_public;
@@ -229,6 +231,8 @@ export default async function featureRoutes(fastify, options) {
       delete result.dependencies;
       delete result.dependency_details;
       delete result.rejection_reason_by;
+      delete result.flagged_for_discussion;
+      delete result.discussion_text;
       if (!result.rejection_reason_public) {
         delete result.rejection_reason;
         delete result.rejection_reason_public;
@@ -367,6 +371,8 @@ export default async function featureRoutes(fastify, options) {
       stage_sort_order: maxSortOrder + 1000,
       tags: Array.isArray(tags) ? tags : [],
       pinned: false,
+      flagged_for_discussion: false,
+      discussion_text: null,
       is_published: is_published === 0 ? false : Boolean(is_published),
       owner: (owner ?? '').trim(),
       key_stakeholder: (key_stakeholder ?? '').trim(),

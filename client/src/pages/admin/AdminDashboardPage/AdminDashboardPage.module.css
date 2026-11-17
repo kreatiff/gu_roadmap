@@ -455,6 +455,50 @@
   transform: translateY(-1px);
 }
 
+/* Flagged for discussion: "northern lights" gradient ring that orbits the card.
+   The ::before layer is masked down to a 2px ring so the card body stays clean. */
+@property --discuss-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.cardFlagged {
+  position: relative;
+  isolation: isolate;
+  border-color: transparent;
+}
+
+.cardFlagged::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  padding: 2px;
+  border-radius: inherit;
+  z-index: -1;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--discuss-angle),
+    #10b981,
+    #06b6d4,
+    #38bdf8,
+    #a3e635,
+    #10b981
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  animation: discussSpin 3.5s linear infinite;
+}
+
+@keyframes discussSpin {
+  to { --discuss-angle: 360deg; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cardFlagged::before { animation: none; }
+}
+
 /* Inner click area — flex column for consistent spacing */
 .cardBody {
   display: flex;
@@ -493,6 +537,19 @@
   color: #1d9bf0;
   flex-shrink: 0;
   vertical-align: middle;
+}
+
+.discussBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+  background-color: #d1fae5;
+  color: #065f46;
+  flex-shrink: 0;
 }
 
 /* Priority badge — soft fill, coloured text (see priority classes below) */
