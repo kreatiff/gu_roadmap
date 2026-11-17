@@ -141,18 +141,3 @@
 .triggerActive_tag .arrow {
   color: #059669 !important;
 }
-
-/* Custom Active Discussion styles */
-.triggerActive_discussion {
-  border-color: #d97706 !important;
-  background-color: rgba(217, 119, 6, 0.02) !important;
-}
-.triggerActive_discussion .label {
-  color: #d97706 !important;
-}
-.triggerActive_discussion .badge {
-  background: #d97706 !important;
-}
-.triggerActive_discussion .arrow {
-  color: #d97706 !important;
-}

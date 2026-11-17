@@ -134,12 +134,12 @@
 }
 
 .rowFlagged {
-  background-color: #fffbeb;
-  box-shadow: inset 3px 0 0 0 #d97706;
+  background-color: #f0fdf8;
+  box-shadow: inset 3px 0 0 0 #10b981;
 }
 
 .rowFlagged:hover {
-  background-color: #fef3c7;
+  background-color: #d1fae5;
 }
 
 .discussBadge {
@@ -150,8 +150,8 @@
   font-weight: 700;
   padding: 2px 7px;
   border-radius: var(--radius-pill);
-  background-color: #fef3c7;
-  color: #92400e;
+  background-color: #d1fae5;
+  color: #065f46;
   flex-shrink: 0;
 }
 
