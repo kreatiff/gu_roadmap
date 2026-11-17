@@ -151,7 +151,9 @@ export async function listUsers({ search, continuationToken, pageSize }) {
   const limit = Math.min(pageSize ? parseInt(pageSize, 10) : 20, 100);
 
   let queryText = 'SELECT * FROM c';
-  let countQueryText = 'SELECT VALUE COUNT(1) FROM c';
+  // Counted in JS rather than with VALUE COUNT(1): the Cosmos emulator fails
+  // that aggregate on this container with "unknown type of jsonb container".
+  let countQueryText = 'SELECT c.id FROM c';
   const parameters = [];
 
   if (search) {
@@ -174,8 +176,8 @@ export async function listUsers({ search, continuationToken, pageSize }) {
   const { resources: users, continuationToken: nextContinuationToken } = await queryIterator.fetchNext();
 
   const countQuerySpec = { query: countQueryText, parameters };
-  const { resources: countResources } = await usersContainer.items.query(countQuerySpec, { enableCrossPartitionQuery: true }).fetchAll();
-  const totalCount = countResources[0] || 0;
+  const { resources: countResources } = await usersContainer.items.query(countQuerySpec).fetchAll();
+  const totalCount = countResources.length;
 
   return {
     users: users.map(sanitiseUser),
@@ -189,8 +191,10 @@ export async function listUsers({ search, continuationToken, pageSize }) {
  * @param {object} [logger=console] - Optional logger (e.g., fastify.log)
  */
 export async function ensureSessionVersionForAllUsers(logger = console) {
-  const querySpec = { query: 'SELECT * FROM c WHERE NOT IS_DEFINED(c.sessionVersion)' };
-  const { resources } = await usersContainer.items.query(querySpec, { enableCrossPartitionQuery: true }).fetchAll();
+  // Filtered in JS rather than with NOT IS_DEFINED(...): the Cosmos emulator
+  // fails that query (and VALUE COUNT) with "unknown type of jsonb container".
+  const { resources: allUsers } = await usersContainer.items.query('SELECT * FROM c').fetchAll();
+  const resources = allUsers.filter(u => u.sessionVersion === undefined);
   for (const user of resources) {
     try {
       await usersContainer.item(user.id, user.email).patch([
