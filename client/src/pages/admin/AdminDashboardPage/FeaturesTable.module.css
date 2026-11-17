@@ -133,28 +133,6 @@
   background-color: #fafafa;
 }
 
-.rowFlagged {
-  background-color: #fffbeb;
-  box-shadow: inset 3px 0 0 0 #d97706;
-}
-
-.rowFlagged:hover {
-  background-color: #fef3c7;
-}
-
-.discussBadge {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 0.625rem;
-  font-weight: 700;
-  padding: 2px 7px;
-  border-radius: var(--radius-pill);
-  background-color: #fef3c7;
-  color: #92400e;
-  flex-shrink: 0;
-}
-
 .td {
   padding: 11px 16px;
   vertical-align: middle;

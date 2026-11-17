@@ -35,7 +35,7 @@ export async function findUserByEmail(email) {
     query: 'SELECT * FROM c WHERE c.email = @email',
     parameters: [{ name: '@email', value: normalisedEmail }]
   };
-  const { resources } = await usersContainer.items.query(querySpec, { enableCrossPartitionQuery: true }).fetchAll();
+  const { resources } = await usersContainer.items.query(querySpec).fetchAll();
   return resources[0] || null;
 }
 
@@ -49,7 +49,7 @@ export async function findUserById(id) {
     query: 'SELECT * FROM c WHERE c.id = @id',
     parameters: [{ name: '@id', value: id }]
   };
-  const { resources } = await usersContainer.items.query(querySpec, { enableCrossPartitionQuery: true }).fetchAll();
+  const { resources } = await usersContainer.items.query(querySpec).fetchAll();
   return resources[0] || null;
 }
 
@@ -151,9 +151,7 @@ export async function listUsers({ search, continuationToken, pageSize }) {
   const limit = Math.min(pageSize ? parseInt(pageSize, 10) : 20, 100);
 
   let queryText = 'SELECT * FROM c';
-  // Counted in JS rather than with VALUE COUNT(1): the Cosmos emulator fails
-  // that aggregate on this container with "unknown type of jsonb container".
-  let countQueryText = 'SELECT c.id FROM c';
+  let countQueryText = 'SELECT VALUE COUNT(1) FROM c';
   const parameters = [];
 
   if (search) {
@@ -168,8 +166,7 @@ export async function listUsers({ search, continuationToken, pageSize }) {
   const querySpec = { query: queryText, parameters };
   const queryOptions = {
     maxItemCount: limit,
-    continuationToken: continuationToken || undefined,
-    enableCrossPartitionQuery: true
+    continuationToken: continuationToken || undefined
   };
 
   const queryIterator = usersContainer.items.query(querySpec, queryOptions);
@@ -177,7 +174,7 @@ export async function listUsers({ search, continuationToken, pageSize }) {
 
   const countQuerySpec = { query: countQueryText, parameters };
   const { resources: countResources } = await usersContainer.items.query(countQuerySpec).fetchAll();
-  const totalCount = countResources.length;
+  const totalCount = countResources[0] || 0;
 
   return {
     users: users.map(sanitiseUser),
@@ -191,10 +188,8 @@ export async function listUsers({ search, continuationToken, pageSize }) {
  * @param {object} [logger=console] - Optional logger (e.g., fastify.log)
  */
 export async function ensureSessionVersionForAllUsers(logger = console) {
-  // Filtered in JS rather than with NOT IS_DEFINED(...): the Cosmos emulator
-  // fails that query (and VALUE COUNT) with "unknown type of jsonb container".
-  const { resources: allUsers } = await usersContainer.items.query('SELECT * FROM c').fetchAll();
-  const resources = allUsers.filter(u => u.sessionVersion === undefined);
+  const querySpec = { query: 'SELECT * FROM c WHERE NOT IS_DEFINED(c.sessionVersion)' };
+  const { resources } = await usersContainer.items.query(querySpec).fetchAll();
   for (const user of resources) {
     try {
       await usersContainer.item(user.id, user.email).patch([
@@ -209,7 +204,7 @@ export async function ensureSessionVersionForAllUsers(logger = console) {
 }
 
 /**
- * Bootstrap the initial admin user if it doesn't already exist.
+ * Bootstrap the initial admin user if the users container is empty.
  * Idempotency is guaranteed structurally by using a deterministic UUID v5.
  * @param {object} [logger=console] - Optional logger (e.g., fastify.log)
  */
@@ -222,27 +217,14 @@ export async function bootstrapAdminIfEmpty(logger = console) {
     return;
   }
 
-  // Point read for this specific deterministic ID, never a SELECT query. The
-  // Cosmos emulator's query engine fails with "unknown type of jsonb
-  // container" on ANY query (plain or aggregate) against this container
-  // while it is still completely empty, which is exactly the state right
-  // after initDb() creates it. A point read goes through a different gateway
-  // path and works fine on an empty container.
-  const normalisedEmail = email.trim().toLowerCase();
-  const id = uuidv5(normalisedEmail, NAMESPACE);
   try {
-    await usersContainer.item(id, normalisedEmail).read();
-    logger.info('ℹ️ Bootstrap admin user already exists. Skipping bootstrap.');
-    return;
-  } catch (err) {
-    if (err.statusCode !== 404) {
-      logger.error('❌ Error checking for bootstrap admin user:', err);
-      throw err;
+    const { resources } = await usersContainer.items.query('SELECT VALUE COUNT(1) FROM c').fetchAll();
+    const count = resources[0] || 0;
+    if (count > 0) {
+      logger.info('ℹ️ Users container is not empty. Skipping admin bootstrap.');
+      return;
     }
-    // 404 — doesn't exist yet, fall through to create it.
-  }
 
-  try {
     logger.info(`🚀 Bootstrapping super admin user: ${email}`);
     await createUser({
       email,

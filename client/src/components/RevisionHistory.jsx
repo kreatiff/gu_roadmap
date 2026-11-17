@@ -17,7 +17,6 @@ const FieldMap = {
   status: 'Status',
   stage_id: 'Stage',
   pinned: 'Pinned Status',
-  flagged_for_discussion: 'Discussion Flag',
   tags: 'Tags',
   impact: 'Impact',
   effort: 'Effort',
