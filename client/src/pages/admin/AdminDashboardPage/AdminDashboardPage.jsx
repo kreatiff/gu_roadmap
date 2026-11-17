@@ -5,6 +5,8 @@ import AdminLayout from '../../../components/AdminLayout';
 import VerifiedBadge from '../../../components/VerifiedBadge';
 import FilterDropdown from '../../../components/FilterDropdown/FilterDropdown';
 import MultiSelectFilter from '../../../components/MultiSelectFilter/MultiSelectFilter';
+import { buildOwnerOptions, matchesOwnerFilter, formatOwnerParam, parseOwnerParam } from '../../../utils/ownerFilter';
+import { initialArrayFilter } from '../../../utils/filterState';
 import { getFeatures, updateFeature, updateStageSortOrders } from '../../../api/features';
 import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
@@ -43,16 +45,19 @@ const AdminDashboardPage = () => {
 
   // Filter state — initialised from URL params first, then localStorage pref fallback
   const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || savedPrefs.searchTerm || '');
-  // Multi-select filters (arrays)
-  const parseArrayParam = (param) => param ? param.split(',') : [];
+  // Multi-select filters (arrays): URL param first, then the saved preference
   const [selectedCategories, setSelectedCategories] = useState(
-    parseArrayParam(searchParams.get('category')) || savedPrefs.selectedCategories || []
+    () => initialArrayFilter(searchParams, 'category', savedPrefs.selectedCategories)
   );
   const [selectedStatuses, setSelectedStatuses] = useState(
-    parseArrayParam(searchParams.get('status')) || savedPrefs.selectedStatuses || []
+    () => initialArrayFilter(searchParams, 'status', savedPrefs.selectedStatuses)
   );
   const [selectedPriorities, setSelectedPriorities] = useState(
-    parseArrayParam(searchParams.get('priority')) || savedPrefs.selectedPriorities || []
+    () => initialArrayFilter(searchParams, 'priority', savedPrefs.selectedPriorities)
+  );
+  // Owner keys are normalised and URL-encoded (see utils/ownerFilter)
+  const [selectedOwners, setSelectedOwners] = useState(
+    () => initialArrayFilter(searchParams, 'owner', savedPrefs.selectedOwners, parseOwnerParam)
   );
   const [selectedReviewed, setSelectedReviewed] = useState(searchParams.get('reviewed') || savedPrefs.selectedReviewed || '');
   const [selectedFlagged, setSelectedFlagged] = useState(
@@ -77,6 +82,7 @@ const AdminDashboardPage = () => {
       selectedCategories,
       selectedStatuses,
       selectedPriorities,
+      selectedOwners,
       selectedReviewed,
       selectedFlagged,
       showAllStages,
@@ -84,7 +90,7 @@ const AdminDashboardPage = () => {
       sortBy,
       groupBy,
     });
-  }, [viewMode, searchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, selectedFlagged, showAllStages, collapsedColumnIds, sortBy, groupBy]);
+  }, [viewMode, searchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedOwners, selectedReviewed, selectedFlagged, showAllStages, collapsedColumnIds, sortBy, groupBy]);
 
   // Sync filter state → URL params (replace so we don't pollute back-stack)
   useEffect(() => {
@@ -93,12 +99,13 @@ const AdminDashboardPage = () => {
     if (selectedCategories.length > 0) params.category = selectedCategories.join(',');
     if (selectedStatuses.length > 0) params.status = selectedStatuses.join(',');
     if (selectedPriorities.length > 0) params.priority = selectedPriorities.join(',');
+    if (selectedOwners.length > 0) params.owner = formatOwnerParam(selectedOwners);
     if (selectedReviewed) params.reviewed = selectedReviewed;
     if (selectedFlagged) params.discussion = selectedFlagged;
     if (sortBy !== 'default') params.sort = sortBy;
     if (groupBy !== 'category') params.group = groupBy;
     setSearchParams(params, { replace: true });
-  }, [debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, selectedFlagged, sortBy, groupBy]);
+  }, [debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedOwners, selectedReviewed, selectedFlagged, sortBy, groupBy]);
 
   const fetchFeatures = async () => {
     try {
@@ -114,6 +121,8 @@ const AdminDashboardPage = () => {
       setLoading(false);
     }
   };
+
+  const ownerOptions = useMemo(() => buildOwnerOptions(features), [features]);
 
   const filteredFeatures = useMemo(() => {
     let result = features.filter(f => {
@@ -137,6 +146,8 @@ const AdminDashboardPage = () => {
 
       const matchesPriority = selectedPriorities.length === 0 || selectedPriorities.includes(f.priority);
 
+      const matchesOwner = matchesOwnerFilter(f, selectedOwners);
+
       const matchesReviewed = !selectedReviewed || (selectedReviewed === 'true' ? !!f.is_reviewed : !f.is_reviewed);
 
       const matchesFlagged = !selectedFlagged || !!f.flagged_for_discussion;
@@ -147,7 +158,7 @@ const AdminDashboardPage = () => {
         (f.stage_id === null && stages.some(s => s.slug === f.stage_slug && collapsedColumnIds.includes(s.id)))
       );
 
-      return matchesSearch && matchesCategory && matchesStatus && matchesPriority && matchesReviewed && matchesFlagged && !belongsToCollapsed;
+      return matchesSearch && matchesCategory && matchesStatus && matchesPriority && matchesOwner && matchesReviewed && matchesFlagged && !belongsToCollapsed;
     });
 
     // Apply sorting
@@ -167,7 +178,7 @@ const AdminDashboardPage = () => {
     });
 
     return result;
-  }, [features, debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, selectedFlagged, sortBy, collapsedColumnIds, stages]);
+  }, [features, debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedOwners, selectedReviewed, selectedFlagged, sortBy, collapsedColumnIds, stages]);
 
   // Active filter chips — one chip per active non-default filter
   const activeFilters = useMemo(() => {
@@ -202,6 +213,14 @@ const AdminDashboardPage = () => {
         onRemove: () => setSelectedPriorities(prev => prev.filter(p => p !== priority))
       });
     });
+    selectedOwners.forEach(ownerId => {
+      const label = ownerOptions.find(o => o.id === ownerId)?.label || ownerId;
+      chips.push({
+        key: `owner-${ownerId}`,
+        label: `Owner: ${label}`,
+        onRemove: () => setSelectedOwners(prev => prev.filter(id => id !== ownerId))
+      });
+    });
     if (selectedReviewed) chips.push({
       key: 'reviewed',
       label: selectedReviewed === 'true' ? 'Reviewed' : 'Not Reviewed',
@@ -220,7 +239,7 @@ const AdminDashboardPage = () => {
       });
     }
     return chips;
-  }, [debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, selectedFlagged, categories, stages, collapsedColumnIds]);
+  }, [debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedOwners, selectedReviewed, selectedFlagged, categories, stages, ownerOptions, collapsedColumnIds]);
 
   const hasSearchOrFilters = useMemo(() => {
     return !!(
@@ -228,16 +247,18 @@ const AdminDashboardPage = () => {
       selectedCategories.length > 0 ||
       selectedStatuses.length > 0 ||
       selectedPriorities.length > 0 ||
+      selectedOwners.length > 0 ||
       selectedReviewed ||
       selectedFlagged
     );
-  }, [debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedReviewed, selectedFlagged]);
+  }, [debouncedSearchTerm, selectedCategories, selectedStatuses, selectedPriorities, selectedOwners, selectedReviewed, selectedFlagged]);
 
   const clearAllFilters = () => {
     setSearchTerm('');
     setSelectedCategories([]);
     setSelectedStatuses([]);
     setSelectedPriorities([]);
+    setSelectedOwners([]);
     setSelectedReviewed('');
     setSelectedFlagged('');
   };
@@ -627,6 +648,18 @@ const AdminDashboardPage = () => {
                 ]}
                 selectedValues={selectedPriorities}
                 onChange={setSelectedPriorities}
+              />
+            </FilterDropdown>
+
+            <FilterDropdown
+              label="Owner"
+              selectedCount={selectedOwners.length}
+              type="owner"
+            >
+              <MultiSelectFilter
+                options={ownerOptions}
+                selectedValues={selectedOwners}
+                onChange={setSelectedOwners}
               />
             </FilterDropdown>
 
