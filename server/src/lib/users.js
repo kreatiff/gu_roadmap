@@ -219,9 +219,12 @@ export async function bootstrapAdminIfEmpty(logger = console) {
   }
 
   try {
-    const { resources } = await usersContainer.items.query('SELECT VALUE COUNT(1) FROM c', { enableCrossPartitionQuery: true }).fetchAll();
-    const count = resources[0] || 0;
-    if (count > 0) {
+    // Plain existence check rather than SELECT VALUE COUNT(1) — the Cosmos
+    // emulator's aggregate query path has a known bug ("unknown type of jsonb
+    // container" / PostgresError XX000) when the container is still empty,
+    // which is exactly the case right after initDb() creates it fresh.
+    const { resources } = await usersContainer.items.query('SELECT TOP 1 c.id FROM c', { enableCrossPartitionQuery: true }).fetchAll();
+    if (resources.length > 0) {
       logger.info('ℹ️ Users container is not empty. Skipping admin bootstrap.');
       return;
     }
