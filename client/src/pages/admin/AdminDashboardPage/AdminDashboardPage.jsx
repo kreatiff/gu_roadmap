@@ -6,6 +6,7 @@ import VerifiedBadge from '../../../components/VerifiedBadge';
 import FilterDropdown from '../../../components/FilterDropdown/FilterDropdown';
 import MultiSelectFilter from '../../../components/MultiSelectFilter/MultiSelectFilter';
 import { buildOwnerOptions, matchesOwnerFilter, formatOwnerParam, parseOwnerParam } from '../../../utils/ownerFilter';
+import { initialArrayFilter } from '../../../utils/filterState';
 import { getFeatures, updateFeature, updateStageSortOrders } from '../../../api/features';
 import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
@@ -44,20 +45,19 @@ const AdminDashboardPage = () => {
 
   // Filter state — initialised from URL params first, then localStorage pref fallback
   const [searchTerm, setSearchTerm] = useState(searchParams.get('q') || savedPrefs.searchTerm || '');
-  // Multi-select filters (arrays)
-  const parseArrayParam = (param) => param ? param.split(',') : [];
+  // Multi-select filters (arrays): URL param first, then the saved preference
   const [selectedCategories, setSelectedCategories] = useState(
-    parseArrayParam(searchParams.get('category')) || savedPrefs.selectedCategories || []
+    () => initialArrayFilter(searchParams, 'category', savedPrefs.selectedCategories)
   );
   const [selectedStatuses, setSelectedStatuses] = useState(
-    parseArrayParam(searchParams.get('status')) || savedPrefs.selectedStatuses || []
+    () => initialArrayFilter(searchParams, 'status', savedPrefs.selectedStatuses)
   );
   const [selectedPriorities, setSelectedPriorities] = useState(
-    parseArrayParam(searchParams.get('priority')) || savedPrefs.selectedPriorities || []
+    () => initialArrayFilter(searchParams, 'priority', savedPrefs.selectedPriorities)
   );
-  // Owner keys are normalised (see utils/ownerFilter). Use the URL when it has the param, otherwise the saved pref.
+  // Owner keys are normalised and URL-encoded (see utils/ownerFilter)
   const [selectedOwners, setSelectedOwners] = useState(
-    () => (searchParams.has('owner') ? parseOwnerParam(searchParams.get('owner')) : (savedPrefs.selectedOwners || []))
+    () => initialArrayFilter(searchParams, 'owner', savedPrefs.selectedOwners, parseOwnerParam)
   );
   const [selectedReviewed, setSelectedReviewed] = useState(searchParams.get('reviewed') || savedPrefs.selectedReviewed || '');
   const [selectedFlagged, setSelectedFlagged] = useState(

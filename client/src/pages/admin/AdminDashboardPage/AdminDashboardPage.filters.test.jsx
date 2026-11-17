@@ -25,7 +25,7 @@ const renderPage = (initialUrl = '/admin') => render(
   <MemoryRouter initialEntries={[initialUrl]}><AdminDashboardPage /><Search /></MemoryRouter>
 );
 
-describe('AdminDashboardPage owner filter', () => {
+describe('AdminDashboardPage filters', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
@@ -80,5 +80,59 @@ describe('AdminDashboardPage owner filter', () => {
     await screen.findByText('Gamma feature');
     expect(screen.queryByText('Alpha feature')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Remove owner-sam lee filter')).toBeInTheDocument();
+  });
+
+  describe('saved preferences', () => {
+    const savePrefs = (prefs) => localStorage.setItem('adminDashboardPrefs', JSON.stringify(prefs));
+
+    it('restores a saved Category selection when the URL has none', async () => {
+      featuresApi.getFeatures.mockResolvedValue({
+        data: [{ ...feat('f1', 'Alpha feature', 'Sam'), category_id: 'c1' }, { ...feat('f2', 'Beta feature', 'Sam'), category_id: 'c2' }],
+      });
+      categoriesApi.getCategories.mockResolvedValue([{ id: 'c1', name: 'Core' }, { id: 'c2', name: 'Extras' }]);
+      savePrefs({ selectedCategories: ['c2'] });
+
+      renderPage('/admin');
+      await screen.findByText('Beta feature');
+      expect(screen.queryByText('Alpha feature')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Remove category-c2 filter')).toBeInTheDocument();
+    });
+
+    it('restores saved Stage, Priority and Owner selections too', async () => {
+      featuresApi.getFeatures.mockResolvedValue({
+        data: [
+          { ...feat('f1', 'Alpha feature', 'Sam Lee'), priority: 'High' },
+          { ...feat('f2', 'Beta feature', 'Sam Lee'), priority: 'Low' },
+          { ...feat('f3', 'Gamma feature', 'Priya Shah'), priority: 'High' },
+        ],
+      });
+      savePrefs({ selectedStatuses: ['s1'], selectedPriorities: ['High'], selectedOwners: ['sam lee'] });
+
+      renderPage('/admin');
+      await screen.findByText('Alpha feature');
+      expect(screen.queryByText('Beta feature')).not.toBeInTheDocument();
+      expect(screen.queryByText('Gamma feature')).not.toBeInTheDocument();
+      expect(screen.getByLabelText('Remove status-s1 filter')).toBeInTheDocument();
+      expect(screen.getByLabelText('Remove priority-High filter')).toBeInTheDocument();
+      expect(screen.getByLabelText('Remove owner-sam lee filter')).toBeInTheDocument();
+    });
+
+    it('lets the URL override a saved selection', async () => {
+      featuresApi.getFeatures.mockResolvedValue({
+        data: [{ ...feat('f1', 'Alpha feature', 'Sam'), priority: 'High' }, { ...feat('f2', 'Beta feature', 'Sam'), priority: 'Low' }],
+      });
+      savePrefs({ selectedPriorities: ['High'] });
+
+      renderPage('/admin?priority=Low');
+      await screen.findByText('Beta feature');
+      expect(screen.queryByText('Alpha feature')).not.toBeInTheDocument();
+    });
+
+    it('starts unfiltered with no saved preference and no URL param', async () => {
+      renderPage('/admin');
+      await screen.findByText('Alpha feature');
+      expect(screen.getByText('Gamma feature')).toBeInTheDocument();
+      expect(screen.queryByLabelText(/^Remove .* filter$/)).not.toBeInTheDocument();
+    });
   });
 });
