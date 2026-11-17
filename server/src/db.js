@@ -1,5 +1,6 @@
 import { CosmosClient } from "@azure/cosmos";
 import { config } from "./config.js";
+import { FEATURES_LIST_COMPOSITE_INDEX, ensureCompositeIndex } from "./lib/cosmosIndexes.js";
 
 // ── Client & Database ──────────────────────────────────────────────────────────
 
@@ -61,6 +62,8 @@ export async function initDb(logger = console) {
       partitionKey: { paths: ["/id"] },
       // Enforce slug uniqueness at the container level
       uniqueKeyPolicy: { uniqueKeys: [{ paths: ["/slug"] }] },
+      // Real Cosmos requires this for the multi-property ORDER BY in GET /api/features
+      indexingPolicy: { compositeIndexes: [FEATURES_LIST_COMPOSITE_INDEX] },
     }),
 
     // Votes: partition by featureId so all votes for a feature are co-located
@@ -120,6 +123,18 @@ export async function initDb(logger = console) {
       partitionKey: { paths: ["/featureId"] },
     }),
   ]);
+
+  // The features container may already exist without the composite index (it was created
+  // before the index was needed), and createIfNotExists will not update it.
+  try {
+    await ensureCompositeIndex(db.container("features"), FEATURES_LIST_COMPOSITE_INDEX, logger);
+  } catch (err) {
+    logger.error(
+      `❌ Could not add the composite index the features list query needs: ${err.message}. ` +
+      `Until it exists, GET /api/features fails with "The order by query does not have a corresponding composite index". ` +
+      `Add it manually in the Azure portal (Data Explorer, features, Scale & Settings, Indexing Policy).`
+    );
+  }
 
   logger.info(
     `✅ Cosmos DB "${config.cosmos.databaseId}" ready — all containers initialised.`
