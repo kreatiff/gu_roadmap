@@ -19,7 +19,7 @@ import { getCategories } from '../../../api/categories';
 import { getStages } from '../../../api/stages';
 import { calculateGravityScore } from '@shared/lib/gravityScore.js';
 import { useToast } from '../../../contexts/ToastContext';
-import { Eye, Clock, AlertTriangle, ExternalLink, Unlink, Zap, Link2, Plus, Ban, Pencil } from 'lucide-react';
+import { Eye, Clock, AlertTriangle, ExternalLink, Unlink, Zap, Link2, Plus, Ban, Pencil, MessageCircle } from 'lucide-react';
 import { useEditLock } from './useEditLock';
 import PushToJiraModal from '../../../components/PushToJiraModal/PushToJiraModal';
 import { fetchJiraConfig, fetchJiraDraft, unlinkJiraFeature, fetchJiraIssues, linkJiraIssue } from '../../../api/jira';
@@ -73,6 +73,7 @@ const AdminFeatureFormPage = () => {
     status: 'under_review',
     stage_id: '',
     pinned: false,
+    flagged_for_discussion: false,
     rejection_reason: '',
     rejection_reason_public: false,
     tags: [],
@@ -93,6 +94,7 @@ const AdminFeatureFormPage = () => {
   const abortedRef = useRef(false);
   const formRef = useRef(null);
   const rejectionReasonFieldRef = useRef(null);
+  const notesColumnRef = useRef(null);
   const { otherEditor } = useEditLock(isEdit ? id : null);
 
   // Mark dirty on any form change after initial load
@@ -211,6 +213,7 @@ const AdminFeatureFormPage = () => {
               status: feature.status,
               stage_id: feature.stage_id || '',
               pinned: feature.pinned,
+              flagged_for_discussion: feature.flagged_for_discussion ?? false,
               rejection_reason: feature.rejection_reason || '',
               rejection_reason_public: feature.rejection_reason_public ?? false,
               tags: typeof feature.tags === 'string' ? (() => { try { return JSON.parse(feature.tags); } catch { return []; } })() : feature.tags || [],
@@ -778,6 +781,44 @@ const AdminFeatureFormPage = () => {
             </label>
           </div>
 
+          <div className={styles.fieldRow}>
+            <input
+              type="checkbox"
+              id="flagged_for_discussion"
+              checked={!!formData.flagged_for_discussion}
+              onChange={(e) => setFormData(prev => ({ ...prev, flagged_for_discussion: e.target.checked }))}
+              className={styles.checkbox}
+            />
+            <label htmlFor="flagged_for_discussion" className={styles.checkboxLabel}>
+              <MessageCircle size={16} className={styles.discussIcon} />
+              Flag for discussion
+            </label>
+          </div>
+
+          {formData.flagged_for_discussion && (
+            <div className={styles.discussionNudge}>
+              <MessageCircle size={14} strokeWidth={2.5} className={styles.discussionNudgeIcon} />
+              <div>
+                <p className={styles.discussionNudgeTitle}>
+                  {notes.length === 0
+                    ? 'No internal notes yet. Add one explaining what needs discussion.'
+                    : 'Flagged for discussion. Add a note if the reason has changed.'}
+                </p>
+                {isEdit ? (
+                  <button
+                    type="button"
+                    className={styles.discussionNudgeLink}
+                    onClick={() => notesColumnRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  >
+                    Go to internal notes
+                  </button>
+                ) : (
+                  <p className={styles.discussionNudgeHint}>You can add a note once this feature is saved.</p>
+                )}
+              </div>
+            </div>
+          )}
+
           <RevisionHistory
             isOpen={showHistory}
             onClose={() => setShowHistory(false)}
@@ -945,7 +986,7 @@ const AdminFeatureFormPage = () => {
       </div>
 
       {isEdit && (
-        <aside className={styles.notesColumn}>
+        <aside className={styles.notesColumn} ref={notesColumnRef}>
           <div className={styles.notesColumnInner}>
             <InternalNotesLog
               featureId={id}
